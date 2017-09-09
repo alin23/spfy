@@ -1,4 +1,4 @@
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 from .util import SpotifyResult
 from .client import SpotifyClient
 from .wrapper import Spotify

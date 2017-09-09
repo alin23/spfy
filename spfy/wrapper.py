@@ -14,7 +14,6 @@ from .client import SpotifyClient
 from .server import StandaloneApplication
 from .volume import AlsaVolumeControl, SpotifyVolumeControl
 from .constants import (
-    VOLUME_FADE_SECONDS,
     Scope,
     AuthFlow,
     TimeRange,
@@ -37,12 +36,10 @@ class Spotify(SpotifyClient):
         super().__init__(
             email=email, flow=flow, port=port,
             scope=scope or [scope.value for scope in Scope])
-
         self.device_name = device or os.getenv('SPOTIFY_DEVICE')
         self.alsa_device = alsa_device or os.getenv('SPOTIFY_ALSA_DEVICE')
         self.alsa_mixer = alsa_mixer or os.getenv('SPOTIFY_ALSA_MIXER')
         self.scope = scope or os.getenv('SPOTIFY_SCOPE') or [scope.value for scope in Scope]
-        logger.debug(vars(self))
 
     def __dir__(self):
         names = super().__dir__()
@@ -105,28 +102,19 @@ class Spotify(SpotifyClient):
 
     def play(self,
              recommendations=False, recommendations_order=None,
-             fade=False, volume=80, fade_limit=100,
-             fade_start=1, fade_step=1, fade_seconds=VOLUME_FADE_SECONDS, fade_force=False):
+             fade=False, volume=80, fade_args={}, recommendation_args={}):
         tracks = None
         if recommendations:
-            tracks = [t.uri for t in self.recommendations(random_seed=True, order_by=recommendations_order)]
+            tracks = [t.uri for t in self.recommendations(random_seed=True, **recommendation_args)]
 
         if fade:
-            fadeargs = {
-                'limit': fade_limit,
-                'start': fade_start,
-                'step': fade_step,
-                'seconds': fade_seconds,
-                'force': fade_force,
-            }
             if self._alsa_volume_control:
                 target = self._alsa_volume_control.fade
                 self._spotify_volume_control.volume = volume
             else:
                 target = self._spotify_volume_control.fade
-                self._alsa_volume_control.volume = volume
 
-            threading.Thread(target=target, kwargs=fadeargs).start()
+            threading.Thread(target=target, kwargs=fade_args).start()
 
         return self.start_playback(tracks=tracks, device_id=self._device.id)
 
