@@ -27,7 +27,7 @@ from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
 from .log import get_logger
 from .util import SpotifyResult
-from .constants import API, AuthFlow, AudioFeature
+from .constants import API, AuthFlow, TimeRange, AudioFeature
 from .exceptions import (
     SpotifyException,
     SpotifyForbiddenException,
@@ -292,6 +292,14 @@ class SpotifyClient:
         if args:
             kwargs.update(args)
         return self._internal_call('PUT', url, payload, kwargs)
+
+    def all_results(self, result):
+        next_result = self.next(result)
+        while next_result:
+            result.update(next_result)
+            next_result = self.next(next_result)
+
+        return result
 
     def next(self, result):
         ''' returns the next result given a paged result
@@ -751,7 +759,7 @@ class SpotifyClient:
             track_list = map(self._get_track_id, tracks)
         return self._put(API.MY_TRACKS.value, ids=','.join(track_list))
 
-    def current_user_top_artists(self, limit=20, offset=0, time_range='medium_term'):
+    def current_user_top_artists(self, limit=20, offset=0, time_range=TimeRange.MEDIUM_TERM.value):
         ''' Get the current user's top artists
 
             Parameters:

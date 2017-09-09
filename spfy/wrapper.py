@@ -17,6 +17,7 @@ from .constants import (
     VOLUME_FADE_SECONDS,
     Scope,
     AuthFlow,
+    TimeRange,
     AudioFeature,
     VolumeBackend
 )
@@ -89,8 +90,8 @@ class Spotify(SpotifyClient):
         """
 
         if random_seed:
-            artists = self.current_user_top_artists(limit=50)
-            tracks = super().recommendations(seed_artists=random.sample(list(artists), 5), limit=50)
+            artists = self.all_results(self.current_user_top_artists(limit=50, time_range=TimeRange.SHORT_TERM.value))
+            tracks = super().recommendations(seed_artists=random.sample(list(artists), 5), limit=50, *args, **kwargs)
         else:
             tracks = super().recommendations(*args, **kwargs)
 
