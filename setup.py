@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-with open('spotifycli/__init__.py', 'r') as f:
+with open('spfy/__init__.py', 'r') as f:
     for line in f:
         if line.startswith('__version__'):
             version = line.strip().split('=')[1].strip(' \'"')
@@ -24,7 +24,7 @@ REQUIRES = [
 ]
 
 setup(
-    name='spotifycli',
+    name='spfy',
     version=version,
     description='',
     long_description=readme,
@@ -32,11 +32,11 @@ setup(
     author_email='alin.p32@gmail.com',
     maintainer='Alin Panaitiu',
     maintainer_email='alin.p32@gmail.com',
-    url='https://github.com/alin23/spotifycli',
+    url='https://github.com/alin23/spfy',
     license='MIT/Apache-2.0',
 
     keywords=[
-        'spotify', 'spotifycli'
+        'spotify', 'spfy'
     ],
 
     classifiers=[
@@ -56,7 +56,7 @@ setup(
 
     packages=find_packages(),
     entry_points={
-        'console_scripts': ['spotify = spotifycli.wrapper:main']
+        'console_scripts': ['spotify = spfy.wrapper:main']
     },
 
 )
