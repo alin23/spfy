@@ -2,6 +2,7 @@
 import os
 import random
 import inspect
+import threading
 
 import hug
 import fire
@@ -103,13 +104,11 @@ class Spotify(SpotifyClient):
 
     def play(self,
              recommendations=False, recommendations_order=None,
-             fade=False, fade_limit=100,
-             fade_start=1, fade_step=1,
-             fade_seconds=VOLUME_FADE_SECONDS, fade_force=False):
+             fade=False, volume=80, fade_limit=100,
+             fade_start=1, fade_step=1, fade_seconds=VOLUME_FADE_SECONDS, fade_force=False):
         tracks = None
         if recommendations:
             tracks = [t.uri for t in self.recommendations(random_seed=True, order_by=recommendations_order)]
-        response = self.start_playback(tracks=tracks, device_id=self._device.id)
 
         if fade:
             fadeargs = {
@@ -120,11 +119,15 @@ class Spotify(SpotifyClient):
                 'force': fade_force,
             }
             if self._alsa_volume_control:
-                self._alsa_volume_control.fade(**fadeargs)
+                target = self._alsa_volume_control.fade
+                self._spotify_volume_control.volume = volume
             else:
-                self._spotify_volume_control.fade(**fadeargs)
+                target = self._spotify_volume_control.fade
+                self._alsa_volume_control.volume = volume
 
-        return response
+            threading.Thread(target=target, kwargs=fadeargs).start()
+
+        return self.start_playback(tracks=tracks, device_id=self._device.id)
 
     def server(self, **options):
         for name, method in inspect.getmembers(self, inspect.ismethod):

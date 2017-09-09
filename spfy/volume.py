@@ -13,6 +13,13 @@ if os.uname().sysname == 'Linux':
 
 
 class VolumeControl(abc.ABC):
+    @abc.abstractmethod
+    def unmute(self):
+        pass
+
+    @abc.abstractmethod
+    def mute(self):
+        pass
 
     @abc.abstractproperty
     def volume(self):
@@ -23,7 +30,11 @@ class VolumeControl(abc.ABC):
         pass
 
     def fade(self, limit=100, start=1, step=1, seconds=VOLUME_FADE_SECONDS, force=False):
+        self.unmute()
+
         delay = seconds / ((limit - start) / step)
+        device_volume = self.volume
+
         self.volume = start
 
         for next_volume in range(start + step, limit + 1, step):
@@ -31,7 +42,7 @@ class VolumeControl(abc.ABC):
             device_volume = self.volume
             old_volume = next_volume - step
 
-            if device_volume != old_volume and not force:
+            if abs(device_volume - old_volume) > 1 and not force:
                 logger.debug(f'''Volume has been changed manually:
                     Current volume: {device_volume}
                     Old volume: {old_volume}''')
