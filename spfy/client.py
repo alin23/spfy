@@ -10,7 +10,6 @@ from operator import attrgetter
 from functools import partialmethod
 
 import hug
-import six
 import backoff
 import sendgrid
 from first import first
@@ -525,7 +524,7 @@ class SpotifyClient:
                 - collaborative - optional is the playlist collaborative
         '''
         data = {}
-        if isinstance(name, six.string_types):
+        if isinstance(name, str):
             data['name'] = name
         if isinstance(public, bool):
             data['public'] = public

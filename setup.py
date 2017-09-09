@@ -1,3 +1,5 @@
+import os
+
 from setuptools import setup, find_packages
 
 with open('spfy/__init__.py', 'r') as f:
@@ -12,16 +14,21 @@ with open('README.md', 'rb') as f:
     readme = f.read().decode('utf-8')
 
 REQUIRES = [
-    'requests',
-    'six',
-    'daiquiri',
-    'sendgrid',
-    'requests_oauthlib',
-    'oauthlib',
-    'first',
     'addict',
     'backoff',
+    'daiquiri',
+    'fire',
+    'first',
+    'gunicorn',
+    'hug',
+    'oauthlib',
+    'orderby',
+    'requests',
+    'requests_oauthlib',
+    'sendgrid',
 ]
+if os.uname().sysname == 'Linux':
+    REQUIRES.append('pyalsaaudio')
 
 setup(
     name='spfy',

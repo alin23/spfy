@@ -2,7 +2,6 @@
 import os
 import random
 import inspect
-from functools import partialmethod
 
 import hug
 import fire
