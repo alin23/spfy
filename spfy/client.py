@@ -552,7 +552,7 @@ class SpotifyClient:
         '''
         id = self._get_playlist_id(playlist_id)
         track_uris = map(self._get_track_uri, tracks)
-        payload = {"uris": track_uris}
+        payload = {"uris": list(track_uris)}
         return self._post(
             API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=id),
             payload=payload, position=position)
@@ -567,7 +567,7 @@ class SpotifyClient:
         '''
         id = self._get_playlist_id(playlist_id)
         track_uris = map(self._get_track_uri, tracks)
-        payload = {"uris": track_uris}
+        payload = {"uris": list(track_uris)}
         return self._post(
             API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=id), payload=payload)
 
@@ -891,13 +891,11 @@ class SpotifyClient:
         '''
         params = dict(limit=limit)
         if seed_artists:
-            params['seed_artists'] = ','.join(
-                map(self._get_artist_id, seed_artists))
+            params['seed_artists'] = ','.join(map(self._get_artist_id, seed_artists))
         if seed_genres:
             params['seed_genres'] = ','.join(seed_genres)
         if seed_tracks:
-            params['seed_tracks'] = ','.join(
-                map(self._get_track_id, seed_tracks))
+            params['seed_tracks'] = ','.join(map(self._get_track_id, seed_tracks))
         if country:
             params['market'] = country
 
@@ -1025,7 +1023,7 @@ class SpotifyClient:
         elif artist:
             data['context_uri'] = self._get_artist_uri(artist)
         elif tracks:
-            data['uris'] = map(self._get_track_uri, tracks)
+            data['uris'] = list(map(self._get_track_uri, tracks))
 
         if isinstance(offset, int):
             data['offset'] = dict(position=offset)

@@ -29,10 +29,12 @@ class VolumeControl(abc.ABC):
         for next_volume in range(start + step, limit + 1, step):
             sleep(delay)
             device_volume = self.volume
-            current_volume = next_volume - step
+            old_volume = next_volume - step
 
-            if device_volume != current_volume and not force:
-                logger.debug(f'Volume has been changed manually: {device_volume} <> {current_volume}')
+            if device_volume != old_volume and not force:
+                logger.debug(f'''Volume has been changed manually:
+                    Current volume: {device_volume}
+                    Old volume: {old_volume}''')
                 break
 
             logger.debug(f'Setting volume to {next_volume}')
@@ -43,8 +45,17 @@ class SpotifyVolumeControl(VolumeControl):
     def __init__(self, client, device=None):
         self.spotify = client
         self.device = device
+        self.volume_before_mute = None
         if not isinstance(device, SpotifyResult):
             self.device = self.get_device(device=device)
+
+    def mute(self):
+        self.volume_before_mute = self.volume
+        self.spotify.volume(0, device_id=self.device.id)
+
+    def unmute(self):
+        if self.volume_before_mute:
+            self.volume = self.volume_before_mute
 
     @property
     def volume(self):
@@ -52,7 +63,7 @@ class SpotifyVolumeControl(VolumeControl):
 
     @volume.setter
     def volume(self, val):
-        self.spotify.volume(val, device_id=self.device.id)
+        self.spotify.volume(max(val, 1), device_id=self.device.id)
 
 
 class AlsaVolumeControl(VolumeControl):
@@ -79,8 +90,4 @@ class AlsaVolumeControl(VolumeControl):
 
     @volume.setter
     def volume(self, val):
-        self.mixer.setvolume(val)
-        if val > 0:
-            self.unmute()
-        else:
-            self.mute()
+        self.mixer.setvolume(max(val, 1))

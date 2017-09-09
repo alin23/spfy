@@ -12,7 +12,13 @@ from .log import get_logger
 from .client import SpotifyClient
 from .server import StandaloneApplication
 from .volume import AlsaVolumeControl, SpotifyVolumeControl
-from .constants import VOLUME_FADE_SECONDS, Scope, AuthFlow, VolumeBackend
+from .constants import (
+    VOLUME_FADE_SECONDS,
+    Scope,
+    AuthFlow,
+    AudioFeature,
+    VolumeBackend
+)
 
 logger = get_logger()
 
@@ -89,6 +95,8 @@ class Spotify(SpotifyClient):
 
         if order_by:
             audio_features = self.audio_features(tracks=tracks)
+            if isinstance(order_by, AudioFeature):
+                order_by = order_by.value
             tracks = sorted(audio_features, key=orderby(order_by))
 
         return tracks
@@ -96,7 +104,7 @@ class Spotify(SpotifyClient):
     def play(self,
              recommendations=False, recommendations_order=None,
              fade=False, fade_limit=100,
-             fade_start=0, fade_step=1,
+             fade_start=1, fade_step=1,
              fade_seconds=VOLUME_FADE_SECONDS, fade_force=False):
         tracks = None
         if recommendations:
