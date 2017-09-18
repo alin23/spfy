@@ -508,20 +508,21 @@ class SpotifyClient:
             API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=id),
             limit=limit, offset=offset, fields=fields, market=market)
 
-    def user_playlist_create(self, user, name, public=True):
+    def user_playlist_create(self, user, name, public=True, description=''):
         ''' Creates a playlist for a user
 
             Parameters:
                 - user - the id of the user
                 - name - the name of the playlist
                 - public - is the created playlist public
+                - description - the description of the playlist
         '''
-        data = {'name': name, 'public': public}
+        data = {'name': name, 'public': public, 'description': description}
         return self._post(API.PLAYLISTS.value.format(user_id=user), payload=data)
 
     def user_playlist_change_details(
             self, user, playlist_id, name=None, public=None,
-            collaborative=None):
+            collaborative=None, description=None):
         ''' Changes a playlist's name and/or public/private state
 
             Parameters:
@@ -530,6 +531,7 @@ class SpotifyClient:
                 - name - optional name of the playlist
                 - public - optional is the playlist public
                 - collaborative - optional is the playlist collaborative
+                - description - the description of the playlist
         '''
         data = {}
         if isinstance(name, str):
@@ -538,6 +540,9 @@ class SpotifyClient:
             data['public'] = public
         if isinstance(collaborative, bool):
             data['collaborative'] = collaborative
+        if isinstance(collaborative, str):
+            data['description'] = description
+
         return self._put(API.PLAYLIST.value.format(user_id=user, playlist_id=playlist_id), payload=data)
 
     def user_playlist_unfollow(self, user, playlist_id):
@@ -722,6 +727,20 @@ class SpotifyClient:
         '''
         return self._get(
             API.MY_FOLLOWING.value, type='artist', limit=limit, after=after)
+
+    def user_follow_artists(self, ids=[]):
+        ''' Follow one or more artists
+            Parameters:
+                - ids - a list of artist IDs
+        '''
+        return self._put(API.MY_FOLLOWING.value, type='artist', ids=','.join(ids))
+
+    def user_follow_users(self, ids=[]):
+        ''' Follow one or more users
+            Parameters:
+                - ids - a list of user IDs
+        '''
+        return self._put(API.MY_FOLLOWING.value, type='user', ids=','.join(ids))
 
     def current_user_saved_tracks_delete(self, tracks=None):
         ''' Remove one or more tracks from the current user's
@@ -987,6 +1006,14 @@ class SpotifyClient:
                 - market - an ISO 3166-1 alpha-2 country code.
         '''
         return self._get(API.PLAYER.value, market=market)
+
+    def current_user_recently_played(self, limit=50):
+        ''' Get the current user's recently played tracks
+
+            Parameters:
+                - limit - the number of entities to return
+        '''
+        return self._get(API.RECENTLY_PLAYED.value, limit=limit)
 
     def currently_playing(self, market=None):
         ''' Get user's currently playing track.
