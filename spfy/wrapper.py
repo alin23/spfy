@@ -12,7 +12,7 @@ from cached_property import cached_property
 from .log import get_logger
 from .client import SpotifyClient
 from .server import StandaloneApplication
-from .volume import AlsaVolumeControl, SpotifyVolumeControl
+from .volume import AlsaVolumeControl, SpotifyVolumeControl, LinuxVolumeControl
 from .constants import (
     Scope,
     AuthFlow,
@@ -48,6 +48,13 @@ class Spotify(SpotifyClient):
     @cached_property
     def _device(self):
         return self.get_device(device=self.device_name)
+
+    @cached_property
+    def _linux_volume_control(self):
+        if os.uname().sysname != 'Linux':
+            return
+
+        return LinuxVolumeControl(self, self.alsa_mixer, spotify_device=self._device, alsa_device=self.alsa_device)
 
     @cached_property
     def _alsa_volume_control(self):
@@ -108,7 +115,10 @@ class Spotify(SpotifyClient):
             tracks = [t.uri for t in self.recommendations(random_seed=True, **recommendation_args)]
 
         if fade:
-            if self._alsa_volume_control:
+            if self._linux_volume_control:
+                target = self._linux_volume_control.fade
+                self._spotify_volume_control.volume = volume
+            elif self._alsa_volume_control:
                 target = self._alsa_volume_control.fade
                 self._spotify_volume_control.volume = volume
             else:
