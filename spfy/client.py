@@ -27,7 +27,7 @@ from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
 from .log import get_logger
 from .util import SpotifyResult
-from .constants import API, AuthFlow, TimeRange, AudioFeature
+from .constants import API, Scope, AuthFlow, TimeRange, AudioFeature
 from .exceptions import (
     SpotifyException,
     SpotifyForbiddenException,
@@ -52,8 +52,9 @@ def expo():
 
 class SpotifyClient:
     def __init__(self, token=None, username=None, email=None, cache_path=None,
-                 proxies=None, requests_timeout=None, flow=AuthFlow.CLIENT_CREDENTIALS,
-                 scope=None, client_id=None, client_secret=None, redirect_uri=None, port=None):
+                 proxies=None, requests_timeout=None, auth_flow=AuthFlow.CLIENT_CREDENTIALS,
+                 scope=None, client_id=None, client_secret=None, redirect_uri=None, auth_port=None,
+                 sendgrid_params={}):
         '''
         Create a Spotify API object.
 
@@ -68,20 +69,22 @@ class SpotifyClient:
         :param client_id: Spotify Application Client ID
         :param client_secret: Spotify Application Client Secret
         :param redirect_uri: Spotify Application Redirect URI
-        :param port: Callback listening port
+        :param auth_port: Callback listening port
+        :param auth_flow: Authentication flow to use
         '''
-        self.scope = scope
+        self.scope = scope or os.getenv('SPOTIFY_SCOPE') or [scope.value for scope in Scope]
         self.email = email
         self.username = username
         self.cache_path = self._get_cache_path(cache_path, email, username)
 
         self.client_id = client_id or os.getenv('SPOTIFY_CLIENT_ID')
         self.client_secret = client_secret or os.getenv('SPOTIFY_CLIENT_SECRET')
-        self.redirect_uri = self._get_redirect_uri(redirect_uri, port)
-        self.port = port
+        self.redirect_uri = self._get_redirect_uri(redirect_uri, auth_port)
+        self.auth_port = auth_port
+        self.sendgrid_params = sendgrid_params or {}
 
-        self.flow = flow
-        self.oauth_session = self._get_session(flow)
+        self.auth_flow = auth_flow
+        self.oauth_session = self._get_session(auth_flow)
         self.proxies = proxies
         self.requests_timeout = requests_timeout
         self._token = token
@@ -106,12 +109,12 @@ class SpotifyClient:
 
         return cache_path
 
-    def _get_session(self, flow):
-        if flow == AuthFlow.AUTHORIZATION_CODE:
+    def _get_session(self, auth_flow):
+        if auth_flow == AuthFlow.AUTHORIZATION_CODE:
             oauth_session = OAuth2Session(
                 self.client_id, redirect_uri=self.redirect_uri, scope=self.scope,
                 auto_refresh_url=API.TOKEN.value, token_updater=self.cache_token)
-        elif flow == AuthFlow.CLIENT_CREDENTIALS:
+        elif auth_flow == AuthFlow.CLIENT_CREDENTIALS:
             oauth_session = OAuth2Session(client=BackendApplicationClient(self.client_id))
 
         return oauth_session
@@ -166,13 +169,13 @@ class SpotifyClient:
                     return 'Could not get authorization token.'
 
             api = __hug__.http.server(None)  # noqa
-            httpd = make_server('', self.port, api)
+            httpd = make_server('', self.auth_port, api)
 
             threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
             authorization_url, _ = self.oauth_session.authorization_url(API.AUTHORIZE.value)
             if self.email:
-                self.send_auth_email(self.email, authorization_url)
+                self.send_auth_email(self.email, authorization_url, **self.sendgrid_params)
             else:
                 logger.info(f'Login here: {authorization_url}')
 
@@ -188,10 +191,11 @@ class SpotifyClient:
     def cache_token(self, token):
         self.cache_path.write_text(json.dumps(token))
 
-    def send_auth_email(self, email, auth_url, fallback=True):
-        api_key = os.getenv('SENDGRID_API_KEY')
-        sender = os.getenv('SENDGRID_SENDER')
-        template_id = os.getenv('SENDGRID_TEMPLATE_ID')
+    def send_auth_email(self,
+            email, auth_url, fallback=True,
+            api_key=os.getenv('SENDGRID_API_KEY'),
+            sender=os.getenv('SENDGRID_SENDER'),
+            template_id=os.getenv('SENDGRID_TEMPLATE_ID')):
 
         if not (api_key and sender):
             if fallback:

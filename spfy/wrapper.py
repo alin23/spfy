@@ -12,14 +12,8 @@ from cached_property import cached_property
 from .log import get_logger
 from .client import SpotifyClient
 from .server import StandaloneApplication
-from .volume import AlsaVolumeControl, SpotifyVolumeControl, LinuxVolumeControl
-from .constants import (
-    Scope,
-    AuthFlow,
-    TimeRange,
-    AudioFeature,
-    VolumeBackend
-)
+from .volume import AlsaVolumeControl, LinuxVolumeControl, SpotifyVolumeControl
+from .constants import Scope, AuthFlow, TimeRange, AudioFeature, VolumeBackend
 
 logger = get_logger()
 
@@ -27,19 +21,11 @@ logger = get_logger()
 class Spotify(SpotifyClient):
     """Spotify high-level wrapper."""
 
-    def __init__(
-            self, email=None, port=None, flow=None, device=None,
-            alsa_device=None, alsa_mixer=None, scope=None):
-        email = email or os.getenv('SPOTIFY_EMAIL')
-        port = int(port or os.getenv('SPOTIFY_PORT', 0))
-        flow = flow or os.getenv('SPOTIFY_FLOW', AuthFlow.AUTHORIZATION_CODE)
-        super().__init__(
-            email=email, flow=flow, port=port,
-            scope=scope or [scope.value for scope in Scope])
+    def __init__(self, device=None, alsa_device=None, alsa_mixer=None, **kwargs):
+        super().__init__(**kwargs)
         self.device_name = device or os.getenv('SPOTIFY_DEVICE')
         self.alsa_device = alsa_device or os.getenv('SPOTIFY_ALSA_DEVICE')
         self.alsa_mixer = alsa_mixer or os.getenv('SPOTIFY_ALSA_MIXER')
-        self.scope = scope or os.getenv('SPOTIFY_SCOPE') or [scope.value for scope in Scope]
 
     def __dir__(self):
         names = super().__dir__()
