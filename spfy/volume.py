@@ -74,9 +74,11 @@ class SpotifyVolumeControl(VolumeControl):
             self.volume = self.volume_before_mute
 
     def should_stop_fading(self, device_volume, old_volume):
+        is_playing = self.spotify.current_playback().is_playing
+        logger.debug(f'Spotify playing: {is_playing}')
         return (
             super().should_stop_fading(device_volume, old_volume) or
-            self.spotify.current_playback().is_playing)
+            not is_playing)
 
     @property
     def volume(self):
@@ -107,9 +109,11 @@ class AlsaVolumeControl(VolumeControl):
         self.mixer.setmute(0)
 
     def should_stop_fading(self, device_volume, old_volume):
+        is_mute = self.mixer.getmute()[0]
+        logger.debug(f'Mute status: {is_mute}')
         return (
             super().should_stop_fading(device_volume, old_volume) or
-            self.mixer.getmute()[0])
+            is_mute)
 
     @property
     def volume(self):
@@ -138,6 +142,8 @@ class LinuxVolumeControl(AlsaVolumeControl):
             cmd += [flag, self.device]
 
         cmd += ['sset', self.mixer_name, 'unmute', f'{volume}%']
+
+        logger.debug(cmd)
 
         return cmd
 
