@@ -30,7 +30,7 @@ class VolumeControl(abc.ABC):
     def volume(self, val):
         pass
 
-    @abc.abstractproperty
+    @abc.abstractmethod
     def should_stop_fading(self, device_volume, old_volume):
         return abs(device_volume - old_volume) > 1
 
