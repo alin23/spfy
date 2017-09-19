@@ -138,7 +138,7 @@ class LinuxVolumeControl(AlsaVolumeControl):
     def get_amixer_cmd(self, volume):
         cmd = ['/usr/bin/amixer']
         if self.device:
-            flag = '-c' if isinstance(self.device, int) else '-d'
+            flag = '-c' if isinstance(self.device, int) else '-D'
             cmd += [flag, self.device]
 
         cmd += ['sset', self.mixer_name, 'unmute', f'{volume}%']
