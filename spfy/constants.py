@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum
+from enum import Enum
 
 
 class TimeRange(Enum):
@@ -12,9 +12,9 @@ class VolumeBackend(Enum):
     ALSA = 'alsa'
 
 
-class AuthFlow(IntEnum):
-    AUTHORIZATION_CODE = 0
-    CLIENT_CREDENTIALS = 1
+class AuthFlow(Enum):
+    AUTHORIZATION_CODE = 'authorization_code'
+    CLIENT_CREDENTIALS = 'client_credentials'
 
 
 class AudioFeature(Enum):

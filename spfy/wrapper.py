@@ -32,7 +32,7 @@ class Spotify(SpotifyClient):
             alsa_device=None, alsa_mixer=None, scope=None):
         email = email or os.getenv('SPOTIFY_EMAIL')
         port = int(port or os.getenv('SPOTIFY_PORT', 0))
-        flow = flow or int(os.getenv('SPOTIFY_FLOW', AuthFlow.AUTHORIZATION_CODE))
+        flow = flow or os.getenv('SPOTIFY_FLOW', AuthFlow.AUTHORIZATION_CODE)
         super().__init__(
             email=email, flow=flow, port=port,
             scope=scope or [scope.value for scope in Scope])
