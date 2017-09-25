@@ -48,7 +48,7 @@ class VolumeControl(abc.ABC):
             old_volume = next_volume - step
 
             if not force and self.should_stop_fading(device_volume, old_volume):
-                logger.debug(f'''Volume has been changed manually:
+                logger.debug(f'''A stop fading condition was met:
                     Current volume: {device_volume}
                     Old volume: {old_volume}''')
                 break
@@ -72,6 +72,8 @@ class SpotifyVolumeControl(VolumeControl):
     def unmute(self):
         if self.volume_before_mute:
             self.volume = self.volume_before_mute
+        else:
+            self.volume = 1
 
     def should_stop_fading(self, device_volume, old_volume):
         is_playing = self.spotify.current_playback().is_playing
@@ -123,6 +125,69 @@ class AlsaVolumeControl(VolumeControl):
     @volume.setter
     def volume(self, val):
         self.mixer.setvolume(max(val, 1))
+
+
+class ApplescriptVolumeControl(VolumeControl):
+    def __init__(self, device=None):
+        self.device = device
+        self.volume_before_mute = None
+
+    def osascript(self, cmd):
+        cmd = f"/usr/bin/osascript -e '{cmd}'"
+        result = subprocess.check_output(cmd, shell=True).decode().strip()
+
+        logger.debug('Command: %s', cmd)
+        logger.debug('Output: %s', result)
+
+        return result
+
+    def switch_audio_device(self, device):
+        logger.debug(f'Switching audio device: {device}')
+        subprocess.call(f"/usr/local/bin/SwitchAudioSource -s '{device}'", shell=True)
+
+    def fade(self, *args, **kwargs):
+        if self.device:
+            self.switch_audio_device(self.device)
+        super().fade(*args, **kwargs)
+
+    def should_stop_fading(self, device_volume, old_volume):
+        is_playing = self.osascript('tell application "Spotify" to get player state') == 'playing'
+        logger.debug(f'Spotify playing: {is_playing}')
+        return (
+            super().should_stop_fading(device_volume, old_volume) or
+            not is_playing)
+
+    def spotify_mute(self):
+        self.volume_before_mute = self.spotify_volume
+        self.osascript('tell application "Spotify" to set sound volume to 0')
+
+    def spotify_unmute(self):
+        if self.volume_before_mute:
+            self.spotify_volume = self.volume_before_mute
+        else:
+            self.spotify_volume = 1
+
+    def mute(self):
+        self.osascript('set volume with output muted')
+
+    def unmute(self):
+        self.osascript('set volume without output muted')
+
+    @property
+    def spotify_volume(self):
+        return int(self.osascript('tell application "Spotify" to get sound volume')) + 1
+
+    @spotify_volume.setter
+    def spotify_volume(self, val):
+        self.osascript(f'tell application "Spotify" to set sound volume to {max(val, 1)}')
+
+    @property
+    def volume(self):
+        return int(self.osascript('output volume of (get volume settings)'))
+
+    @volume.setter
+    def volume(self, val):
+        self.osascript(f'set volume output volume {max(val, 1)}')
 
 
 class LinuxVolumeControl(AlsaVolumeControl):

@@ -53,7 +53,7 @@ def expo():
 class SpotifyClient:
     def __init__(self, token=None, username=None, email=None, cache_path=None,
                  proxies=None, requests_timeout=None, auth_flow=AuthFlow.CLIENT_CREDENTIALS,
-                 scope=None, client_id=None, client_secret=None, redirect_uri=None, auth_port=None,
+                 scope=None, client_id=None, client_secret=None, redirect_uri=None, auth_port=42806,
                  sendgrid_params={}):
         '''
         Create a Spotify API object.
@@ -110,12 +110,14 @@ class SpotifyClient:
         return cache_path
 
     def _get_session(self, auth_flow):
-        if auth_flow == AuthFlow.AUTHORIZATION_CODE:
+        if auth_flow in (AuthFlow.AUTHORIZATION_CODE, AuthFlow.AUTHORIZATION_CODE.value):
             oauth_session = OAuth2Session(
                 self.client_id, redirect_uri=self.redirect_uri, scope=self.scope,
                 auto_refresh_url=API.TOKEN.value, token_updater=self.cache_token)
-        elif auth_flow == AuthFlow.CLIENT_CREDENTIALS:
+        elif auth_flow == (AuthFlow.CLIENT_CREDENTIALS, AuthFlow.CLIENT_CREDENTIALS.value):
             oauth_session = OAuth2Session(client=BackendApplicationClient(self.client_id))
+        else:
+            raise ValueError(f'Invalid authentication flow: {auth_flow}')
 
         return oauth_session
 
@@ -192,10 +194,10 @@ class SpotifyClient:
         self.cache_path.write_text(json.dumps(token))
 
     def send_auth_email(self,
-            email, auth_url, fallback=True,
-            api_key=os.getenv('SENDGRID_API_KEY'),
-            sender=os.getenv('SENDGRID_SENDER'),
-            template_id=os.getenv('SENDGRID_TEMPLATE_ID')):
+                        email, auth_url, fallback=True,
+                        api_key=os.getenv('SENDGRID_API_KEY'),
+                        sender=os.getenv('SENDGRID_SENDER'),
+                        template_id=os.getenv('SENDGRID_TEMPLATE_ID')):
 
         if not (api_key and sender):
             if fallback:
@@ -272,7 +274,7 @@ class SpotifyClient:
 
         if r.text and len(r.text) > 0 and r.text != 'null':
             results = r.json()
-            logger.debug(f'RESP: {results}')
+            logger.debug(f'RESP: {r.text}')
             return SpotifyResult(results)
         else:
             return None

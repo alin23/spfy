@@ -12,8 +12,8 @@ from cached_property import cached_property
 from .log import get_logger
 from .client import SpotifyClient
 from .server import StandaloneApplication
-from .volume import AlsaVolumeControl, LinuxVolumeControl, SpotifyVolumeControl
-from .constants import Scope, AuthFlow, TimeRange, AudioFeature, VolumeBackend
+from .volume import AlsaVolumeControl, LinuxVolumeControl, SpotifyVolumeControl, ApplescriptVolumeControl
+from .constants import TimeRange, AudioFeature, VolumeBackend
 
 logger = get_logger()
 
@@ -21,11 +21,12 @@ logger = get_logger()
 class Spotify(SpotifyClient):
     """Spotify high-level wrapper."""
 
-    def __init__(self, device=None, alsa_device=None, alsa_mixer=None, **kwargs):
+    def __init__(self, device=None, alsa_device=None, alsa_mixer=None, audio_device=None, **kwargs):
         super().__init__(**kwargs)
         self.device_name = device or os.getenv('SPOTIFY_DEVICE')
         self.alsa_device = alsa_device or os.getenv('SPOTIFY_ALSA_DEVICE')
         self.alsa_mixer = alsa_mixer or os.getenv('SPOTIFY_ALSA_MIXER')
+        self.audio_device = audio_device or os.getenv('SPOTIFY_AUDIO_DEVICE')
 
     def __dir__(self):
         names = super().__dir__()
@@ -34,6 +35,13 @@ class Spotify(SpotifyClient):
     @cached_property
     def _device(self):
         return self.get_device(device=self.device_name)
+
+    @cached_property
+    def _applescript_volume_control(self):
+        if os.uname().sysname != 'Darwin':
+            return
+
+        return ApplescriptVolumeControl(self.audio_device)
 
     @cached_property
     def _linux_volume_control(self):
@@ -57,10 +65,13 @@ class Spotify(SpotifyClient):
         assert backend in VolumeBackend or backend in [b.value for b in VolumeBackend]
 
         volume = None
-        if backend == 'alsa':
+        if backend in (VolumeBackend.ALSA, VolumeBackend.ALSA.value):
             volume = self._alsa_volume_control.volume + value
             self._alsa_volume_control.volume = volume
-        elif backend == 'spotify':
+        elif backend in (VolumeBackend.APPLESCRIPT, VolumeBackend.APPLESCRIPT.value):
+            volume = self._applescript_volume_control.volume + value
+            self._applescript_volume_control.volume = volume
+        elif backend in (VolumeBackend.SPOTIFY, VolumeBackend.SPOTIFY.value):
             volume = self._spotify_volume_control.volume + value
             self._spotify_volume_control.volume = volume
 
@@ -101,7 +112,10 @@ class Spotify(SpotifyClient):
             tracks = [t.uri for t in self.recommendations(random_seed=True, **recommendation_args)]
 
         if fade:
-            if self._linux_volume_control:
+            if self._applescript_volume_control:
+                target = self._applescript_volume_control.fade
+                self._applescript_volume_control.spotify_volume = volume
+            elif self._linux_volume_control:
                 target = self._linux_volume_control.fade
                 self._spotify_volume_control.volume = volume
             elif self._alsa_volume_control:

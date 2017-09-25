@@ -9,6 +9,7 @@ class TimeRange(Enum):
 
 class VolumeBackend(Enum):
     SPOTIFY = 'spotify'
+    APPLESCRIPT = 'applescript'
     ALSA = 'alsa'
 
 
