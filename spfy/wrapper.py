@@ -6,7 +6,7 @@ import threading
 
 import hug
 import fire
-from orderby import orderby
+from orderby import orderby, asc
 from cached_property import cached_property
 
 from .log import get_logger
@@ -100,7 +100,8 @@ class Spotify(SpotifyClient):
             audio_features = self.audio_features(tracks=tracks)
             if isinstance(order_by, AudioFeature):
                 order_by = order_by.value
-            tracks = sorted(audio_features, key=orderby(order_by))
+            key = asc(order_by) if '$' in order_by else orderby(order_by)
+            tracks = sorted(audio_features, key=key)
 
         return tracks
 
