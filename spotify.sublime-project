@@ -23,6 +23,7 @@
 	],
 	"settings":
 	{
-		"python_interpreter": "/usr/local/bin/python"
+		"python_interpreter": "/usr/local/bin/python",
+		"pep8_max_line_length": 1000
 	}
 }

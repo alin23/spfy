@@ -115,7 +115,8 @@ class Spotify(SpotifyClient):
         if fade:
             if self._applescript_volume_control:
                 target = self._applescript_volume_control.fade
-                self._applescript_volume_control.spotify_volume = volume
+                if self.audio_device:
+                    self._applescript_volume_control.switch_audio_device(self.audio_device)
             elif self._linux_volume_control:
                 target = self._linux_volume_control.fade
                 self._spotify_volume_control.volume = volume
