@@ -11,17 +11,10 @@ from functools import partialmethod
 
 import hug
 import backoff
-import sendgrid
 from first import first
+from mailer import Mailer, Message
 from oauthlib.oauth2 import WebApplicationClient, BackendApplicationClient
 from requests_oauthlib import OAuth2Session
-from sendgrid.helpers.mail import (
-    Mail,
-    Email,
-    Content,
-    Substitution,
-    Personalization
-)
 from wsgiref.simple_server import make_server
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
@@ -32,12 +25,19 @@ from .exceptions import (
     SpotifyException,
     SpotifyForbiddenException,
     SpotifyRateLimitException,
-    SpotifyCredentialsException,
-    SendGridCredentialsException
+    SpotifyCredentialsException
 )
 
 logger = get_logger()
 retry_after = None
+
+EMAIL_CONFIG = {
+    'host': os.getenv('EMAIL_HOST'),
+    'port': os.getenv('EMAIL_PORT'),
+    'use_tls': os.getenv('EMAIL_USE_TLS'),
+    'usr': os.getenv('EMAIL_USER'),
+    'pwd': os.getenv('EMAIL_PASS'),
+}
 
 
 def expo():
@@ -54,7 +54,7 @@ class SpotifyClient:
     def __init__(self, token=None, username=None, email=None, cache_path=None,
                  proxies=None, requests_timeout=None, auth_flow=AuthFlow.CLIENT_CREDENTIALS,
                  scope=None, client_id=None, client_secret=None, redirect_uri=None, auth_port=42806,
-                 sendgrid_params={}):
+                 email_config=None):
         '''
         Create a Spotify API object.
 
@@ -73,15 +73,15 @@ class SpotifyClient:
         :param auth_flow: Authentication flow to use
         '''
         self.scope = scope or os.getenv('SPOTIFY_SCOPE') or [scope.value for scope in Scope]
-        self.email = email
-        self.username = username
+        self.email = email or os.getenv('SPOTIFY_EMAIL')
+        self.username = username or os.getenv('SPOTIFY_USERNAME')
         self.cache_path = self._get_cache_path(cache_path, email, username)
 
         self.client_id = client_id or os.getenv('SPOTIFY_CLIENT_ID')
         self.client_secret = client_secret or os.getenv('SPOTIFY_CLIENT_SECRET')
         self.redirect_uri = self._get_redirect_uri(redirect_uri, auth_port)
         self.auth_port = auth_port
-        self.sendgrid_params = sendgrid_params or {}
+        self.email_config = {**EMAIL_CONFIG, **self.email_config}
 
         self.auth_flow = auth_flow
         self.oauth_session = self._get_session(auth_flow)
@@ -113,8 +113,8 @@ class SpotifyClient:
         if auth_flow in (AuthFlow.AUTHORIZATION_CODE, AuthFlow.AUTHORIZATION_CODE.value):
             oauth_session = OAuth2Session(
                 self.client_id, redirect_uri=self.redirect_uri, scope=self.scope,
-                auto_refresh_url=API.TOKEN.value, token_updater=self.cache_token)
-        elif auth_flow == (AuthFlow.CLIENT_CREDENTIALS, AuthFlow.CLIENT_CREDENTIALS.value):
+                auto_refresh_url=API.TOKEN.value, token_updater=self._cache_token)
+        elif auth_flow in (AuthFlow.CLIENT_CREDENTIALS, AuthFlow.CLIENT_CREDENTIALS.value):
             oauth_session = OAuth2Session(client=BackendApplicationClient(self.client_id))
         else:
             raise ValueError(f'Invalid authentication flow: {auth_flow}')
@@ -152,7 +152,7 @@ class SpotifyClient:
                 token_url=API.TOKEN.value,
                 client_id=self.client_id,
                 client_secret=self.client_secret)
-            self.cache_token(self._token)
+            self._cache_token(self._token)
             return self._token
 
         if isinstance(self.oauth_session._client, WebApplicationClient):
@@ -177,7 +177,7 @@ class SpotifyClient:
 
             authorization_url, _ = self.oauth_session.authorization_url(API.AUTHORIZE.value)
             if self.email:
-                self.send_auth_email(self.email, authorization_url, **self.sendgrid_params)
+                self._send_auth_email(self.email, authorization_url)
             else:
                 logger.info(f'Login here: {authorization_url}')
 
@@ -187,42 +187,29 @@ class SpotifyClient:
                 sleep(0.5)
             else:
                 httpd.shutdown()
-                self.cache_token(self._token)
+                self._cache_token(self._token)
                 return self._token
 
-    def cache_token(self, token):
+    def _cache_token(self, token):
         self.cache_path.write_text(json.dumps(token))
 
-    def send_auth_email(self,
-                        email, auth_url, fallback=True,
-                        api_key=os.getenv('SENDGRID_API_KEY'),
-                        sender=os.getenv('SENDGRID_SENDER'),
-                        template_id=os.getenv('SENDGRID_TEMPLATE_ID')):
+    def _send_auth_email(self, email, auth_url):
+        logger.info(f'Login here to use Spotify API: {auth_url}')
 
-        if not (api_key and sender):
-            if fallback:
-                logger.info(f'Login here: {auth_url}')
-            else:
-                raise SendGridCredentialsException
+        mailer = Mailer(**self.email_config)
 
-        sg = sendgrid.SendGridAPIClient(apikey=api_key)
+        login_html = pathlib.Path(__file__).with_name('login.html')
+        html_content = login_html.read_text().replace('SPOTIFY_AUTHENTICATION_URL', auth_url)
 
-        mail = Mail()
-        mail.from_email = Email(sender)
-        mail.subject = "Spotify Connect"
-        pers = Personalization()
-        pers.add_to(Email(email))
-        mail.add_personalization(pers)
-        if template_id:
-            mail.template_id = template_id
-            pers.add_substitution(Substitution('%auth_url%', auth_url))
-        else:
-            login_html = pathlib.Path(__file__).with_name('login.html')
-            html_content = login_html.read_text().format(auth_url=auth_url)
-            content = Content('text/html', html_content)
-            mail.add_content(content)
+        message = Message(
+            From=self.email_config.get('usr') or email,
+            To=email,
+            charset="utf-8")
+        message.Subject = "Spotify API Authentication"
+        message.Html = html_content
+        message.Body = f'Login here to use Spotify API: {auth_url}'
 
-        sg.client.mail.send.post(request_body=mail.get())
+        mailer.send(message)
 
     def _check_response(self, response):
         global retry_after

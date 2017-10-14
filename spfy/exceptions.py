@@ -35,14 +35,3 @@ class SpotifyCredentialsException(Exception):
         Get your credentials at
             https://developer.spotify.com/my-applications
         '''
-
-
-class SendGridCredentialsException(Exception):
-    def __str__(self):
-        return '''
-            You need to set your SendGrid API credentials. You can do this by
-            setting environment variables like so:
-
-            export SENDGRID_API_KEY='your-sendgrid-api-key'
-            export SENDGRID_SENDER='your-sendgrid-sender-email'
-        '''

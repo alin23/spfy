@@ -6,7 +6,7 @@ import threading
 
 import hug
 import fire
-from orderby import orderby, asc
+from pyorderby import orderby
 from cached_property import cached_property
 
 from .log import get_logger
@@ -83,35 +83,7 @@ class Spotify(SpotifyClient):
     def volume_down(self, backend=VolumeBackend.SPOTIFY.value):
         return self.change_volume(value=-1, backend=backend)
 
-    def recommendations(self, order_by=None, random_seed=False, *args, **kwargs):
-        """Get a list of recommended songs.
-
-        Returns:
-            list: List of tracks
-        """
-
-        if random_seed:
-            artists = self.all_results(self.current_user_top_artists(limit=50, time_range=TimeRange.SHORT_TERM.value))
-            tracks = super().recommendations(seed_artists=random.sample(list(artists), 5), limit=50, *args, **kwargs)
-        else:
-            tracks = super().recommendations(*args, **kwargs)
-
-        if order_by:
-            audio_features = self.audio_features(tracks=tracks)
-            if isinstance(order_by, AudioFeature):
-                order_by = order_by.value
-            key = asc(order_by) if '$' in order_by else orderby(order_by)
-            tracks = sorted(audio_features, key=key)
-
-        return tracks
-
-    def play(self,
-             recommendations=False, recommendations_order=None,
-             fade=False, volume=80, fade_args={}, recommendation_args={}):
-        tracks = None
-        if recommendations:
-            tracks = [t.uri for t in self.recommendations(random_seed=True, **recommendation_args)]
-
+    def play(self, tracks, device_id=None, fade=False, volume=80, fade_args={}):
         if fade:
             if self._applescript_volume_control:
                 target = self._applescript_volume_control.fade
@@ -128,7 +100,7 @@ class Spotify(SpotifyClient):
 
             threading.Thread(target=target, kwargs=fade_args).start()
 
-        return self.start_playback(tracks=tracks, device_id=self._device.id)
+        return self.start_playback(tracks=tracks, device_id=self._device.id or device_id)
 
     def server(self, **options):
         for name, method in inspect.getmembers(self, inspect.ismethod):

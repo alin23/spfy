@@ -22,10 +22,10 @@ REQUIRES = [
     'gunicorn',
     'hug',
     'oauthlib',
-    'orderby',
+    'pyorderby',
     'requests',
     'requests_oauthlib',
-    'sendgrid',
+    'mailer',
 ]
 if os.uname().sysname == 'Linux':
     REQUIRES.append('pyalsaaudio')

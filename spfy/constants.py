@@ -1,6 +1,12 @@
 from enum import Enum
 
 
+class PlaylistType(Enum):
+    SOUND = 'sound'
+    PULSE = 'pulse'
+    EDGE = 'edge'
+
+
 class TimeRange(Enum):
     SHORT_TERM = 'short_term'
     MEDIUM_TERM = 'medium_term'
