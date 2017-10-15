@@ -1,10 +1,5 @@
 from enum import Enum
-
-
-class PlaylistType(Enum):
-    SOUND = 'sound'
-    PULSE = 'pulse'
-    EDGE = 'edge'
+import re
 
 
 class TimeRange(Enum):
@@ -17,6 +12,7 @@ class VolumeBackend(Enum):
     SPOTIFY = 'spotify'
     APPLESCRIPT = 'applescript'
     ALSA = 'alsa'
+    LINUX = 'linux'
 
 
 class AuthFlow(Enum):
@@ -60,6 +56,9 @@ class Scope(Enum):
     USER_MODIFY_PLAYBACK_STATE = 'user-modify-playback-state'
     USER_READ_CURRENTLY_PLAYING = 'user-read-currently-playing'
     USER_READ_RECENTLY_PLAYED = 'user-read-recently-played'
+
+
+AllScopes = [scope.value for scope in Scope]
 
 
 class API(Enum):
@@ -132,3 +131,4 @@ class API(Enum):
 
 
 VOLUME_FADE_SECONDS = 5 * 60
+DEVICE_ID_RE = re.compile(r'[a-zA-Z0-9]{40}')

@@ -5,11 +5,8 @@ import abc
 import subprocess
 from time import sleep
 
-from .log import get_logger
-from .util import SpotifyResult
+from . import logger
 from .constants import VOLUME_FADE_SECONDS
-
-logger = get_logger()
 
 if os.uname().sysname == 'Linux':
     import alsaaudio
@@ -64,12 +61,10 @@ class SpotifyVolumeControl(VolumeControl):
         self.spotify = client
         self.device = device
         self.old_volume = None
-        if not isinstance(device, SpotifyResult):
-            self.device = self.get_device(device=device)
 
     def mute(self):
         self.old_volume = self.volume
-        self.spotify.volume(0, device_id=self.device.id)
+        self.spotify.volume(0, device_id=self.device)
 
     def unmute(self):
         if self.old_volume:
@@ -86,11 +81,11 @@ class SpotifyVolumeControl(VolumeControl):
 
     @property
     def volume(self):
-        return int(self.spotify.get_device(device=self.device.id).volume_percent) + 1
+        return int(self.spotify.get_device(device=self.device).volume_percent) + 1
 
     @volume.setter
     def volume(self, val):
-        self.spotify.volume(max(val, 1), device_id=self.device.id)
+        self.spotify.volume(max(val, 1), device_id=self.device)
 
 
 class AlsaVolumeControl(VolumeControl):
@@ -133,6 +128,12 @@ class ApplescriptVolumeControl(VolumeControl):
     def __init__(self, device=None):
         self.device = device
         self.old_volume = None
+
+    def fade(self, limit=100, start=1, step=1, seconds=VOLUME_FADE_SECONDS, force=False):
+        if self.device:
+            self.switch_audio_device(self.device)
+
+        super().fade(limit, start, step, seconds, force)
 
     def osascript(self, cmd):
         cmd = f"/usr/bin/osascript -e '{cmd}'"

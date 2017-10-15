@@ -1,10 +1,14 @@
 __version__ = '1.5.0'
-from .util import SpotifyResult
+import pathlib  # isort:skip
+root = pathlib.Path(__file__).parent  # isort:skip
+
+import kick  # isort:skip
+kick.start('spfy')  # isort:skip
+
+from kick import config, logger  # isort:skip
+
+from .result import SpotifyResult
 from .client import SpotifyClient
 from .wrapper import Spotify
-from .constants import API, Scope, AuthFlow, AudioFeature, VolumeBackend
-from .exceptions import (
-    SpotifyException,
-    SpotifyCredentialsException,
-    SendGridCredentialsException
-)
+from .constants import *
+from .exceptions import *

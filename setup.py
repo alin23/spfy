@@ -16,7 +16,6 @@ with open('README.md', 'rb') as f:
 REQUIRES = [
     'addict',
     'backoff',
-    'daiquiri',
     'fire',
     'first',
     'gunicorn',
@@ -26,6 +25,10 @@ REQUIRES = [
     'requests',
     'requests_oauthlib',
     'mailer',
+    'pony',
+    'cached_property',
+    'msgpack',
+    'kick'
 ]
 if os.uname().sysname == 'Linux':
     REQUIRES.append('pyalsaaudio')

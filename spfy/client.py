@@ -1,253 +1,64 @@
 # coding: utf-8
-import os
 import json
-import socket
-import pathlib
-import threading
-from time import sleep
-from hashlib import sha256
+from datetime import datetime
 from operator import attrgetter
-from functools import partialmethod
+from functools import lru_cache, partialmethod
 
-import hug
-import backoff
 from first import first
-from mailer import Mailer, Message
-from oauthlib.oauth2 import WebApplicationClient, BackendApplicationClient
-from requests_oauthlib import OAuth2Session
-from wsgiref.simple_server import make_server
-from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
-from .log import get_logger
-from .util import SpotifyResult
-from .constants import API, Scope, AuthFlow, TimeRange, AudioFeature
+from . import logger
+from .result import SpotifyResult
+from .cache import *
+from .mixins import AuthMixin, EmailMixin
+from .constants import API, DEVICE_ID_RE, TimeRange, AudioFeature
 from .exceptions import (
     SpotifyException,
+    SpotifyAuthException,
     SpotifyForbiddenException,
-    SpotifyRateLimitException,
-    SpotifyCredentialsException
+    SpotifyRateLimitException
 )
 
-logger = get_logger()
-retry_after = None
 
-EMAIL_CONFIG = {
-    'host': os.getenv('EMAIL_HOST'),
-    'port': os.getenv('EMAIL_PORT'),
-    'use_tls': os.getenv('EMAIL_USE_TLS'),
-    'usr': os.getenv('EMAIL_USER'),
-    'pwd': os.getenv('EMAIL_PASS'),
-}
-
-
-def expo():
-    global retry_after
-    for delay in backoff.expo():
-        if retry_after:
-            yield retry_after
-            retry_after = None
-        else:
-            yield delay
-
-
-class SpotifyClient:
-    def __init__(self, token=None, username=None, email=None, cache_path=None,
-                 proxies=None, requests_timeout=None, auth_flow=AuthFlow.CLIENT_CREDENTIALS,
-                 scope=None, client_id=None, client_secret=None, redirect_uri=None, auth_port=42806,
-                 email_config=None):
+class SpotifyClient(AuthMixin, EmailMixin):
+    def __init__(self, proxies=None, requests_timeout=None, *args, **kwargs):
         '''
         Create a Spotify API object.
 
-        :param token: An authorization token
-        :param username: Spotify username
-        :param email: Spotify email
-        :param cache_path: Token cache file path
         :param proxies: Definition of proxies
         :param requests_timeout: Tell Requests to stop waiting for a response after a given number of seconds
-        :param oauth: Authenticate using authorization code flow
-        :param scope: Scope to use when authenticating
-        :param client_id: Spotify Application Client ID
-        :param client_secret: Spotify Application Client Secret
-        :param redirect_uri: Spotify Application Redirect URI
-        :param auth_port: Callback listening port
-        :param auth_flow: Authentication flow to use
         '''
-        self.scope = scope or os.getenv('SPOTIFY_SCOPE') or [scope.value for scope in Scope]
-        self.email = email or os.getenv('SPOTIFY_EMAIL')
-        self.username = username or os.getenv('SPOTIFY_USERNAME')
-        self.cache_path = self._get_cache_path(cache_path, email, username)
-
-        self.client_id = client_id or os.getenv('SPOTIFY_CLIENT_ID')
-        self.client_secret = client_secret or os.getenv('SPOTIFY_CLIENT_SECRET')
-        self.redirect_uri = self._get_redirect_uri(redirect_uri, auth_port)
-        self.auth_port = auth_port
-        self.email_config = {**EMAIL_CONFIG, **self.email_config}
-
-        self.auth_flow = auth_flow
-        self.oauth_session = self._get_session(auth_flow)
+        super().__init__(*args, **kwargs)
         self.proxies = proxies
         self.requests_timeout = requests_timeout
-        self._token = token
 
-    def _get_redirect_uri(self, redirect_uri, port):
-        redirect_uri = (
-            redirect_uri or
-            os.getenv('SPOTIFY_REDIRECT_URI') or
-            f'http://{socket.gethostname()}.local')
-
-        if port and redirect_uri:
-            redirect_uri += f':{port}'
-
-        return redirect_uri
-
-    def _get_cache_path(self, cache_path=None, email=None, username=None):
-        if cache_path:
-            cache_path = pathlib.Path(cache_path)
-        else:
-            token_hash = sha256((email or username or 'spotify-backend').encode('utf-8')).hexdigest()
-            cache_path = pathlib.Path.home().joinpath(".cache-" + token_hash)
-
-        return cache_path
-
-    def _get_session(self, auth_flow):
-        if auth_flow in (AuthFlow.AUTHORIZATION_CODE, AuthFlow.AUTHORIZATION_CODE.value):
-            oauth_session = OAuth2Session(
-                self.client_id, redirect_uri=self.redirect_uri, scope=self.scope,
-                auto_refresh_url=API.TOKEN.value, token_updater=self._cache_token)
-        elif auth_flow in (AuthFlow.CLIENT_CREDENTIALS, AuthFlow.CLIENT_CREDENTIALS.value):
-            oauth_session = OAuth2Session(client=BackendApplicationClient(self.client_id))
-        else:
-            raise ValueError(f'Invalid authentication flow: {auth_flow}')
-
-        return oauth_session
-
-    def get_cached_token(self):
-        token = None
-        if self.cache_path.exists():
-            content = self.cache_path.read_text()
-            if content:
-                try:
-                    token = json.loads(content)
-                except:
-                    pass
-
-        return token
-
-    def authenticate(self, force=False):
-        if not (self.client_id and self.client_secret):
-            raise SpotifyCredentialsException
-
-        if force:
-            token = {}
-
-        if not force:
-            token = self.get_cached_token()
-            if token:
-                self.oauth_session.token = token
-                self._token = token
-                return self._token
-
-        if isinstance(self.oauth_session._client, BackendApplicationClient):
-            self._token = self.oauth_session.fetch_token(
-                token_url=API.TOKEN.value,
-                client_id=self.client_id,
-                client_secret=self.client_secret)
-            self._cache_token(self._token)
-            return self._token
-
-        if isinstance(self.oauth_session._client, WebApplicationClient):
-            client = self
-
-            @hug.get('/')
-            def callback(code: hug.types.text, state: hug.types.text):
-                try:
-                    client._token = client.oauth_session.fetch_token(
-                        token_url=API.TOKEN.value,
-                        client_id=client.client_id,
-                        client_secret=client.client_secret,
-                        code=code, state=state)
-                    return 'Successfully logged in!'
-                except:
-                    return 'Could not get authorization token.'
-
-            api = __hug__.http.server(None)  # noqa
-            httpd = make_server('', self.auth_port, api)
-
-            threading.Thread(target=httpd.serve_forever, daemon=True).start()
-
-            authorization_url, _ = self.oauth_session.authorization_url(API.AUTHORIZE.value)
-            if self.email:
-                self._send_auth_email(self.email, authorization_url)
-            else:
-                logger.info(f'Login here: {authorization_url}')
-
-            self._token = {}
-            logger.info('Waiting for authorization code...')
-            while not self._token:
-                sleep(0.5)
-            else:
-                httpd.shutdown()
-                self._cache_token(self._token)
-                return self._token
-
-    def _cache_token(self, token):
-        self.cache_path.write_text(json.dumps(token))
-
-    def _send_auth_email(self, email, auth_url):
-        logger.info(f'Login here to use Spotify API: {auth_url}')
-
-        mailer = Mailer(**self.email_config)
-
-        login_html = pathlib.Path(__file__).with_name('login.html')
-        html_content = login_html.read_text().replace('SPOTIFY_AUTHENTICATION_URL', auth_url)
-
-        message = Message(
-            From=self.email_config.get('usr') or email,
-            To=email,
-            charset="utf-8")
-        message.Subject = "Spotify API Authentication"
-        message.Html = html_content
-        message.Body = f'Login here to use Spotify API: {auth_url}'
-
-        mailer.send(message)
+    @db_session
+    def _increment_api_call_count(self):
+        self.user.api_calls += 1
+        self.user.last_usage_at = datetime.utcnow()
 
     def _check_response(self, response):
-        global retry_after
         try:
             response.raise_for_status()
         except:
             if response.status_code == 429 or (response.status_code >= 500 and response.status_code < 600):
-                retry_after = int(response.headers.get('Retry-After', 0))
-                raise SpotifyRateLimitException(response)
+                raise SpotifyRateLimitException(response, retry_after=int(response.headers.get('Retry-After', 0)))
             elif response.status_code == 403:
-                self.authenticate(force=True)
                 raise SpotifyForbiddenException(response)
             else:
                 raise SpotifyException(response)
 
-    @backoff.on_exception(expo, (TokenExpiredError, SpotifyRateLimitException, SpotifyForbiddenException))
     def _internal_call(self, method, url, payload, params):
-        if not self._token:
-            self.authenticate()
-
-        if not url.startswith('http'):
-            url = API.PREFIX.value + url
-
         logger.debug(url)
-        try:
-            r = self.oauth_session.request(
-                method, url,
-                proxies=self.proxies,
-                timeout=self.requests_timeout,
-                headers={'Content-Type': 'application/json'},
-                data=json.dumps(payload),
-                params={k: v for k, v in params.items() if v is not None},
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-            )
-        except TokenExpiredError:
-            self.authenticate(force=True)
-            raise
+        r = self.request(
+            method, url,
+            proxies=self.proxies,
+            timeout=self.requests_timeout,
+            headers={'Content-Type': 'application/json'},
+            data=json.dumps(payload),
+            params={k: v for k, v in params.items() if v is not None},
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+        )
 
         logger.debug('HTTP Status Code: {r.status_code}')
         logger.debug(f'{method}: {r.url}')
@@ -256,54 +67,45 @@ class SpotifyClient:
 
         try:
             self._check_response(r)
+            if self.userid:
+                self._increment_api_call_count()
         finally:
             r.connection.close()
 
         if r.text and len(r.text) > 0 and r.text != 'null':
             results = r.json()
             logger.debug(f'RESP: {r.text}')
-            return SpotifyResult(results)
-        else:
-            return None
+            return SpotifyResult(results, client=self)
+
+    def _api_call(self, method, url, args=None, payload=None, **kwargs):
+        if not self.is_authenticated:
+            if self.cli:
+                self.authenticate(email=self.email, username=self.username)
+            else:
+                raise SpotifyAuthException
+
+        if args:
+            kwargs.update(args)
+
+        if 'device_id' in kwargs:
+            kwargs['device_id'] = self.get_device_id(kwargs['device_id'])
+
+        if not url.startswith('http'):
+            url = API.PREFIX.value + url
+
+        return self._internal_call(method, url, payload, kwargs)
 
     def _get(self, url, args=None, payload=None, **kwargs):
-        if args:
-            kwargs.update(args)
-        return self._internal_call('GET', url, payload, kwargs)
+        return self._api_call('GET', url, args, payload, **kwargs)
 
     def _post(self, url, args=None, payload=None, **kwargs):
-        if args:
-            kwargs.update(args)
-        return self._internal_call('POST', url, payload, kwargs)
+        return self._api_call('POST', url, args, payload, **kwargs)
 
     def _delete(self, url, args=None, payload=None, **kwargs):
-        if args:
-            kwargs.update(args)
-        return self._internal_call('DELETE', url, payload, kwargs)
+        return self._api_call('DELETE', url, args, payload, **kwargs)
 
     def _put(self, url, args=None, payload=None, **kwargs):
-        if args:
-            kwargs.update(args)
-        return self._internal_call('PUT', url, payload, kwargs)
-
-    def all_results(self, result):
-        next_result = self.next(result)
-        while next_result:
-            result.update(next_result)
-            next_result = self.next(next_result)
-
-        return result
-
-    def next(self, result):
-        ''' returns the next result given a paged result
-
-            Parameters:
-                - result - a previously returned paged result
-        '''
-        if result['next']:
-            return self._get(result['next'])
-        else:
-            return None
+        return self._api_call('PUT', url, args, payload, **kwargs)
 
     def previous(self, result):
         ''' returns the previous result given a paged result
@@ -385,6 +187,7 @@ class SpotifyClient:
         id = self._get_artist_id(artist_id)
         return self._get(API.ARTIST_TOP_TRACKS.value.format(id=id), country=country)
 
+    @lru_cache(maxsize=128)
     def artist_related_artists(self, artist_id):
         ''' Get Spotify catalog information about artists similar to an
             identified artist. Similarity is based on analysis of the
@@ -446,7 +249,7 @@ class SpotifyClient:
     search_artist = partialmethod(search, API.SEARCH_ARTIST.value)
     search_playlist = partialmethod(search, API.SEARCH_PLAYLIST.value)
 
-    def user(self, user):
+    def profile(self, user):
         ''' Gets basic profile information about a Spotify User
 
             Parameters:
@@ -771,7 +574,7 @@ class SpotifyClient:
             track_list = map(self._get_track_id, tracks)
         return self._put(API.MY_TRACKS.value, ids=','.join(track_list))
 
-    def current_user_top_artists(self, limit=20, offset=0, time_range=TimeRange.MEDIUM_TERM.value):
+    def current_user_top_artists(self, limit=20, offset=0, time_range=TimeRange.MEDIUM_TERM):
         ''' Get the current user's top artists
 
             Parameters:
@@ -781,10 +584,11 @@ class SpotifyClient:
                   Valid-values: short_term, medium_term, long_term
         '''
         return self._get(
-            API.MY_TOP.value.format(type='artists'), time_range=time_range,
+            API.MY_TOP.value.format(type='artists'),
+            time_range=TimeRange(time_range).value,
             limit=limit, offset=offset)
 
-    def current_user_top_tracks(self, limit=20, offset=0, time_range='medium_term'):
+    def current_user_top_tracks(self, limit=20, offset=0, time_range=TimeRange.MEDIUM_TERM):
         ''' Get the current user's top tracks
 
             Parameters:
@@ -794,7 +598,8 @@ class SpotifyClient:
                   Valid-values: short_term, medium_term, long_term
         '''
         return self._get(
-            API.MY_TOP.value.format(type='tracks'), time_range=time_range,
+            API.MY_TOP.value.format(type='tracks'),
+            time_range=TimeRange(time_range).value,
             limit=limit, offset=offset)
 
     def current_user_saved_albums_add(self, albums=[]):
@@ -965,6 +770,12 @@ class SpotifyClient:
         '''
         return self._get(API.DEVICES.value)
 
+    @lru_cache(maxsize=128)
+    def get_device_id(self, device=None):
+        if device and DEVICE_ID_RE.match(device):
+            return device
+        return self.get_device(device).id
+
     def get_device(self, device=None):
         '''Get Spotify device based on name
 
@@ -1016,27 +827,28 @@ class SpotifyClient:
         '''
         return self._get(API.CURRENTLY_PLAYING.value, market=market)
 
-    def transfer_playback(self, device_id, force_play=True):
+    def transfer_playback(self, device, force_play=True):
         ''' Transfer playback to another device.
             Note that the API accepts a list of device ids, but only
             actually supports one.
 
             Parameters:
-                - device_id - transfer playback to this device
+                - device - transfer playback to this device
                 - force_play - true: after transfer, play. false:
                                keep current state.
         '''
+        device_id = self.get_device_id(device)
         data = {
             'device_ids': [device_id],
             'play': force_play
         }
         return self._put(API.PLAYER.value, payload=data)
 
-    def start_playback(self, device_id=None, artist=None, album=None, playlist=None, tracks=None, offset=None):
+    def start_playback(self, device=None, artist=None, album=None, playlist=None, tracks=None, offset=None):
         ''' Start or resume user's playback.
 
             Parameters:
-                - device_id - device target for playback
+                - device - device target for playback
                 - playlist - spotify playlist to play
                 - artist - spotify artist to play
                 - album - spotify album to play
@@ -1058,84 +870,85 @@ class SpotifyClient:
         elif isinstance(offset, str):
             data['offset'] = dict(uri=offset)
 
-        return self._put(API.PLAY.value, device_id=device_id, payload=data)
+        return self._put(API.PLAY.value, device_id=device, payload=data)
 
-    def pause_playback(self, device_id=None):
+    def pause_playback(self, device=None):
         ''' Pause user's playback.
 
             Parameters:
-                - device_id - device target for playback
+                - device - device target for playback
         '''
-        return self._put(API.PAUSE.value, device_id=device_id)
+        return self._put(API.PAUSE.value, device_id=device)
 
-    def next_track(self, device_id=None):
+    def next_track(self, device=None):
         ''' Skip user's playback to next track.
 
             Parameters:
-                - device_id - device target for playback
+                - device - device target for playback
         '''
-        return self._post(API.NEXT.value, device_id=device_id)
+        return self._post(API.NEXT.value, device_id=device)
 
-    def previous_track(self, device_id=None):
+    def previous_track(self, device=None):
         ''' Skip user's playback to previous track.
 
             Parameters:
-                - device_id - device target for playback
+                - device - device target for playback
         '''
-        return self._post(API.PREVIOUS.value, device_id=device_id)
+        return self._post(API.PREVIOUS.value, device_id=device)
 
-    def seek_track(self, position_ms, device_id=None):
+    def seek_track(self, position_ms, device=None):
         ''' Seek to position in current track.
 
             Parameters:
                 - position_ms - position in milliseconds to seek to
-                - device_id - device target for playback
+                - device - device target for playback
         '''
         if not isinstance(position_ms, int):
             logger.warning('position_ms must be an integer')
             return
-        return self._put(API.SEEK.value, position_ms=position_ms, device_id=device_id)
+        return self._put(API.SEEK.value, position_ms=position_ms, device_id=device)
 
-    def repeat(self, state, device_id=None):
+    def repeat(self, state, device=None):
         ''' Set repeat mode for playback.
 
             Parameters:
                 - state - `track`, `context`, or `off`
-                - device_id - device target for playback
+                - device - device target for playback
         '''
         if state not in ['track', 'context', 'off']:
             logger.warning('Invalid state')
             return
 
-        self._put(API.REPEAT.value, state=state, device_id=device_id)
+        self._put(API.REPEAT.value, state=state, device_id=device)
 
-    def volume(self, volume_percent: int=None, device_id: str=None):
+    def volume(self, volume_percent: int=None, device: str=None):
         ''' Get or set playback volume.
 
             Parameters:
                 - volume_percent - volume between 0 and 100
-                - device_id - device target for playback
+                - device - device target for playback
         '''
+        device = self.get_device(device)
         if volume_percent is None:
-            return self.get_device(device=device_id).volume_percent
+            return device.volume_percent
 
         assert 0 <= volume_percent <= 100
 
-        self._put(API.VOLUME.value, volume_percent=volume_percent, device_id=device_id)
+        self._put(API.VOLUME.value, volume_percent=volume_percent, device_id=device.id)
 
-    def shuffle(self, state, device_id=None):
+    def shuffle(self, state, device=None):
         ''' Toggle playback shuffling.
 
             Parameters:
                 - state - true or false
-                - device_id - device target for playback
+                - device - device target for playback
         '''
         if not isinstance(state, bool):
             logger.warning('State must be a boolean')
             return
 
         state = str(state).lower()
-        self._put(API.SHUFFLE.value, state=state, device_id=device_id)
+        self._put(API.SHUFFLE.value, state=state, device_id=device)
 
     def _get_id(self, type, result):
         if isinstance(result, str):
