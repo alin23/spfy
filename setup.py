@@ -27,7 +27,6 @@ REQUIRES = [
     'mailer',
     'pony',
     'cached_property',
-    'msgpack',
     'kick'
 ]
 if os.uname().sysname == 'Linux':
