@@ -80,6 +80,7 @@ class AuthMixin:
 
         self.session = OAuth2Session(client=BackendApplicationClient(self.client_id))
         self.session.token_updater = User.token_updater(default_user.id)
+        self.request = self.session.request
 
         if default_user.token:
             self.session.token = default_user.token

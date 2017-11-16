@@ -25,13 +25,28 @@ class StandaloneApplication(BaseApplication):
 class ServerMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.public_methods = [
+            self.authenticate,
+            self.is_authenticated,
+            self.current_user
+        ]
+        self.local_methods = [method for name, method in inspect.getmembers(self, inspect.ismethod)]
 
-    def runserver(self, **gunicorn_options):
-        for name, method in inspect.getmembers(self, inspect.ismethod):
-            hug.get(f'/{name}')(method)
+    def runserver(self, public=False, **gunicorn_options):
+        methods = self.public_methods if public else self.local_methods
+        for method in methods:
+            hug.get(f'/{method.__name__}')(method)
 
         from ..client import __hug__ as client_hug
+        from .auth import __hug__ as auth_hug
+        from .email import __hug__ as email_hug
+        from .player import __hug__ as player_hug
+        from .recommender import __hug__ as recommender_hug
         __hug__.extend(client_hug)  # noqa
+        __hug__.extend(auth_hug)  # noqa
+        __hug__.extend(email_hug)  # noqa
+        __hug__.extend(player_hug)  # noqa
+        __hug__.extend(recommender_hug)  # noqa
 
         app = StandaloneApplication(__hug_wsgi__, **gunicorn_options)  # noqa
         app.run()

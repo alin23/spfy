@@ -7,9 +7,9 @@ from functools import lru_cache, partialmethod
 from first import first
 
 from . import logger
-from .result import SpotifyResult
 from .cache import *
 from .mixins import AuthMixin, EmailMixin
+from .result import SpotifyResult
 from .constants import API, DEVICE_ID_RE, TimeRange, AudioFeature
 from .exceptions import (
     SpotifyException,
