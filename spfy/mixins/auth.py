@@ -7,7 +7,7 @@ from requests_oauthlib import OAuth2Session
 from wsgiref.simple_server import make_server
 
 from .. import root, config, logger
-from ..cache import User, get, db_session
+from ..cache import User, get, select, db_session
 from ..constants import API, AuthFlow, AllScopes
 from ..exceptions import SpotifyCredentialsException
 
@@ -15,14 +15,14 @@ AUTH_HTML_FILE = root / 'html' / 'auth_message.html'
 
 
 class AuthMixin:
-    def __init__(self, client_id=None, client_secret=None, redirect_uri=None, *args, **kwargs):
+    def __init__(self, client_id=None, client_secret=None, redirect_uri=None, userid=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.client_id = client_id or config.app.client_id
         self.client_secret = client_secret or config.app.client_secret
         self.redirect_uri = self._get_redirect_uri(redirect_uri)
 
         self.session = None
-        self.userid = None
+        self.userid = userid
 
         self.callback_reached = threading.Event()
 
@@ -47,19 +47,26 @@ class AuthMixin:
         return bool(self.session and self.session.token)
 
     @db_session
-    def authenticate_user(self, userid=None, username=None, email=None, code=None, state=None, auth_response=None, scope=AllScopes):
-        self.session = OAuth2Session(self.client_id, redirect_uri=self.redirect_uri, scope=scope, auto_refresh_url=API.TOKEN.value)
-        self.request = self.session.request
+    def authenticate_user(self, username=None, email=None, code=None, state=None, auth_response=None, scope=AllScopes):
+        session = self.session or OAuth2Session(self.client_id, redirect_uri=self.redirect_uri, scope=scope, auto_refresh_url=API.TOKEN.value)
 
-        user = get(u for u in User if u.id == userid or u.username == username or u.email == email)
-        if user:
-            self.userid = user.id
-            self.session.token = user.token
-            self.session.token_updater = User.token_updater(user.id)
-            return True
+        if self.userid:
+            user = User.get(id=self.userid)
+            if user:
+                session.token = user.token
+                session.token_updater = User.token_updater(user.id)
+                return session
 
-        if code:
-            token = self.session.fetch_token(
+        if username or email:
+            user = get(u for u in User if u.username == username or u.email == email)
+            if user:
+                self.userid = user.id
+                session.token = user.token
+                session.token_updater = User.token_updater(user.id)
+                return session
+
+        if code or auth_response:
+            token = session.fetch_token(
                 token_url=API.TOKEN.value,
                 client_id=self.client_id,
                 client_secret=self.client_secret,
@@ -67,30 +74,36 @@ class AuthMixin:
                 authorization_response=auth_response)
 
             user_details = self.current_user()
-            user = User(username=user_details.id, email=user_details.email, token=token)
-            self.userid = user.id
-            return True
+            existing_user = select(u for u in User if u.username == user_details.id or u.email == user_details.email).for_update().get()
+            if existing_user and existing_user.id != self.userid:
+                self.userid = existing_user.id
+            user = (
+                existing_user or
+                User.get_for_update(id=self.userid) or
+                User(id=self.userid, username=user_details.id, email=user_details.email)
+            )
+            user.token = token
+            return session
 
-        return False
+        return session
 
     @db_session
     def authenticate_server(self):
         default_user = User.default()
         self.userid = default_user.id
 
-        self.session = OAuth2Session(client=BackendApplicationClient(self.client_id))
-        self.session.token_updater = User.token_updater(default_user.id)
-        self.request = self.session.request
+        session = self.session or OAuth2Session(client=BackendApplicationClient(self.client_id))
+        session.token_updater = User.token_updater(default_user.id)
 
         if default_user.token:
-            self.session.token = default_user.token
+            session.token = default_user.token
         else:
-            default_user.token = self.session.fetch_token(
+            default_user.token = session.fetch_token(
                 token_url=API.TOKEN.value,
                 client_id=self.client_id,
                 client_secret=self.client_secret)
 
-        return True
+        return session
 
     def authenticate(self, flow=config.auth.flow, **auth_params):
         if not (self.client_id and self.client_secret):
@@ -98,9 +111,10 @@ class AuthMixin:
 
         flow = AuthFlow(flow)
         if flow == AuthFlow.CLIENT_CREDENTIALS:
-            self.authenticate_server()
+            self.session = self.authenticate_server()
         elif flow == AuthFlow.AUTHORIZATION_CODE:
-            if not self.authenticate_user(**auth_params):
+            self.session = self.authenticate_user(**auth_params)
+            if not self.session.token:
                 if config.auth.callback.enabled:
                     self.start_callback()
 
@@ -116,7 +130,7 @@ class AuthMixin:
     def wait_for_authorization(self):
         if not config.auth.callback.enabled:
             url = input('Paste the URL you are redirected to:')
-            self.authenticate_user(auth_response=url)
+            self.session = self.authenticate_user(auth_response=url)
         else:
             self.callback_reached.wait(config.auth.callback.timeout)
             self.stop_callback()
@@ -132,7 +146,7 @@ class AuthMixin:
         def callback(code: hug.types.text, state: hug.types.text):
             html = AUTH_HTML_FILE.read_text()
             try:
-                self.authenticate_user(code=code, state=state)
+                self.session = self.authenticate_user(code=code, state=state)
                 html = html.replace('SPOTIFY_AUTH_MESSAGE', 'Successfully logged in!')
                 html = html.replace('BACKGROUND_COLOR', '#65D46E')
             except Exception as exc:

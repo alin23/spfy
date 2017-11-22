@@ -29,8 +29,12 @@ REQUIRES = [
     'cached_property',
     'kick'
 ]
-if os.uname().sysname == 'Linux':
-    REQUIRES.append('pyalsaaudio')
+
+try:
+    if os.uname().sysname == 'Linux':
+        REQUIRES.append('pyalsaaudio')
+except:
+    pass
 
 setup(
     name='spfy',

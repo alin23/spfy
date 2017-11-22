@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import os
 import abc
 import subprocess
 from time import sleep
@@ -8,8 +7,10 @@ from time import sleep
 from . import logger
 from .constants import VOLUME_FADE_SECONDS
 
-if os.uname().sysname == 'Linux':
+try:
     import alsaaudio
+except:
+    pass
 
 
 class VolumeControl(abc.ABC):

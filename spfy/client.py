@@ -33,8 +33,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     @db_session
     def _increment_api_call_count(self):
-        self.user.api_calls += 1
-        self.user.last_usage_at = datetime.utcnow()
+        try:
+            user = self.user
+        except Exception as exc:
+            logger.warning(f'Tried to use an inexistent user: {self.userid}')
+        else:
+            user.api_calls += 1
+            user.last_usage_at = datetime.utcnow()
 
     def _check_response(self, response):
         try:
@@ -49,7 +54,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     def _internal_call(self, method, url, payload, params):
         logger.debug(url)
-        r = self.request(
+        r = self.session.request(
             method, url,
             proxies=self.proxies,
             timeout=self.requests_timeout,

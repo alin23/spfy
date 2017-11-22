@@ -38,21 +38,30 @@ class PlayerMixin:
 
     @cached_property
     def _applescript_volume_control(self):
-        if os.uname().sysname != 'Darwin':
+        try:
+            if os.uname().sysname != 'Darwin':
+                return
+        except:
             return
 
         return ApplescriptVolumeControl(self.speaker)
 
     @cached_property
     def _linux_volume_control(self):
-        if os.uname().sysname != 'Linux':
+        try:
+            if os.uname().sysname != 'Linux':
+                return
+        except:
             return
 
         return LinuxVolumeControl(self, self.alsa_mixer, spotify_device=self.device, alsa_device=self.alsa_device)
 
     @cached_property
     def _alsa_volume_control(self):
-        if os.uname().sysname != 'Linux':
+        try:
+            if os.uname().sysname != 'Linux':
+                return
+        except:
             return
 
         return AlsaVolumeControl(self.alsa_mixer, device=self.alsa_device)

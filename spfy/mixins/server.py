@@ -27,7 +27,6 @@ class ServerMixin:
         super().__init__(*args, **kwargs)
         self.public_methods = [
             self.authenticate,
-            self.is_authenticated,
             self.current_user
         ]
         self.local_methods = [method for name, method in inspect.getmembers(self, inspect.ismethod)]
