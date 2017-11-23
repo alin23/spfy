@@ -72,6 +72,12 @@ setup(
     tests_require=['coverage', 'pytest'],
 
     packages=find_packages(),
+    package_data={
+        'spfy': [
+            'config.toml',
+            'html/*.html',
+        ]
+    },
     data_files=[
         (str(CONFIGDIR), ['spfy/config.toml'])
     ],
