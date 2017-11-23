@@ -1,6 +1,10 @@
 import os
+import pathlib
 
 from setuptools import setup, find_packages
+
+CONFIGDIR = pathlib.Path.home() / '.config' / 'spfy'
+CONFIGDIR.mkdir(parents=True, exist_ok=True)
 
 with open('spfy/__init__.py', 'r') as f:
     for line in f:
@@ -68,6 +72,10 @@ setup(
     tests_require=['coverage', 'pytest'],
 
     packages=find_packages(),
+    data_files=[
+        (CONFIGDIR, ['spfy/config.toml'])
+    ],
+
     entry_points={
         'console_scripts': ['spotify = spfy.wrapper:main']
     },
