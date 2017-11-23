@@ -76,15 +76,19 @@ class AuthMixin:
 
             user_details = self.current_user()
             user = select(u for u in User if u.username == user_details.id or u.email == user_details.email).for_update().get()
-            if user and user.id != self.userid:
-                self.userid = user.id
 
-            if not user and self.userid:
+            if user:
+                user.token = token
+                if user.id != self.userid:
+                    self.userid = user.id
+            elif self.userid:
                 user = User.get_for_update(id=self.userid)
-            if not user:
-                user = User(id=self.userid or uuid.uuid4(), username=user_details.id, email=user_details.email)
+                if user:
+                    user.token = token
 
-            user.token = token
+            if not user:
+                user = User(id=self.userid or uuid.uuid4(), username=user_details.id, email=user_details.email, token=token)
+
             return session
 
         return session
