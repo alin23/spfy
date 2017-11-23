@@ -73,7 +73,7 @@ setup(
 
     packages=find_packages(),
     data_files=[
-        (CONFIGDIR, ['spfy/config.toml'])
+        (str(CONFIGDIR), ['spfy/config.toml'])
     ],
 
     entry_points={
