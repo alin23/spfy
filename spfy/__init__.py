@@ -1,4 +1,4 @@
-__version__ = '2.2.1'
+__version__ = '2.3.0'
 import pathlib  # isort:skip
 root = pathlib.Path(__file__).parent  # isort:skip
 
