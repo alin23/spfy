@@ -1,3 +1,4 @@
+import uuid
 import socket
 import threading
 
@@ -74,14 +75,15 @@ class AuthMixin:
                 authorization_response=auth_response)
 
             user_details = self.current_user()
-            existing_user = select(u for u in User if u.username == user_details.id or u.email == user_details.email).for_update().get()
-            if existing_user and existing_user.id != self.userid:
-                self.userid = existing_user.id
-            user = (
-                existing_user or
-                User.get_for_update(id=self.userid) or
-                User(id=self.userid, username=user_details.id, email=user_details.email)
-            )
+            user = select(u for u in User if u.username == user_details.id or u.email == user_details.email).for_update().get()
+            if user and user.id != self.userid:
+                self.userid = user.id
+
+            if not user and self.userid:
+                user = User.get_for_update(id=self.userid)
+            if not user:
+                user = User(id=self.userid or uuid.uuid4(), username=user_details.id, email=user_details.email)
+
             user.token = token
             return session
 
