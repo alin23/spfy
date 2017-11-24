@@ -66,14 +66,22 @@ class RecommenderMixin:
         return sorted(audio_features, key=orderby(features))
 
     def fill_with_related_artists(self, artists, limit=5):
-        artists = set(artists)
-        while len(artists) < limit:
-            related_artists = self.artist_related_artists(random.choice(list(artists)))
+        if len(artists) >= limit:
+            return artists
 
-            related_artists_limit = random.randint(1, limit - len(artists))
-            artists |= {a.id for a in random.sample(related_artists.artists, related_artists_limit)}
+        artist_set = set(artists)
+        artist_list = list(artists)
+        disliked_artists = set(self.user.disliked_artists.id.distinct().keys())
 
-        return artists
+        while len(artist_set) < limit:
+            related_artists = {
+                a.id for a in self.artist_related_artists(random.choice(artist_list))
+                if a.id not in disliked_artists}
+
+            related_artists_limit = random.randint(1, limit - len(artist_set))
+            artist_set |= {a.id for a in random.sample(related_artists.artists, related_artists_limit)}
+
+        return artist_set
 
     @db_session
     def recommend_by_top_artists(self, artist_limit=2, track_limit=50, use_related=True, features_order=None, time_range=TimeRange.SHORT_TERM, **kwargs):
