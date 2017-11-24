@@ -153,14 +153,14 @@ class Playlist(db.Entity):
         match = cls.PARTICLE_RE.match(playlist.name)
         if match:
             popularity, genre = match.groups()
-            fields['popularity'] = popularity.upper()
+            fields['popularity'] = cls.Popularity[popularity.upper()].value
             fields['genre'] = Genre.get(name=genre.lower()) or Genre(name=genre.lower())
             return cls(**fields)
 
         match = cls.NEEDLE_RE.match(playlist.name)
         if match:
             country, date, popularity = match.groups()
-            fields['popularity'] = popularity.upper()
+            fields['popularity'] = cls.Popularity[popularity.upper()].value
             fields['country'] = country.lower()
             fields['date'] = datetime.strptime(date, '%Y%m%d').date()
             return cls(**fields)
