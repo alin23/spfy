@@ -150,14 +150,14 @@ class Playlist(db.Entity):
             'images': [Image.get(url=im.url) or Image(**im) for im in playlist.images]
         }
 
-        match = self.PARTICLE_RE.match(playlist.name)
+        match = cls.PARTICLE_RE.match(playlist.name)
         if match:
             popularity, genre = match.groups()
             fields['popularity'] = cls.Popularity[popularity.upper()]
             fields['genre'] = Genre.get(name=genre.lower()) or Genre(name=genre.lower())
             return cls(**fields)
 
-        match = self.NEEDLE_RE.match(playlist.name)
+        match = cls.NEEDLE_RE.match(playlist.name)
         if match:
             country, date, popularity = match.groups()
             fields['popularity'] = cls.Popularity[popularity.upper()]
