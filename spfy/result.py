@@ -15,9 +15,19 @@ class SpotifyResult(addict.Dict):
         return super().__iter__()
 
     def to_dict(self):
-        d = super().to_dict()
-        del d['client']
-        return d
+        base = {}
+        for key, value in self.items():
+            if isinstance(value, type(self)):
+                base[key] = value.to_dict()
+            elif isinstance(value, (list, tuple)):
+                base[key] = type(value)(
+                    item.to_dict() if isinstance(item, type(self)) else
+                    item for item in value)
+            elif self.client and isinstance(value, self.client.__class__):
+                continue
+            else:
+                base[key] = value
+        return base
 
     @cached_property
     def all(self):
