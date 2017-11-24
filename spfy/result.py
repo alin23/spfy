@@ -14,6 +14,11 @@ class SpotifyResult(addict.Dict):
                 return iter(self[key])
         return super().__iter__()
 
+    def to_dict(self):
+        d = super().to_dict()
+        del d['client']
+        return d
+
     @cached_property
     def all(self):
         return [item for item in self.iterall()]
