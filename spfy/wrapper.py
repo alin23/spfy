@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import asyncio
+
 import fire
 
 from . import config
@@ -12,6 +14,7 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin, ServerMixin):
 
     def __init__(self, email=None, username=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.loop = asyncio.get_event_loop()
         self.email = email or config.auth.email
         self.username = username or config.auth.username
         if self.cli and not self.is_authenticated:

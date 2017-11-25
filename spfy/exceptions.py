@@ -1,5 +1,5 @@
 class SpotifyException(Exception):
-    def __init__(self, response, *args, **kwargs):
+    def __init__(self, response=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.http_status_code = response.status_code
         self.headers = response.headers or {}

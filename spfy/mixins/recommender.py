@@ -4,6 +4,7 @@ from itertools import chain
 
 from pyorderby import orderby
 
+from .. import logger
 from ..cache import *
 from ..constants import TimeRange, AudioFeature
 
@@ -14,14 +15,17 @@ class RecommenderMixin:
 
     @db_session
     def fetch_playlists(self):
+        fetched_ids = set(select(p.id for p in Playlist))
         results = chain(
-            self.user_playlists('particledetector').iterall(),
-            self.user_playlists('thesoundsofspotify').iterall()
+            self.user_playlists('particledetector').all(),
+            self.user_playlists('thesoundsofspotify').all()
         )
 
         for playlist in results:
-            if not Playlist.exists(id=playlist.id):
+            logger.info(f'Fetching {playlist.name}')
+            if playlist.id not in fetched_ids:
                 Playlist.from_dict(playlist)
+            fetched_ids.add(playlist.id)
 
     @db_session
     def fetch_user_top(self, time_range):

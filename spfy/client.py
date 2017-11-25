@@ -1,5 +1,6 @@
 # coding: utf-8
 import json
+from time import sleep
 from datetime import datetime
 from operator import attrgetter
 from functools import lru_cache, partialmethod
@@ -46,7 +47,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             response.raise_for_status()
         except:
             if response.status_code == 429 or (response.status_code >= 500 and response.status_code < 600):
-                raise SpotifyRateLimitException(response, retry_after=int(response.headers.get('Retry-After', 0)))
+                raise SpotifyRateLimitException(response=response, retry_after=int(response.headers.get('Retry-After', 0)))
             elif response.status_code == 403:
                 raise SpotifyForbiddenException(response)
             else:
@@ -72,15 +73,18 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
         try:
             self._check_response(r)
-            if self.userid:
-                self._increment_api_call_count()
-        finally:
-            r.connection.close()
+        except SpotifyRateLimitException as exc:
+            logger.warning(f'Reached API rate limit. Retrying in {exc.retry_after} seconds...')
+            sleep(exc.retry_after)
+            return self._internal_call(method, url, payload, params)
+
+        if self.userid:
+            self._increment_api_call_count()
 
         if r.text and len(r.text) > 0 and r.text != 'null':
             results = r.json()
             logger.debug(f'RESP: {r.text}')
-            return SpotifyResult(results, client=self)
+            return SpotifyResult(results, _client=self)
 
     def _api_call(self, method, url, args=None, payload=None, **kwargs):
         if not self.is_authenticated:

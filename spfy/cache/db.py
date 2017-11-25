@@ -25,7 +25,7 @@ class User(db.Entity):
     email = Required(str, unique=True, index=True)
     username = Required(str, unique=True, index=True)
     token = Required(Json)
-    api_calls = Required(int, default=0)
+    api_calls = Required(int, default=0, volatile=True)
     created_at = Required(datetime, default=datetime.now)
     last_usage_at = Required(datetime, default=datetime.now)
 
@@ -99,7 +99,9 @@ class Genre(db.Entity):
 
 class Playlist(db.Entity):
     PARTICLE_RE = re.compile('The (?P<popularity>Sound|Pulse|Edge) of (?P<genre>.+)')
+    SOUND_CITY_RE = re.compile('The Sound of (?P<city>.+) (?P<country_code>[A-Z]{2})')
     NEEDLE_RE = re.compile('The Needle / (?P<country>.+) (?P<date>[0-9]{8}) - (?P<popularity>Current|Emerging|Underground)')
+    PINE_NEEDLE_RE = re.compile('The Pine Needle / (?P<country>.+)')
 
     class Popularity(IntEnum):
         SOUND = 0
@@ -112,7 +114,7 @@ class Playlist(db.Entity):
 
     id = PrimaryKey(str)
     collaborative = Required(bool)
-    images = Set(Image)
+    images = Set(Image, cascade_delete=True)
     name = Required(str)
     owner = Required(SpotifyUser)
     public = Required(bool)
@@ -121,7 +123,10 @@ class Playlist(db.Entity):
     popularity = Optional(int, index=True)
     genre = Optional(Genre)
     country = Optional(str, index=True)
+    country_code = Optional(str, index=True, max_len=2)
+    city = Optional(str, index=True)
     date = Optional(date)
+    christmas = Optional(bool, index=True)
     composite_key(genre, popularity)
 
     def uri(self):
@@ -137,7 +142,7 @@ class Playlist(db.Entity):
     def from_dict(cls, playlist):
         owner = (
             SpotifyUser.get(id=playlist.owner.id) or
-            SpotifyUser(id=playlist.owner.id, name=playlist.owner.get('display_name'))
+            SpotifyUser(id=playlist.owner.id, name=playlist.owner.get('display_name', playlist.owner.id))
         )
         fields = {
             'id': playlist.id,
@@ -150,11 +155,29 @@ class Playlist(db.Entity):
             'images': [Image.get(url=im.url) or Image(**im) for im in playlist.images]
         }
 
+        match = cls.SOUND_CITY_RE.match(playlist.name)
+        if match:
+            city, country_code = match.groups()
+            fields['popularity'] = cls.Popularity.SOUND.value
+            fields['city'] = city.lower()
+            fields['country_code'] = country_code
+            return cls(**fields)
+
         match = cls.PARTICLE_RE.match(playlist.name)
         if match:
             popularity, genre = match.groups()
+            genre = genre.lower()
             fields['popularity'] = cls.Popularity[popularity.upper()].value
-            fields['genre'] = Genre.get(name=genre.lower()) or Genre(name=genre.lower())
+            fields['genre'] = Genre.get(name=genre) or Genre(name=genre)
+            fields['christmas'] = 'christmas' in genre
+            return cls(**fields)
+
+        match = cls.PINE_NEEDLE_RE.match(playlist.name)
+        if match:
+            country = match.groups()[0]
+            fields['popularity'] = cls.Popularity.CURRENT.value
+            fields['country'] = country.lower()
+            fields['christmas'] = True
             return cls(**fields)
 
         match = cls.NEEDLE_RE.match(playlist.name)
@@ -173,7 +196,7 @@ class Artist(db.Entity):
     name = Required(str, index=True)
     followers = Required(int)
     genres = Set(Genre)
-    images = Set(Image)
+    images = Set(Image, cascade_delete=True)
     fans = Set(User, reverse='top_artists', table='artist_fans')
     haters = Set(User, reverse='disliked_artists', table='artist_haters')
     popularity = Optional(int)

@@ -3,6 +3,11 @@ client_id = ""
 client_secret = ""
 redirect_uri = ""
 
+[http]
+connections = 30
+concurrent_connections = 20
+retries = 3
+
 [database]
 provider = "sqlite"
 filename = "$HOME/.spfy.sqlite"

@@ -1,11 +1,14 @@
 import uuid
 import socket
 import threading
+from pathlib import Path
 
 import hug
+from cachecontrol import CacheControlAdapter
 from oauthlib.oauth2 import BackendApplicationClient
 from requests_oauthlib import OAuth2Session
 from wsgiref.simple_server import make_server
+from cachecontrol.caches.file_cache import FileCache
 
 from .. import root, config, logger
 from ..cache import User, get, select, db_session
@@ -13,6 +16,7 @@ from ..constants import API, AuthFlow, AllScopes
 from ..exceptions import SpotifyCredentialsException
 
 AUTH_HTML_FILE = root / 'html' / 'auth_message.html'
+CACHE_FILE = Path.home() / '.cache' / 'spfy' / '.web_cache'
 
 
 class AuthMixin:
@@ -38,6 +42,16 @@ class AuthMixin:
 
         return redirect_uri
 
+    def get_session(self, *args, **kwargs):
+        session = OAuth2Session(*args, **kwargs)
+        cache_adapter = CacheControlAdapter(
+            cache=FileCache(CACHE_FILE),
+            pool_connections=config.http.connections,
+            pool_maxsize=config.http.connections,
+            max_retries=config.http.retries)
+        session.mount('http://', cache_adapter)
+        return session
+
     @property
     @db_session
     def user(self):
@@ -49,7 +63,7 @@ class AuthMixin:
 
     @db_session
     def authenticate_user(self, username=None, email=None, code=None, state=None, auth_response=None, scope=AllScopes):
-        session = self.session or OAuth2Session(self.client_id, redirect_uri=self.redirect_uri, scope=scope, auto_refresh_url=API.TOKEN.value)
+        session = self.session or self.get_session(self.client_id, redirect_uri=self.redirect_uri, scope=scope, auto_refresh_url=API.TOKEN.value)
 
         if self.userid:
             user = User.get(id=self.userid)
@@ -98,7 +112,7 @@ class AuthMixin:
         default_user = User.default()
         self.userid = default_user.id
 
-        session = self.session or OAuth2Session(client=BackendApplicationClient(self.client_id))
+        session = self.session or self.get_session(client=BackendApplicationClient(self.client_id))
         session.token_updater = User.token_updater(default_user.id)
 
         if default_user.token:

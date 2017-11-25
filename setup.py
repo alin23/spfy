@@ -31,7 +31,9 @@ REQUIRES = [
     'mailer',
     'pony',
     'cached_property',
-    'kick'
+    'kick',
+    'cachecontrol',
+    'cachecontrol[filecache]',
 ]
 
 try:
