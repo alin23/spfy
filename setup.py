@@ -33,7 +33,7 @@ REQUIRES = [
     'cached_property',
     'kick',
     'cachecontrol',
-    'cachecontrol[filecache]',
+    'lockfile',
 ]
 
 try:
