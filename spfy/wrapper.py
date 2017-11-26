@@ -5,10 +5,10 @@ import fire
 
 from . import config
 from .client import SpotifyClient
-from .mixins import PlayerMixin, ServerMixin, RecommenderMixin
+from .mixins import PlayerMixin, RecommenderMixin
 
 
-class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin, ServerMixin):
+class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
     """Spotify high-level wrapper."""
     cli = False
 
