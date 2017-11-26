@@ -976,6 +976,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 return fields[-1]
         elif isinstance(result, SpotifyResult):
             return result.id
+        elif isinstance(result, dict):
+            return result['id']
 
         return result
 
