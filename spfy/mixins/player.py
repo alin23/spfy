@@ -98,8 +98,10 @@ class PlayerMixin:
     def fade_down(self, **kwargs):
         self.fade(**{**config.volume.fade.down, **kwargs})
 
-    def fade(self, limit, start, step, seconds, force=False, backend=None):
+    def fade(self, limit, start, step, seconds, force=False, backend=None, spotify_volume=100):
         volume_backend = self.backend(backend)
+        if not isinstance(volume_backend, SpotifyVolumeControl):
+            self.change_volume(spotify_volume, VolumeBackend.SPOTIFY)
 
         kwargs = dict(limit=limit, start=start, step=step, seconds=seconds, force=force)
         threading.Thread(target=volume_backend.fade, kwargs=kwargs).start()

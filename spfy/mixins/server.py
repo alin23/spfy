@@ -1,7 +1,11 @@
 import inspect
 
 import hug
-from gunicorn.app.base import BaseApplication
+
+try:
+    from gunicorn.app.base import BaseApplication
+except:
+    pass
 
 
 class StandaloneApplication(BaseApplication):
