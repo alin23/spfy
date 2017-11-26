@@ -82,7 +82,7 @@ class RecommenderMixin:
                 a.id for a in self.artist_related_artists(random.choice(artist_list))
                 if a.id not in disliked_artists}
 
-            related_artists_limit = random.randint(1, limit - len(artist_set))
+            related_artists_limit = min(random.randint(1, limit - len(artist_set)), len(related_artists))
             artist_set |= set(random.sample(related_artists, related_artists_limit))
 
         return artist_set
