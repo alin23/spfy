@@ -989,7 +989,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def _get_uri(self, type, result):
         return 'spotify:' + type + ":" + self._get_id(type, result)
 
+    def _get_playlist_uri(self, playlist, user=None):
+        if isinstance(playlist, Playlist):
+            return playlist.uri
+        elif isinstance(playlist, SpotifyResult):
+            return playlist.uri
+        return f'spotify:user:{self._get_id("user", user)}:playlist:{self._get_id("playlist", playlist)}'
+
     _get_track_uri = partialmethod(_get_uri, 'track')
     _get_artist_uri = partialmethod(_get_uri, 'artist')
     _get_album_uri = partialmethod(_get_uri, 'album')
-    _get_playlist_uri = partialmethod(_get_uri, 'playlist')
