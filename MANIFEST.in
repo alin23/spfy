@@ -1,6 +1,6 @@
 include LICENSE-APACHE
 include LICENSE-MIT
 include README.md
-include spfy/config.toml
+include spfy/config/config.toml
 include spfy/html/auth_message.html
 include spfy/html/login.html
