@@ -3,11 +3,13 @@ __version__ = '2.6.0'
 import pathlib  # isort:skip
 root = pathlib.Path(__file__).parent  # isort:skip
 
+APP_NAME = 'SPFY'
+
 import os  # isort:skip
-ENV = os.getenv('SPFY_ENV', 'config')  # isort:skip
+ENV = os.getenv(f'{APP_NAME.upper()}_ENV', 'config')  # isort:skip
 
 import kick  # isort:skip
-kick.start('spfy', config_variant=ENV)  # isort:skip
+kick.start(f'{APP_NAME.lower()}', config_variant=ENV)  # isort:skip
 
 from kick import config, logger  # isort:skip
 

@@ -4,7 +4,7 @@ import asyncio
 import fire
 import kick
 
-from . import config
+from . import APP_NAME, config
 from .client import SpotifyClient
 from .mixins import PlayerMixin, RecommenderMixin
 
@@ -27,7 +27,7 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
         return names
 
     def update_config(self, name='config'):
-        kick.update_config('spfy', variant=name)
+        kick.update_config(APP_NAME.lower(), variant=name)
 
 
 def main():
