@@ -81,7 +81,7 @@ setup(
         ]
     },
     data_files=[
-        (str(CONFIGDIR), ['spfy/*.toml'])
+        (str(CONFIGDIR), ['spfy/config/config.toml'])
     ],
 
     entry_points={
