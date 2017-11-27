@@ -2,6 +2,7 @@
 import asyncio
 
 import fire
+import kick
 
 from . import config
 from .client import SpotifyClient
@@ -24,6 +25,9 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
         names = super().__dir__()
         names = [name for name in names if not name.startswith('_') and name != 'user']
         return names
+
+    def update_config(self, name='config'):
+        kick.update_config('spfy', variant=name)
 
 
 def main():
