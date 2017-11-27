@@ -86,7 +86,7 @@ class SpotifyVolumeControl(VolumeControl):
 
     @volume.setter
     def volume(self, val):
-        self.spotify.volume(max(val, 1), device=self.device)
+        self.spotify.volume(min(max(val, 1), 100), device=self.device)
 
 
 class AlsaVolumeControl(VolumeControl):
