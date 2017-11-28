@@ -79,12 +79,15 @@ class SpotifyUser(db.Entity):
     name = Optional(str)
     playlists = Set('Playlist')
 
+    @property
     def uri(self):
         return f'spotify:user:{self.id}'
 
+    @property
     def href(self):
         return f'https://api.spotify.com/v1/users/{self.id}'
 
+    @property
     def external_url(self):
         return f'http://open.spotify.com/user/{self.id}'
 
@@ -129,12 +132,15 @@ class Playlist(db.Entity):
     christmas = Optional(bool, index=True)
     composite_key(genre, popularity)
 
+    @property
     def uri(self):
         return f'spotify:user:{self.owner.id}:playlist:{self.id}'
 
+    @property
     def href(self):
         return f'https://api.spotify.com/v1/users/{self.owner.id}/playlists/{self.id}'
 
+    @property
     def external_url(self):
         return f'http://open.spotify.com/user/{self.owner.id}/playlist/{self.id}'
 
@@ -201,12 +207,15 @@ class Artist(db.Entity):
     haters = Set(User, reverse='disliked_artists', table='artist_haters')
     popularity = Optional(int)
 
+    @property
     def uri(self):
         return f'spotify:artist:{self.id}'
 
+    @property
     def href(self):
         return f'https://api.spotify.com/v1/artists/{self.id}'
 
+    @property
     def external_url(self):
         return f'http://open.spotify.com/artist/{self.id}'
 
