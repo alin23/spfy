@@ -83,15 +83,15 @@ class SpotifyResult(addict.Dict):
         else:
             return None
 
-    def _fetch_next_result(self):
-        self._next_result = self.next
+    def _fetch_next_result(self, result):
+        self._next_result = result.next
         self._next_result_available.set()
 
     def iterall(self):
         result = self
 
         while result:
-            threading.Thread(target=self._fetch_next_result).start()
+            threading.Thread(target=self._fetch_next_result, args=(result,)).start()
             for item in result:
                 yield item
 
