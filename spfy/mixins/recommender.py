@@ -6,7 +6,7 @@ from pyorderby import orderby
 
 from .. import logger
 from ..cache import *
-from ..constants import AudioFeature, TimeRange
+from ..constants import TimeRange, AudioFeature
 
 
 class RecommenderMixin:
@@ -55,12 +55,11 @@ class RecommenderMixin:
         return self.user.top_artists
 
     @db_session
-    def top_genres(self, limit=10, time_range=TimeRange.SHORT_TERM):
+    def top_genres(self, time_range=TimeRange.SHORT_TERM):
         if self.user.top_expired:
             self.fetch_user_top(time_range)
 
-        genres = self.user.top_genres
-        return genres.select().without_distinct().random(limit) if limit else genres.copy()
+        return self.user.top_genres
 
     def order_by(self, features, tracks):
         audio_features = self.audio_features(tracks=tracks)
