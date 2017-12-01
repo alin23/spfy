@@ -1,3 +1,4 @@
+import time
 import random
 from datetime import date, timedelta
 from itertools import chain
@@ -41,7 +42,10 @@ class RecommenderMixin:
                 self.user.top_artists.add(Artist.from_dict(artist))
 
         self.user.top_genres = self.user.top_artists.genres.distinct().keys() - self.user.disliked_genres
-        self.user.top_expires_at = date.today() + timedelta(days=1)
+
+        if self.user.top_expires_at is None:
+            self.user.top_expires_at = {}
+        self.user.top_expires_at[TimeRange(time_range).value] = time.mktime((date.today() + timedelta(days=1)).timetuple())
 
     @db_session
     def genre_playlist(self, genre, popularity=Playlist.Popularity.SOUND):
@@ -49,14 +53,14 @@ class RecommenderMixin:
 
     @db_session
     def top_artists(self, time_range=TimeRange.SHORT_TERM):
-        if self.user.top_expired:
+        if self.user.top_expired(time_range):
             self.fetch_user_top(time_range)
 
         return self.user.top_artists
 
     @db_session
     def top_genres(self, time_range=TimeRange.SHORT_TERM):
-        if self.user.top_expired:
+        if self.user.top_expired(time_range):
             self.fetch_user_top(time_range)
 
         return self.user.top_genres

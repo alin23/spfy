@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from enum import IntEnum
 from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
 from datetime import date, datetime
@@ -7,6 +8,7 @@ from datetime import date, datetime
 from pony.orm import *
 
 from .. import config
+from ..constants import TimeRange
 
 if os.getenv('DEBUG'):
     sql_debug(True)
@@ -35,7 +37,7 @@ class User(db.Entity):
     top_genres = Set('Genre')
     disliked_genres = Set('Genre')
 
-    top_expires_at = Optional(date)
+    top_expires_at = Optional(Json)
 
     def dislike(self, artist=None, genre=None):
         assert artist or genre
@@ -46,9 +48,12 @@ class User(db.Entity):
             self.disliked_genres.add(genre)
             self.top_genres.remove(genre)
 
-    @property
-    def top_expired(self):
-        return not self.top_expires_at or date.today() >= self.top_expires_at
+    def top_expired(self, time_range):
+        time_range = TimeRange(time_range).value
+        return (
+            not self.top_expires_at or
+            time_range not in self.top_expires_at or
+            time.time() >= self.top_expires_at[time_range])
 
     @classmethod
     def default(cls):
