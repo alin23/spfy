@@ -6,7 +6,7 @@ from pyorderby import orderby
 
 from .. import logger
 from ..cache import *
-from ..constants import TimeRange, AudioFeature
+from ..constants import AudioFeature, TimeRange
 
 
 class RecommenderMixin:
@@ -88,7 +88,7 @@ class RecommenderMixin:
         return artist_set
 
     @db_session
-    def recommend_by_top_artists(self, artist_limit=2, track_limit=50, use_related=True, features_order=None, time_range=TimeRange.SHORT_TERM, **kwargs):
+    def recommend_by_top_artists(self, artist_limit=2, track_limit=100, use_related=True, features_order=None, time_range=TimeRange.SHORT_TERM, **kwargs):
         """Get a list of recommended songs.
 
         Returns:
