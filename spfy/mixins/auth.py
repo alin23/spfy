@@ -101,7 +101,8 @@ class AuthMixin:
                     user.token = token
 
             if not user:
-                user = User(id=self.userid or uuid.uuid4(), username=user_details.id, email=user_details.email, token=token)
+                self.userid = self.userid or uuid.uuid4()
+                user = User(id=self.userid, username=user_details.id, email=user_details.email, token=token)
 
             return session
 
