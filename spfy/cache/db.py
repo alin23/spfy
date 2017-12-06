@@ -66,6 +66,8 @@ class User(db.Entity):
     def token_updater(id):
         @db_session
         def update(token):
+            if isinstance(spotify.user.token, ormtypes.TrackedDict):
+                token = token.get_untracked()
             User[id].token = token
 
         return update
