@@ -5,10 +5,19 @@ from enum import IntEnum
 from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
 from datetime import date, datetime
 
+import psycopg2.extras
 from pony.orm import *
+from psycopg2.extensions import register_adapter
 
 from .. import config
 from ..constants import TimeRange
+
+
+def adapt_tracked_dict(tdict):
+    return tdict.get_untracked()
+
+
+register_adapter(ormtypes.TrackedDict, psycopg2.extras.Json)
 
 if os.getenv('DEBUG'):
     sql_debug(True)
@@ -26,7 +35,7 @@ class User(db.Entity):
     id = PrimaryKey(UUID, default=uuid4)
     email = Required(str, unique=True, index=True)
     username = Required(str, unique=True, index=True)
-    token = Required(Json)
+    token = Required(Json, volatile=True)
     api_calls = Required(int, default=0, volatile=True)
     created_at = Required(datetime, default=datetime.now)
     last_usage_at = Required(datetime, default=datetime.now)
@@ -37,7 +46,7 @@ class User(db.Entity):
     top_genres = Set('Genre')
     disliked_genres = Set('Genre')
 
-    top_expires_at = Optional(Json)
+    top_expires_at = Optional(Json, volatile=True)
 
     def dislike(self, artist=None, genre=None):
         assert artist or genre
@@ -66,8 +75,6 @@ class User(db.Entity):
     def token_updater(id):
         @db_session
         def update(token):
-            if isinstance(token, ormtypes.TrackedDict):
-                token = token.get_untracked()
             User[id].token = token
 
         return update
