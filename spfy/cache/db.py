@@ -12,11 +12,6 @@ from psycopg2.extensions import register_adapter
 from .. import config
 from ..constants import TimeRange
 
-
-def adapt_tracked_dict(tdict):
-    return tdict.get_untracked()
-
-
 register_adapter(ormtypes.TrackedDict, psycopg2.extras.Json)
 
 if os.getenv('DEBUG'):
