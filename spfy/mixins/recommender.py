@@ -46,6 +46,7 @@ class RecommenderMixin:
         if self.user.top_expires_at is None:
             self.user.top_expires_at = {}
         self.user.top_expires_at[TimeRange(time_range).value] = time.mktime((date.today() + timedelta(days=1)).timetuple())
+        self.user.top_expires_at = self.user.top_expires_at.get_untracked()
 
     @db_session
     def genre_playlist(self, genre, popularity=Playlist.Popularity.SOUND):
