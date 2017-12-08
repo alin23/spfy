@@ -109,6 +109,14 @@ class RecommenderMixin:
         return tracks
 
     @db_session
+    def disliked_artists(self):
+        return list(self.user.disliked_artists)
+
+    @db_session
+    def disliked_genres(self):
+        return list(self.user.disliked_genres)
+
+    @db_session
     def dislike_artist(self, artist):
         if isinstance(artist, str):
             artist = get(a for a in Artist if a.id == artist or a.name == artist)
