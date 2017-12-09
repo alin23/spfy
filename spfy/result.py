@@ -1,3 +1,4 @@
+import random
 import threading
 from itertools import chain
 from urllib.parse import parse_qs, urlparse, urlunparse
@@ -6,9 +7,41 @@ from concurrent.futures import ThreadPoolExecutor
 import addict
 from cached_property import cached_property
 
+from .constants import API
 from . import config
 
-LOCAL_ATTRIBUTES = {'_client', '_next_result', '_next_result_available'}
+LOCAL_ATTRIBUTES = {'_client', '_next_result', '_next_result_available', '_playable'}
+
+
+class Playable:
+    def __init__(self, result):
+        self.result = result
+        self.client = self.result._client
+
+    def play(self, device=None, index=None):
+        return self.result._put_with_params(API.PLAY.value, dict(device_id=device, payload=self.get_data(index)))
+
+    def get_data(self, index=None):
+        data = {}
+        if 'tracks' in self.result or 'audio_features' in self.result:
+            data['uris'] = list(map(self.client._get_track_uri, self.result))
+            return data
+
+        item = self.result[index] if index is not None else random.choice(self.result)
+        if 'playlists' in self.result:
+            data['context_uri'] = self.client._get_playlist_uri(item)
+        elif 'artists' in self.result:
+            data['context_uri'] = self.client._get_artist_uri(item)
+        elif 'albums' in self.result:
+            data['context_uri'] = self.client._get_album_uri(item)
+        elif 'items' in self.result:
+            data['context_uri'] = self.client._get_uri(item.type, item)
+        elif self.result.type and self.result.type in {'album', 'artist', 'playlist'}:
+            data['context_uri'] = self.client._get_uri(self.result.type, self.result)
+        elif item.type == 'track':
+            data['uris'] = list(map(self.client._get_track_uri, self.result))
+
+        return data
 
 
 class SpotifyResult(addict.Dict):
@@ -18,11 +51,14 @@ class SpotifyResult(addict.Dict):
         super().__init__(*args, **kwargs)
         self._next_result_available = threading.Event()
         self._next_result = None
+        self._playable = Playable(self)
 
     def __iter__(self):
         for key in self.ITER_KEYS:
             if key in self:
                 return iter(self[key])
+        if 'playlists' in self and 'items' in self.playlists:
+            return iter(self.playlists['items'])
         return super().__iter__()
 
     def __getitem__(self, item):
@@ -30,6 +66,8 @@ class SpotifyResult(addict.Dict):
             for key in self.ITER_KEYS:
                 if key in self:
                     return self[key][item]
+            if 'playlists' in self and 'items' in self.playlists:
+                return self.playlists['items'][item]
         return super().__getitem__(item)
 
     @classmethod
@@ -53,8 +91,11 @@ class SpotifyResult(addict.Dict):
     def base_url(self):
         return urlunparse([*urlparse(self.href)[:3], '', '', ''])
 
-    def _get_with_params(self, params):
-        return self._client._get(self.base_url, **params)
+    def _get_with_params(self, url, params):
+        return self._client._get(url or self.base_url, **params)
+
+    def _put_with_params(self, url, params):
+        return self._client._put(url or self.base_url, **params)
 
     def get_next_params_list(self):
         if self['next'] and self['href']:
