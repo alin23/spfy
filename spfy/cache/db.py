@@ -51,6 +51,8 @@ class User(db.Entity):
         if genre:
             self.disliked_genres.add(genre)
             self.top_genres.remove(genre)
+            self.disliked_artists.add(genre.artists)
+            self.top_artists.remove(genre.artists)
 
     def top_expired(self, time_range):
         time_range = TimeRange(time_range).value

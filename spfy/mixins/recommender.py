@@ -73,17 +73,18 @@ class RecommenderMixin:
         return sorted(audio_features, key=orderby(features))
 
     def fill_with_related_artists(self, artists, limit=5):
+        tries = 5
         if len(artists) >= limit:
             return artists
 
         artist_set = set(artists)
         artist_list = list(artists)
-        disliked_artists = set(self.user.disliked_artists.id.distinct().keys())
 
-        while len(artist_set) < limit:
+        while len(artist_set) < limit and tries:
+            tries -= 1
             related_artists = {
                 a.id for a in self.artist_related_artists(random.choice(artist_list))
-                if a.id not in disliked_artists}
+                if self.is_not_disliked_artist(a)}
 
             related_artists_limit = min(random.randint(1, limit - len(artist_set)), len(related_artists))
             artist_set |= set(random.sample(related_artists, related_artists_limit))
@@ -102,11 +103,22 @@ class RecommenderMixin:
         artists = self.fill_with_related_artists([a.id for a in artists])
 
         tracks = self.recommendations(seed_artists=artists, limit=track_limit, **kwargs)
+        tracks = filter(self.is_not_disliked_track, tracks)
 
         if features_order:
             tracks = self.order_by(features_order, tracks)
 
         return tracks
+
+    @db_session
+    def is_not_disliked_artist(self, artist):
+        return not (
+            artist.id not in self.user.disliked_artists and
+            bool(set(artist.genres or []) & self.user.disliked_genres))
+
+    @db_session
+    def is_not_disliked_track(self, track):
+        return all(not self.is_disliked_artist(a) for a in track.artists)
 
     @db_session
     def disliked_artists(self):
