@@ -100,12 +100,13 @@ class PlayerMixin:
     def fade_down(self, **kwargs):
         self.fade(**{**config.volume.fade.down, **kwargs})
 
-    def fade(self, limit, start, step, seconds, force=False, backend=None, spotify_volume=100):
+    def fade(self, limit=50, start=0, step=1, seconds=300, force=False, backend=None, spotify_volume=100):
         volume_backend = self.backend(backend)
         if not isinstance(volume_backend, SpotifyVolumeControl):
             self.change_volume(spotify_volume, VolumeBackend.SPOTIFY)
 
         kwargs = dict(limit=limit, start=start, step=step, seconds=seconds, force=force)
+        print(kwargs)
         threading.Thread(target=volume_backend.fade, kwargs=kwargs).start()
 
     @db_session
@@ -114,6 +115,7 @@ class PlayerMixin:
         recommendation_args = {k[4:]: v for k, v in kwargs.items() if k.startswith('rec_')}
 
         tracks = self.recommend_by_top_artists(artist_limit=3, time_range=time_range, **recommendation_args)
+        tracks = list(tracks)
         self.fade_up(**fade_args)
         result = self.start_playback(tracks=tracks, device=device)
         return {'playing': True, 'device': device, 'tracks': tracks, 'result': result}

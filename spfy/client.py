@@ -11,7 +11,7 @@ from . import logger
 from .cache import *
 from .mixins import AuthMixin, EmailMixin
 from .result import SpotifyResult
-from .constants import API, DEVICE_ID_RE, TimeRange, AudioFeature
+from .constants import API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature
 from .exceptions import (
     SpotifyException,
     SpotifyAuthException,
@@ -997,6 +997,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return 'spotify:' + type + ":" + self._get_id(type, result)
 
     def _get_playlist_uri(self, playlist, user=None):
+        if PLAYLIST_URI_RE.match(playlist):
+            return playlist
         if isinstance(playlist, Playlist):
             return playlist.uri
         try:
