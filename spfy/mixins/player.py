@@ -109,14 +109,19 @@ class PlayerMixin:
         threading.Thread(target=volume_backend.fade, kwargs=kwargs).start()
 
     @db_session
-    def play_recommended_tracks(self, time_range=TimeRange.LONG_TERM, device=None, **fade_args):
-        tracks = self.recommend_by_top_artists(artist_limit=3, time_range=time_range)
+    def play_recommended_tracks(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
+        fade_args = {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
+        recommendation_args = {k[4:]: v for k, v in kwargs.items() if k.startswith('rec_')}
+
+        tracks = self.recommend_by_top_artists(artist_limit=3, time_range=time_range, **recommendation_args)
         self.fade_up(**fade_args)
         result = tracks.play(device=device)
         return {'playing': True, 'device': device, 'tracks': tracks, 'result': result}
 
     @db_session
-    def play_recommended_genre(self, time_range=TimeRange.LONG_TERM, device=None, **fade_args):
+    def play_recommended_genre(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
+        fade_args = {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
+
         popularity = random.choice(list(Playlist.Popularity)[:3])
         genre = self.top_genres().select().without_distinct().random(1)[0]
 
@@ -128,10 +133,10 @@ class PlayerMixin:
         return {'playing': True, 'device': device, 'playlist': playlist.to_dict(), 'result': result}
 
     @db_session
-    def play(self, time_range=TimeRange.LONG_TERM, device=None, **fade_args):
+    def play(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
         item_type = random.choice([ItemType.TRACKS, ItemType.PLAYLIST])
         if item_type == ItemType.TRACKS:
-            return self.play_recommended_tracks(time_range, device, **fade_args)
+            return self.play_recommended_tracks(time_range, device, **kwargs)
         elif item_type == ItemType.PLAYLIST:
-            return self.play_recommended_genre(time_range, device, **fade_args)
+            return self.play_recommended_genre(time_range, device, **kwargs)
         return {'playing': False}
