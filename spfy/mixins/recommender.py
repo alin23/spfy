@@ -114,8 +114,8 @@ class RecommenderMixin:
     @db_session
     def is_disliked_artist(self, artist):
         return (
-            artist.id in self.user.disliked_artists or
-            bool(set(artist.genres or []) & self.user.disliked_genres))
+            artist.id in set(self.user.disliked_artists.id.distinct().keys()) or
+            bool(set(artist.genres or []) & set(self.user.disliked_genres)))
 
     @db_session
     def is_not_disliked_artist(self, artist):
