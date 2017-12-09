@@ -48,6 +48,8 @@ class RecommenderMixin:
 
     @db_session
     def genre_playlist(self, genre, popularity=Playlist.Popularity.SOUND):
+        if not Playlist.exists():
+            raise Exception('You have to call "fetch_playlists" first.')
         return Playlist.get(genre=genre, popularity=Playlist.Popularity(popularity).value)
 
     @db_session
@@ -110,14 +112,18 @@ class RecommenderMixin:
         return tracks
 
     @db_session
-    def is_not_disliked_artist(self, artist):
-        return not (
-            artist.id not in self.user.disliked_artists and
+    def is_disliked_artist(self, artist):
+        return (
+            artist.id in self.user.disliked_artists or
             bool(set(artist.genres or []) & self.user.disliked_genres))
 
     @db_session
+    def is_not_disliked_artist(self, artist):
+        return not self.is_disliked_artist(artist)
+
+    @db_session
     def is_not_disliked_track(self, track):
-        return all(not self.is_disliked_artist(a) for a in track.artists)
+        return all(self.is_not_disliked_artist(a) for a in track.artists)
 
     @db_session
     def disliked_artists(self):

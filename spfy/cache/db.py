@@ -110,6 +110,11 @@ class Genre(db.Entity):
     fans = Set(User, reverse='top_genres', table='genre_fans')
     haters = Set(User, reverse='disliked_genres', table='genre_haters')
 
+    def play(self, client, device=None):
+        popularity = random.choice(list(Playlist.Popularity)[:3])
+        playlist = client.genre_playlist(genre.name, popularity)
+        return playlist.play(device=device)
+
 
 class Playlist(db.Entity):
     PARTICLE_RE = re.compile('The (?P<popularity>Sound|Pulse|Edge) of (?P<genre>.+)')
@@ -142,6 +147,9 @@ class Playlist(db.Entity):
     date = Optional(date)
     christmas = Optional(bool, index=True)
     composite_key(genre, popularity)
+
+    def play(self, client, device=None):
+        return client.start_playback(playlist=self.uri, device=device)
 
     @property
     def uri(self):
@@ -217,6 +225,9 @@ class Artist(db.Entity):
     fans = Set(User, reverse='top_artists', table='artist_fans')
     haters = Set(User, reverse='disliked_artists', table='artist_haters')
     popularity = Optional(int)
+
+    def play(self, client, device=None):
+        return client.start_playback(artist=self.uri, device=device)
 
     @property
     def uri(self):

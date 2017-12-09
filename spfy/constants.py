@@ -1,5 +1,13 @@
-from enum import Enum
 import re
+from enum import Enum
+
+
+class ItemType(Enum):
+    TRACKS = 'tracks'
+    TRACK = 'track'
+    PLAYLIST = 'playlist'
+    ARTIST = 'artist'
+    ALBUM = 'album'
 
 
 class TimeRange(Enum):

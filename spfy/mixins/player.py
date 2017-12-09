@@ -1,4 +1,5 @@
 import os
+import random
 import threading
 from collections import OrderedDict
 
@@ -6,13 +7,14 @@ from first import first
 from cached_property import cached_property
 
 from .. import config
+from ..cache import Playlist
 from ..volume import (
     AlsaVolumeControl,
     LinuxVolumeControl,
     SpotifyVolumeControl,
     ApplescriptVolumeControl
 )
-from ..constants import VolumeBackend
+from ..constants import ItemType, TimeRange, VolumeBackend
 
 
 class PlayerMixin:
@@ -105,3 +107,28 @@ class PlayerMixin:
 
         kwargs = dict(limit=limit, start=start, step=step, seconds=seconds, force=force)
         threading.Thread(target=volume_backend.fade, kwargs=kwargs).start()
+
+    def play_recommended_tracks(self, time_range=TimeRange.LONG_TERM, device=None, **fade_args):
+        tracks = self.recommend_by_top_artists(artist_limit=3, time_range=time_range)
+        self.fade_up(**fade_args)
+        result = tracks.play(device=device)
+        return {'playing': True, 'device': device, 'tracks': tracks, 'result': result}
+
+    def play_recommended_genre(self, time_range=TimeRange.LONG_TERM, device=None, **fade_args):
+        popularity = random.choice(list(Playlist.Popularity)[:3])
+        genre = self.top_genres().select().without_distinct().random(1)[0]
+
+        playlist = self.genre_playlist(genre.name, popularity)
+        while not playlist:
+            playlist = self.genre_playlist(genre.name, popularity)
+        self.fade_up(**fade_args)
+        result = playlist.play(self, device=device)
+        return {'playing': True, 'device': device, 'playlist': playlist.to_dict(), 'result': result}
+
+    def play(self, time_range=TimeRange.LONG_TERM, device=None, **fade_args):
+        item_type = random.choice([ItemType.TRACKS, ItemType.PLAYLIST])
+        if item_type == ItemType.TRACKS:
+            return self.play_recommended_tracks(time_range, device, **fade_args)
+        elif item_type == ItemType.PLAYLIST:
+            return self.play_recommended_genre(time_range, device, **fade_args)
+        return {'playing': False}

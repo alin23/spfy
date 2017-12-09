@@ -19,7 +19,7 @@ class Playable:
         self.client = self.result._client
 
     def play(self, device=None, index=None):
-        return self.result._put_with_params(API.PLAY.value, dict(device_id=device, payload=self.get_data(index)))
+        return self.result._put_with_params(dict(device_id=device, payload=self.get_data(index)), url=API.PLAY.value)
 
     def get_data(self, index=None):
         data = {}
@@ -87,14 +87,17 @@ class SpotifyResult(addict.Dict):
     def values(self):
         return [v for k, v in self.items()]
 
+    def play(self, device=None, index=None):
+        return self._playable.play(device, index)
+
     @cached_property
     def base_url(self):
         return urlunparse([*urlparse(self.href)[:3], '', '', ''])
 
-    def _get_with_params(self, url, params):
+    def _get_with_params(self, params, url=None):
         return self._client._get(url or self.base_url, **params)
 
-    def _put_with_params(self, url, params):
+    def _put_with_params(self, params, url=None):
         return self._client._put(url or self.base_url, **params)
 
     def get_next_params_list(self):
