@@ -253,10 +253,17 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         return self._get(url, q=q, limit=limit, offset=offset, market=market)
 
-    search_track = partialmethod(search, API.SEARCH_TRACK.value)
-    search_album = partialmethod(search, API.SEARCH_ALBUM.value)
-    search_artist = partialmethod(search, API.SEARCH_ARTIST.value)
-    search_playlist = partialmethod(search, API.SEARCH_PLAYLIST.value)
+    def search_track(self, track, limit=10, offset=0, market=None):
+        return self.search(API.SEARCH_TRACK.value, track, limit=limit, offset=offset, market=market)
+
+    def search_album(self, album, limit=10, offset=0, market=None):
+        return self.search(API.SEARCH_ALBUM.value, album, limit=limit, offset=offset, market=market)
+
+    def search_artist(self, artist, limit=10, offset=0, market=None):
+        return self.search(API.SEARCH_ARTIST.value, artist, limit=limit, offset=offset, market=market)
+
+    def search_playlist(self, playlist, limit=10, offset=0, market=None):
+        return self.search(API.SEARCH_PLAYLIST.value, playlist, limit=limit, offset=offset, market=market)
 
     def profile(self, user):
         ''' Gets basic profile information about a Spotify User

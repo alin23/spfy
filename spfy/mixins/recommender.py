@@ -31,9 +31,8 @@ class RecommenderMixin:
     @db_session
     def fetch_user_top(self, time_range):
         self.user.top_artists.clear()
-        disliked_artists = set(self.user.disliked_artists.id.distinct().keys())
         for artist in self.current_user_top_artists(limit=50, time_range=time_range).iterall():
-            if artist.id in disliked_artists:
+            if self.is_disliked_artist(artist):
                 continue
 
             if Artist.exists(id=artist.id):
