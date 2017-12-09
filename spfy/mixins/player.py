@@ -110,8 +110,8 @@ class PlayerMixin:
 
     @db_session
     def play_recommended_tracks(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
-        fade_args = {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
-        recommendation_args = {k[4:]: v for k, v in kwargs.items() if k.startswith('rec_')}
+        fade_args = kwargs.get('fade_args') or {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
+        recommendation_args = kwargs.get('recommendation_args') or {k[4:]: v for k, v in kwargs.items() if k.startswith('rec_')}
 
         tracks = self.recommend_by_top_artists(artist_limit=3, time_range=time_range, **recommendation_args)
         tracks = list(tracks)
@@ -121,7 +121,7 @@ class PlayerMixin:
 
     @db_session
     def play_recommended_genre(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
-        fade_args = {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
+        fade_args = kwargs.get('fade_args') or {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
 
         popularity = random.choice(list(Playlist.Popularity)[:3])
         genre = self.top_genres().select().without_distinct().random(1)[0]
