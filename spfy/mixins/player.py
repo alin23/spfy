@@ -115,7 +115,6 @@ class PlayerMixin:
         recommendation_args['time_range'] = time_range
 
         tracks = self.recommend_by_top_artists(**recommendation_args)
-        tracks = list(tracks)
         self.fade_up(**fade_args)
         result = self.start_playback(tracks=tracks, device=device)
         return {'playing': True, 'device': device, 'tracks': tracks, 'result': result}
