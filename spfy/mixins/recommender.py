@@ -104,7 +104,7 @@ class RecommenderMixin:
         artists = self.fill_with_related_artists([a.id for a in artists])
 
         tracks = self.recommendations(seed_artists=artists, limit=track_limit, **kwargs)
-        tracks = filter(self.is_not_disliked_track, tracks)
+        tracks = list(filter(self.is_not_disliked_track, tracks))
 
         if features_order:
             tracks = self.order_by(features_order, tracks)

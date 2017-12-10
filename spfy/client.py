@@ -765,9 +765,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
         ''' Get audio features for one or multiple tracks based upon their Spotify IDs
             Parameters:
                 - track - a track URI, URL or ID
-                - tracks - a list of track URIs, URLs or IDs, maximum: 50 ids
+                - tracks - a list of track URIs, URLs or IDs, maximum: 100 ids
         '''
-        assert len(tracks) <= 50
+        assert len(tracks) <= 100
 
         if track:
             id = self._get_track_id(track)
