@@ -112,8 +112,9 @@ class PlayerMixin:
     def play_recommended_tracks(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
         fade_args = kwargs.get('fade_args') or {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
         recommendation_args = kwargs.get('recommendation_args') or {k[4:]: v for k, v in kwargs.items() if k.startswith('rec_')}
+        recommendation_args['time_range'] = time_range
 
-        tracks = self.recommend_by_top_artists(artist_limit=3, time_range=time_range, **recommendation_args)
+        tracks = self.recommend_by_top_artists(**recommendation_args)
         tracks = list(tracks)
         self.fade_up(**fade_args)
         result = self.start_playback(tracks=tracks, device=device)
