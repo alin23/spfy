@@ -105,6 +105,7 @@ class PlayerMixin:
         if not isinstance(volume_backend, SpotifyVolumeControl):
             self.change_volume(spotify_volume, VolumeBackend.SPOTIFY)
 
+        volume_backend.volume = start
         kwargs = dict(limit=limit, start=start, step=step, seconds=seconds, force=force)
         threading.Thread(target=volume_backend.fade, kwargs=kwargs).start()
 
