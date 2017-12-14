@@ -35,26 +35,29 @@ class VolumeControl(abc.ABC):
         return abs(device_volume - old_volume) > 2
 
     def fade(self, limit=100, start=1, step=1, seconds=VOLUME_FADE_SECONDS, force=False):
-        self.unmute()
+        try:
+            self.unmute()
 
-        delay = seconds / ((limit - start) / step)
-        device_volume = self.volume
-
-        self.volume = start
-
-        for next_volume in range(start + step, limit + 1, step):
-            sleep(delay)
+            delay = seconds / ((limit - start) / step)
             device_volume = self.volume
-            old_volume = next_volume - step
 
-            if not force and self.should_stop_fading(device_volume, old_volume):
-                logger.debug(f'''A stop fading condition was met:
-                    Current volume: {device_volume}
-                    Old volume: {old_volume}''')
-                break
+            self.volume = start
 
-            logger.debug(f'Setting volume to {next_volume}')
-            self.volume = next_volume
+            for next_volume in range(start + step, limit + 1, step):
+                sleep(delay)
+                device_volume = self.volume
+                old_volume = next_volume - step
+
+                if not force and self.should_stop_fading(device_volume, old_volume):
+                    logger.debug(f'''A stop fading condition was met:
+                        Current volume: {device_volume}
+                        Old volume: {old_volume}''')
+                    break
+
+                logger.debug(f'Setting volume to {next_volume}')
+                self.volume = next_volume
+        except Exception as exc:
+            logger.exception(exc)
 
 
 class SpotifyVolumeControl(VolumeControl):
