@@ -5,11 +5,12 @@ from enum import IntEnum
 from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
 from datetime import date, datetime
 
+from first import first
 import psycopg2.extras
 from pony.orm import *
 from psycopg2.extensions import register_adapter
 
-from .. import config
+from .. import config, Unsplash
 from ..constants import TimeRange
 
 register_adapter(ormtypes.TrackedDict, psycopg2.extras.Json)
@@ -57,9 +58,9 @@ class User(db.Entity):
     def top_expired(self, time_range):
         time_range = TimeRange(time_range).value
         return (
-            not self.top_expires_at or
-            time_range not in self.top_expires_at or
-            time.time() >= self.top_expires_at[time_range])
+            not self.top_expires_at or time_range not in self.top_expires_at
+            or time.time() >= self.top_expires_at[time_range]
+        )
 
     @classmethod
     def default(cls):
@@ -78,11 +79,28 @@ class User(db.Entity):
 
 
 class Image(db.Entity):
+    REGULAR = 1080
+    SMALL = 400
+    THUMB = 200
+
     url = PrimaryKey(str)
     height = Optional(int)
     width = Optional(int)
     playlist = Optional('Playlist')
     artist = Optional('Artist')
+    genre = Optional('Genre')
+    unsplash_user_fullname = Optional(str)
+    unsplash_user_username = Optional(str)
+
+    def unsplash_credits(self):
+        return {
+            'user_name':
+                self.unsplash_user_fullname,
+            'user_url':
+                f'https://unsplash.com/@{self.unsplash_user_username}?utm_source={config.unsplash.app_name}&utm_medium=referral',
+            'site_url':
+                f'https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral'
+        }
 
 
 class SpotifyUser(db.Entity):
@@ -105,6 +123,7 @@ class SpotifyUser(db.Entity):
 
 class Genre(db.Entity):
     name = PrimaryKey(str)
+    images = Set(Image)
     artists = Set('Artist')
     playlists = Set('Playlist')
     fans = Set(User, reverse='top_genres', table='genre_fans')
@@ -112,14 +131,84 @@ class Genre(db.Entity):
 
     def play(self, client, device=None):
         popularity = random.choice(list(Playlist.Popularity)[:3])
-        playlist = client.genre_playlist(genre.name, popularity)
+        playlist = client.genre_playlist(self.name, popularity)
         return playlist.play(device=device)
+
+    def image(self, width=None, height=None):
+        if width:
+            image = self.images.select().where(lambda i: i.width >= width).order_by(Image.width).first()
+        elif height:
+            image = self.images.select().where(lambda i: i.height >= height).order_by(Image.height).first()
+        else:
+            image = self.images.select().order_by(desc(Image.width)).first()
+
+        return image
+
+    def get_image_queries(self):
+        words = self.name.split()
+        stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
+        return [*words, self.name, *sum(stems, [])]
+
+    async def fetch_image(self, width=None, height=None):
+        image = self.image(width, height)
+        if image:
+            return image
+
+        queries = self.get_image_queries()
+        photo = None
+        for query in queries:
+            photos = await Unsplash.photo.random(query=query, orientation='squarish')
+            if photos:
+                photo = photos[0]
+                break
+        else:
+            photo = await Unsplash.photo.random(query=query, orientation='squarish')[0]
+
+        if photo is None:
+            return None
+
+        ratio = photo.height / photo.width
+        Image(
+            genre=self,
+            url=photo.urls.full,
+            width=photo.width,
+            height=photo.height,
+            unsplash_user_fullname=photo.user.name,
+            unsplash_user_username=photo.user.username,
+        )
+        Image(
+            genre=self,
+            url=photo.urls.regular,
+            width=Image.REGULAR,
+            height=int(round(ratio * Image.REGULAR)),
+            unsplash_user_fullname=photo.user.name,
+            unsplash_user_username=photo.user.username,
+        )
+        Image(
+            genre=self,
+            url=photo.urls.small,
+            width=Image.SMALL,
+            height=int(round(ratio * Image.SMALL)),
+            unsplash_user_fullname=photo.user.name,
+            unsplash_user_username=photo.user.username,
+        )
+        Image(
+            genre=self,
+            url=photo.urls.thumb,
+            width=Image.THUMB,
+            height=int(round(ratio * Image.THUMB)),
+            unsplash_user_fullname=photo.user.name,
+            unsplash_user_username=photo.user.username,
+        )
+        return self.image(width, height)
 
 
 class Playlist(db.Entity):
     PARTICLE_RE = re.compile('The (?P<popularity>Sound|Pulse|Edge) of (?P<genre>.+)')
     SOUND_CITY_RE = re.compile('The Sound of (?P<city>.+) (?P<country_code>[A-Z]{2})')
-    NEEDLE_RE = re.compile('The Needle / (?P<country>.+) (?P<date>[0-9]{8}) - (?P<popularity>Current|Emerging|Underground)')
+    NEEDLE_RE = re.compile(
+        'The Needle / (?P<country>.+) (?P<date>[0-9]{8}) - (?P<popularity>Current|Emerging|Underground)'
+    )
     PINE_NEEDLE_RE = re.compile('The Pine Needle / (?P<country>.+)')
 
     class Popularity(IntEnum):
@@ -166,8 +255,8 @@ class Playlist(db.Entity):
     @classmethod
     def from_dict(cls, playlist):
         owner = (
-            SpotifyUser.get(id=playlist.owner.id) or
-            SpotifyUser(id=playlist.owner.id, name=playlist.owner.get('display_name', playlist.owner.id))
+            SpotifyUser.get(id=playlist.owner.id)
+            or SpotifyUser(id=playlist.owner.id, name=playlist.owner.get('display_name', playlist.owner.id))
         )
         fields = {
             'id': playlist.id,
@@ -246,8 +335,13 @@ class Artist(db.Entity):
         genres = [Genre.get(name=genre) or Genre(name=genre) for genre in artist.genres]
         images = [Image.get(url=image.url) or Image(**image) for image in artist.images]
         return cls(
-            id=artist.id, name=artist.name, followers=artist.followers.total,
-            genres=genres, images=images, popularity=artist.popularity)
+            id=artist.id,
+            name=artist.name,
+            followers=artist.followers.total,
+            genres=genres,
+            images=images,
+            popularity=artist.popularity
+        )
 
 
 if config.database.filename:

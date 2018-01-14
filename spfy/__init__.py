@@ -13,6 +13,12 @@ kick.start(f'{APP_NAME.lower()}', config_variant=ENV)  # isort:skip
 
 from kick import config, logger  # isort:skip
 
+Unsplash = None
+if config.unsplash.auth.client_id:
+    from unsplash import Auth, Api
+    auth = Auth(**config.unsplash.auth)
+    Unsplash = Api(auth)
+
 from .client import SpotifyClient
 from .result import SpotifyResult
 from .wrapper import Spotify

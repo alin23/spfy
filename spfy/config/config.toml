@@ -40,13 +40,21 @@ speaker = 'Sonos'
     mixer = 'PCM'
 
 [volume.fade.up]
-limit=70
-start=1
-step=1
-seconds=500
+limit = 70
+start = 1
+step = 1
+seconds = 500
 
 [volume.fade.down]
-limit=0
-start=70
-step=-1
-seconds=1000
+limit = 0
+start = 70
+step = -1
+seconds = 1000
+
+[unsplash]
+app_name = ""
+
+[unsplash.auth]
+client_id = ""
+client_secret = ""
+redirect_uri = "urn:ietf:wg:oauth:2.0:oob"

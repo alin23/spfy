@@ -34,6 +34,7 @@ REQUIRES = [
     'kick',
     'cachecontrol',
     'lockfile',
+    'python-unsplash-async',
 ]
 
 try:
