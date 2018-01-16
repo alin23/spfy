@@ -86,6 +86,7 @@ class Image(db.Entity):
     url = PrimaryKey(str)
     height = Optional(int)
     width = Optional(int)
+    color = Optional(str)
     playlist = Optional('Playlist')
     artist = Optional('Artist')
     genre = Optional('Genre')
@@ -168,37 +169,35 @@ class Genre(db.Entity):
             return None
 
         ratio = photo.height / photo.width
+        params = {
+            'genre': self,
+            'color': photo.color,
+            'unsplash_user_fullname': photo.user.name,
+            'unsplash_user_username': photo.user.username,
+        }
         Image(
-            genre=self,
             url=photo.urls.full,
             width=photo.width,
             height=photo.height,
-            unsplash_user_fullname=photo.user.name,
-            unsplash_user_username=photo.user.username,
+            **params
         )
         Image(
-            genre=self,
             url=photo.urls.regular,
             width=Image.REGULAR,
             height=int(round(ratio * Image.REGULAR)),
-            unsplash_user_fullname=photo.user.name,
-            unsplash_user_username=photo.user.username,
+            **params
         )
         Image(
-            genre=self,
             url=photo.urls.small,
             width=Image.SMALL,
             height=int(round(ratio * Image.SMALL)),
-            unsplash_user_fullname=photo.user.name,
-            unsplash_user_username=photo.user.username,
+            **params
         )
         Image(
-            genre=self,
             url=photo.urls.thumb,
             width=Image.THUMB,
             height=int(round(ratio * Image.THUMB)),
-            unsplash_user_fullname=photo.user.name,
-            unsplash_user_username=photo.user.username,
+            **params
         )
         return self.image(width, height)
 
