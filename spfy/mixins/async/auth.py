@@ -1,22 +1,29 @@
 import uuid
 import socket
+import asyncio
 import threading
 from pathlib import Path
-from wsgiref.simple_server import make_server
 
-import hug
-from cachecontrol import CacheControlAdapter
+import aiohttp
+import aiohttp.web
 from oauthlib.oauth2 import BackendApplicationClient
-from requests_oauthlib import OAuth2Session
-from cachecontrol.caches.file_cache import FileCache
 
-from .. import root, config, logger
-from ..cache import User, get, select, db_session
-from ..constants import API, AuthFlow, AllScopes
-from ..exceptions import SpotifyCredentialsException
+from ... import root, config, logger
+from ...cache import User, get, select, db_session
+from ...constants import API, AuthFlow, AllScopes
+from ...exceptions import SpotifyCredentialsException
+from .aiohttp_oauthlib import OAuth2Session
 
 AUTH_HTML_FILE = root / 'html' / 'auth_message.html'
 CACHE_FILE = Path.home() / '.cache' / 'spfy' / '.web_cache'
+
+web_app = aiohttp.web.Application()
+
+
+def run_app():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    aiohttp.web.run_app(web_app, host='0.0.0.0', port=config.auth.callback.port, handle_signals=False, loop=loop)
 
 
 class AuthMixin:
@@ -43,13 +50,6 @@ class AuthMixin:
     @staticmethod
     def get_session(*args, **kwargs):
         session = OAuth2Session(*args, **kwargs)
-        cache_adapter = CacheControlAdapter(
-            cache=FileCache(CACHE_FILE),
-            pool_connections=config.http.connections,
-            pool_maxsize=config.http.connections,
-            max_retries=config.http.retries
-        )
-        session.mount('http://', cache_adapter)
         return session
 
     @property
@@ -62,7 +62,9 @@ class AuthMixin:
         return bool(self.session and self.session.token)
 
     @db_session
-    def authenticate_user(self, username=None, email=None, code=None, state=None, auth_response=None, scope=AllScopes):
+    async def authenticate_user(
+        self, username=None, email=None, code=None, state=None, auth_response=None, scope=AllScopes
+    ):
         session = self.session or self.get_session(
             self.client_id, redirect_uri=self.redirect_uri, scope=scope, auto_refresh_url=API.TOKEN.value
         )
@@ -83,7 +85,7 @@ class AuthMixin:
                 return session
 
         if code or auth_response:
-            token = session.fetch_token(
+            token = await session.fetch_token(
                 token_url=API.TOKEN.value,
                 client_id=self.client_id,
                 client_secret=self.client_secret,
@@ -92,7 +94,7 @@ class AuthMixin:
                 authorization_response=auth_response
             )
 
-            user_details = self.current_user()
+            user_details = await self.current_user()
             user = select(u for u in User
                           if u.username == user_details.id or u.email == user_details.email).for_update().get()
 
@@ -114,7 +116,7 @@ class AuthMixin:
         return session
 
     @db_session
-    def authenticate_server(self):
+    async def authenticate_server(self):
         default_user = User.default()
         self.userid = default_user.id
 
@@ -124,21 +126,21 @@ class AuthMixin:
         if default_user.token:
             session.token = default_user.token
         else:
-            default_user.token = session.fetch_token(
+            default_user.token = await session.fetch_token(
                 token_url=API.TOKEN.value, client_id=self.client_id, client_secret=self.client_secret
             )
 
         return session
 
-    def authenticate(self, flow=config.auth.flow, **auth_params):
+    async def authenticate(self, flow=config.auth.flow, **auth_params):
         if not (self.client_id and self.client_secret):
             raise SpotifyCredentialsException
 
         flow = AuthFlow(flow)
         if flow == AuthFlow.CLIENT_CREDENTIALS:
-            self.session = self.authenticate_server()
+            self.session = await self.authenticate_server()
         elif flow == AuthFlow.AUTHORIZATION_CODE:
-            self.session = self.authenticate_user(**auth_params)
+            self.session = await self.authenticate_user(**auth_params)
             if not self.session.token:
                 if config.auth.callback.enabled:
                     self.start_callback()
@@ -150,29 +152,38 @@ class AuthMixin:
                 else:
                     print(f'Login here: {authorization_url}')
 
-                self.wait_for_authorization()
+                await self.wait_for_authorization()
 
-    def wait_for_authorization(self):
+    async def wait_for_authorization(self):
         if not config.auth.callback.enabled:
             url = input('Paste the URL you are redirected to:')
-            self.session = self.authenticate_user(auth_response=url)
+            self.session = await self.authenticate_user(auth_response=url)
         else:
             self.callback_reached.wait(config.auth.callback.timeout)
-            self.stop_callback()
+            await self.stop_callback()
 
-    def stop_callback(self):
-        if self.httpd:
-            self.httpd.shutdown()
+    @staticmethod
+    async def stop_callback():
+        try:
+            await aiohttp.request('GET', f'http://localhost:{config.auth.callback.port}')
+        except aiohttp.client_exceptions.ServerDisconnectedError:
+            pass
 
     def start_callback(self):
         self.callback_reached.clear()
 
-        # pylint: disable=unused-variable
-        @hug.get('/', output=hug.output_format.html)
-        def callback(code: hug.types.text, state: hug.types.text):
+        async def callback(request):
+            if self.callback_reached.is_set():
+                aiohttp.web.raise_graceful_exit()
+
+            code = request.query['code']
+            state = request.query.get('code')
+
             html = AUTH_HTML_FILE.read_text()
             try:
-                self.session = self.authenticate_user(code=code, state=state)
+                self.session = asyncio.run_coroutine_threadsafe(
+                    self.authenticate_user(code=code, state=state), loop=self.loop
+                ).result(config.auth.callback.timeout)
                 html = html.replace('SPOTIFY_AUTH_MESSAGE', 'Successfully logged in!')
                 html = html.replace('BACKGROUND_COLOR', '#65D46E')
             except Exception as exc:
@@ -182,9 +193,8 @@ class AuthMixin:
             finally:
                 self.callback_reached.set()
 
-            return html
+            return aiohttp.web.Response(body=html, content_type='text/html')
 
-        api = __hug__.http.server(None)  # pylint: disable=undefined-variable
-        self.httpd = make_server('', config.auth.callback.port, api)
+        web_app.router.add_get('/', callback)
 
-        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        threading.Thread(target=run_app, daemon=True).start()

@@ -1,14 +1,12 @@
 import random
-import threading
-from itertools import chain
 from urllib.parse import parse_qs, urlparse, urlunparse
-from concurrent.futures import ThreadPoolExecutor
 
 import addict
 from cached_property import cached_property
 
-from . import config
-from .constants import API
+from . import limited_as_completed
+from .. import config
+from ..constants import API
 
 LOCAL_ATTRIBUTES = {'_client', '_next_result', '_next_result_available', '_playable'}
 
@@ -18,8 +16,10 @@ class Playable:
         self.result = result
         self.client = self.result._client
 
-    def play(self, device=None, index=None):
-        return self.result._put_with_params(dict(device_id=device, payload=self.get_data(index)), url=API.PLAY.value)
+    async def play(self, device=None, index=None):
+        return await self.result._put_with_params(
+            dict(device_id=device, payload=self.get_data(index)), url=API.PLAY.value
+        )
 
     def get_data(self, index=None):
         data = {}
@@ -49,7 +49,6 @@ class SpotifyResult(addict.Dict):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._next_result_available = threading.Event()
         self._next_result = None
         self._playable = Playable(self)
 
@@ -74,7 +73,7 @@ class SpotifyResult(addict.Dict):
     def _hook(cls, item):
         if isinstance(item, dict):
             return addict.Dict(item)
-        if isinstance(item, (list, tuple)):
+        elif isinstance(item, (list, tuple)):
             return type(item)(cls._hook(elem) for elem in item)
         return item
 
@@ -87,18 +86,18 @@ class SpotifyResult(addict.Dict):
     def values(self):
         return [v for k, v in self.items()]
 
-    def play(self, device=None, index=None):
-        return self._playable.play(device, index)
+    async def play(self, device=None, index=None):
+        return await self._playable.play(device, index)
 
     @cached_property
     def base_url(self):
         return urlunparse([*urlparse(self.href)[:3], '', '', ''])
 
-    def _get_with_params(self, params, url=None):
-        return self._client._get(url or self.base_url, **params)
+    async def _get_with_params(self, params, url=None):
+        return await self._client._get(url or self.base_url, **params)
 
-    def _put_with_params(self, params, url=None):
-        return self._client._put(url or self.base_url, **params)
+    async def _put_with_params(self, params, url=None):
+        return await self._client._put(url or self.base_url, **params)
 
     def get_next_params_list(self):
         if self['next'] and self['href']:
@@ -109,34 +108,20 @@ class SpotifyResult(addict.Dict):
             return [{**params, 'limit': 50, 'offset': off} for off in range(offset + limit, self.total, 50)]
         return []
 
-    def all(self):
+    async def all(self):
+        return [response async for response in self.iterall()]
+
+    async def next(self):
+        if self._next_result:
+            return self._next_result
+        if self['next']:
+            return await self._client._get(self['next'])
+        return None
+
+    async def iterall(self):
         params_list = self.get_next_params_list()
         if not params_list:
             return []
 
-        with ThreadPoolExecutor(max_workers=config.http.parallel_connections) as executor:
-            return chain.from_iterable(executor.map(self._get_with_params, params_list, timeout=10 * len(params_list)))
-
-    @cached_property
-    def next(self):
-        if self['next']:
-            return self._client._get(self['next'])
-        return None
-
-    def _fetch_next_result(self, result):
-        self._next_result = result.next
-        self._next_result_available.set()
-
-    def iterall(self):
-        result = self
-
-        while result:
-            threading.Thread(target=self._fetch_next_result, args=(result, )).start()
-            for item in result:
-                yield item
-
-            if self._next_result_available.wait(10):
-                result = self._next_result
-                self._next_result_available.clear()
-            else:
-                break
+        requests = (self._get_with_params(params) for params in params_list)
+        return limited_as_completed(requests, config.http.concurrent_connections)

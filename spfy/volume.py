@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import abc
+import asyncio
 import subprocess
 from time import sleep
 
@@ -8,7 +9,7 @@ from . import logger
 from .constants import VOLUME_FADE_SECONDS
 
 try:
-    import alsaaudio
+    import alsaaudio  # pylint: disable=import-error
 except:
     pass
 
@@ -23,7 +24,7 @@ class VolumeControl(abc.ABC):
         pass
 
     @abc.abstractproperty
-    def volume(self):
+    def volume(self):  # pylint: disable=method-hidden
         pass
 
     @volume.setter
@@ -49,9 +50,11 @@ class VolumeControl(abc.ABC):
                 old_volume = next_volume - step
 
                 if not force and self.should_stop_fading(device_volume, old_volume):
-                    logger.debug(f'''A stop fading condition was met:
+                    logger.debug(
+                        f'''A stop fading condition was met:
                         Current volume: {device_volume}
-                        Old volume: {old_volume}''')
+                        Old volume: {old_volume}'''
+                    )
                     break
 
                 logger.debug(f'Setting volume to {next_volume}')
@@ -79,9 +82,7 @@ class SpotifyVolumeControl(VolumeControl):
     def should_stop_fading(self, device_volume, old_volume):
         is_playing = self.spotify.current_playback().is_playing
         logger.debug(f'Spotify playing: {is_playing}')
-        return (
-            super().should_stop_fading(device_volume, old_volume) or
-            not is_playing)
+        return super().should_stop_fading(device_volume, old_volume) or not is_playing
 
     @property
     def volume(self):
@@ -90,6 +91,62 @@ class SpotifyVolumeControl(VolumeControl):
     @volume.setter
     def volume(self, val):
         self.spotify.volume(min(max(val, 1), 100), device=self.device)
+
+
+class SpotifyVolumeControlAsync(VolumeControl):
+    def __init__(self, client, device=None):
+        self.spotify = client
+        self.device = device
+        self.old_volume = None
+
+    async def mute(self):
+        self.old_volume = self.volume
+        await self.spotify.volume(0, device=self.device)
+
+    async def unmute(self):
+        if self.old_volume:
+            await self.set_volume(self.old_volume)
+        else:
+            await self.set_volume(1)
+
+    async def should_stop_fading(self, device_volume, old_volume):
+        is_playing = (await self.spotify.current_playback()).is_playing
+        logger.debug(f'Spotify playing: {is_playing}')
+        return super().should_stop_fading(device_volume, old_volume) or not is_playing
+
+    async def volume(self):  # pylint: disable=method-hidden
+        device = await self.spotify.get_device(device=self.device)
+        return int(device.volume_percent) + 1
+
+    async def set_volume(self, val):
+        await self.spotify.volume(min(max(val, 1), 100), device=self.device)
+
+    async def fade(self, limit=100, start=1, step=1, seconds=VOLUME_FADE_SECONDS, force=False):
+        try:
+            await self.unmute()
+
+            delay = seconds / ((limit - start) / step)
+            device_volume = await self.volume()
+
+            await self.set_volume(start)
+
+            for next_volume in range(start + step, limit + 1, step):
+                await asyncio.sleep(delay)
+                device_volume = await self.volume()
+                old_volume = next_volume - step
+
+                if not force and self.should_stop_fading(device_volume, old_volume):
+                    logger.debug(
+                        f'''A stop fading condition was met:
+                        Current volume: {device_volume}
+                        Old volume: {old_volume}'''
+                    )
+                    break
+
+                logger.debug(f'Setting volume to {next_volume}')
+                await self.set_volume(next_volume)
+        except Exception as exc:
+            logger.exception(exc)
 
 
 class AlsaVolumeControl(VolumeControl):
@@ -114,9 +171,7 @@ class AlsaVolumeControl(VolumeControl):
     def should_stop_fading(self, device_volume, old_volume):
         is_mute = self.mixer.getmute()[0]
         logger.debug(f'Mute status: {is_mute}')
-        return (
-            super().should_stop_fading(device_volume, old_volume) or
-            is_mute)
+        return super().should_stop_fading(device_volume, old_volume) or is_mute
 
     @property
     def volume(self):
@@ -139,7 +194,8 @@ class ApplescriptVolumeControl(VolumeControl):
 
         super().fade(limit, start, step, seconds, force)
 
-    def osascript(self, cmd):
+    @staticmethod
+    def osascript(cmd):
         cmd = f"/usr/bin/osascript -e '{cmd}'"
         result = subprocess.check_output(cmd, shell=True).decode().strip()
 
@@ -148,16 +204,15 @@ class ApplescriptVolumeControl(VolumeControl):
 
         return result
 
-    def switch_audio_device(self, device):
+    @staticmethod
+    def switch_audio_device(device):
         logger.debug(f'Switching audio device: {device}')
         subprocess.call(f"/usr/local/bin/SwitchAudioSource -s \"{device}\"", shell=True)
 
     def should_stop_fading(self, device_volume, old_volume):
         is_playing = self.osascript('tell application "Spotify" to get player state') == 'playing'
         logger.debug(f'Spotify playing: {is_playing}')
-        return (
-            super().should_stop_fading(device_volume, old_volume) or
-            not is_playing)
+        return super().should_stop_fading(device_volume, old_volume) or not is_playing
 
     def spotify_mute(self):
         self.old_volume = self.spotify_volume
@@ -203,14 +258,27 @@ class ApplescriptVolumeControl(VolumeControl):
 
 
 class LinuxVolumeControl(AlsaVolumeControl):
-    def __init__(self, spotify_client, alsa_mixer_name, spotify_device=None, alsa_device=None):
+    def __init__(self, spotify_client, alsa_mixer_name, spotify_device=None, alsa_device=None, _async=False):
         super().__init__(alsa_mixer_name, device=alsa_device)
-        self.spotify_volume_control = SpotifyVolumeControl(spotify_client, spotify_device)
+        if _async:
+            self.spotify_volume_control = SpotifyVolumeControlAsync(spotify_client, spotify_device)
+            self.loop = asyncio.get_event_loop()
+        else:
+            self.spotify_volume_control = SpotifyVolumeControl(spotify_client, spotify_device)
+            self.loop = None
 
     def should_stop_fading(self, device_volume, old_volume):
         return (
-            super().should_stop_fading(device_volume, old_volume) or
-            self.spotify_volume_control.should_stop_fading(device_volume, old_volume))
+            super().should_stop_fading(device_volume, old_volume)
+            or self.spotify_should_stop_fading(device_volume, old_volume)
+        )
+
+    def spotify_should_stop_fading(self, device_volume, old_volume):
+        if self.loop:
+            return self.loop.run_until_complete(
+                self.spotify_volume_control.should_stop_fading(device_volume, old_volume)
+            )
+        return self.spotify_volume_control.should_stop_fading(device_volume, old_volume)
 
     def get_amixer_cmd(self, volume):
         cmd = ['/usr/bin/amixer']

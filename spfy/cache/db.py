@@ -1,21 +1,37 @@
 import os
 import re
 import time
+import random
 from enum import IntEnum
 from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
 from datetime import date, datetime
 
-from first import first
 import psycopg2.extras
-from pony.orm import *
+# pylint: disable=unused-import
+from pony.orm import (
+    Set,
+    Json,
+    Database,
+    Optional,
+    Required,
+    PrimaryKey,
+    ObjectNotFound,
+    get,
+    desc,
+    select,
+    ormtypes,
+    sql_debug,
+    db_session,
+    composite_key
+)
 from psycopg2.extensions import register_adapter
 
-from .. import config, Unsplash
+from .. import Unsplash, config
 from ..constants import TimeRange
 
 register_adapter(ormtypes.TrackedDict, psycopg2.extras.Json)
 
-if os.getenv('DEBUG'):
+if os.getenv('SQL_DEBUG'):
     sql_debug(True)
     import logging
     logging.getLogger('pony.orm.sql').setLevel(logging.DEBUG)
@@ -24,11 +40,13 @@ db = Database()
 
 
 class User(db.Entity):
+    _table_ = 'users'
+
     DEFAULT_EMAIL = 'spfy@backend'
     DEFAULT_USERNAME = 'spfy-backend'
     DEFAULT_USERID = uuid5(NAMESPACE_URL, DEFAULT_USERNAME)
 
-    id = PrimaryKey(UUID, default=uuid4)
+    id = PrimaryKey(UUID, default=uuid4)  # pylint: disable=redefined-builtin
     email = Required(str, unique=True, index=True)
     username = Required(str, unique=True, index=True)
     token = Required(Json, volatile=True)
@@ -70,15 +88,17 @@ class User(db.Entity):
             return User(id=cls.DEFAULT_USERID, username=cls.DEFAULT_USERNAME, email=cls.DEFAULT_EMAIL, token={})
 
     @staticmethod
-    def token_updater(id):
+    def token_updater(_id):
         @db_session
         def update(token):
-            User[id].token = token
+            User[_id].token = token
 
         return update
 
 
 class Image(db.Entity):
+    _table_ = 'images'
+
     REGULAR = 1080
     SMALL = 400
     THUMB = 200
@@ -93,19 +113,25 @@ class Image(db.Entity):
     unsplash_user_fullname = Optional(str)
     unsplash_user_username = Optional(str)
 
+    # pylint: disable=no-self-use
+    def unsplash_url(self):
+        return f'https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral'
+
+    def unsplash_user_url(self):
+        return f'https://unsplash.com/@{self.unsplash_user_username}?utm_source={config.unsplash.app_name}&utm_medium=referral'
+
     def unsplash_credits(self):
         return {
-            'user_name':
-                self.unsplash_user_fullname,
-            'user_url':
-                f'https://unsplash.com/@{self.unsplash_user_username}?utm_source={config.unsplash.app_name}&utm_medium=referral',
-            'site_url':
-                f'https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral'
+            'user_name': self.unsplash_user_fullname,
+            'user_url': self.unsplash_user_url(),
+            'site_url': self.unsplash_url()
         }
 
 
 class SpotifyUser(db.Entity):
-    id = PrimaryKey(str)
+    _table_ = 'spotify_users'
+
+    id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     name = Optional(str)
     playlists = Set('Playlist')
 
@@ -123,6 +149,8 @@ class SpotifyUser(db.Entity):
 
 
 class Genre(db.Entity):
+    _table_ = 'genres'
+
     name = PrimaryKey(str)
     images = Set(Image)
     artists = Set('Artist')
@@ -175,34 +203,16 @@ class Genre(db.Entity):
             'unsplash_user_fullname': photo.user.name,
             'unsplash_user_username': photo.user.username,
         }
-        Image(
-            url=photo.urls.full,
-            width=photo.width,
-            height=photo.height,
-            **params
-        )
-        Image(
-            url=photo.urls.regular,
-            width=Image.REGULAR,
-            height=int(round(ratio * Image.REGULAR)),
-            **params
-        )
-        Image(
-            url=photo.urls.small,
-            width=Image.SMALL,
-            height=int(round(ratio * Image.SMALL)),
-            **params
-        )
-        Image(
-            url=photo.urls.thumb,
-            width=Image.THUMB,
-            height=int(round(ratio * Image.THUMB)),
-            **params
-        )
+        Image(url=photo.urls.full, width=photo.width, height=photo.height, **params)
+        Image(url=photo.urls.regular, width=Image.REGULAR, height=int(round(ratio * Image.REGULAR)), **params)
+        Image(url=photo.urls.small, width=Image.SMALL, height=int(round(ratio * Image.SMALL)), **params)
+        Image(url=photo.urls.thumb, width=Image.THUMB, height=int(round(ratio * Image.THUMB)), **params)
         return self.image(width, height)
 
 
 class Playlist(db.Entity):
+    _table_ = 'playlists'
+
     PARTICLE_RE = re.compile('The (?P<popularity>Sound|Pulse|Edge) of (?P<genre>.+)')
     SOUND_CITY_RE = re.compile('The Sound of (?P<city>.+) (?P<country_code>[A-Z]{2})')
     NEEDLE_RE = re.compile(
@@ -219,7 +229,7 @@ class Playlist(db.Entity):
         EMERGING = 4
         UNDERGROUND = 5
 
-    id = PrimaryKey(str)
+    id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     collaborative = Required(bool)
     images = Set(Image, cascade_delete=True)
     name = Required(str)
@@ -295,17 +305,19 @@ class Playlist(db.Entity):
 
         match = cls.NEEDLE_RE.match(playlist.name)
         if match:
-            country, date, popularity = match.groups()
+            country, _date, popularity = match.groups()
             fields['popularity'] = cls.Popularity[popularity.upper()].value
             fields['country'] = country.lower()
-            fields['date'] = datetime.strptime(date, '%Y%m%d').date()
+            fields['date'] = datetime.strptime(_date, '%Y%m%d').date()
             return cls(**fields)
 
         return cls(**fields)
 
 
 class Artist(db.Entity):
-    id = PrimaryKey(str)
+    _table_ = 'artists'
+
+    id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     name = Required(str, index=True)
     followers = Required(int)
     genres = Set(Genre)

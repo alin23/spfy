@@ -1,34 +1,35 @@
 import time
 import random
 from datetime import date, timedelta
-from itertools import chain
 
 from pyorderby import orderby
 
-from .. import logger
-from ..cache import Genre, Artist, Playlist, get, select, db_session
-from ..constants import TimeRange, AudioFeature
+from ... import logger
+from ...cache import Genre, Artist, Playlist, get, select, db_session
+from ...constants import TimeRange, AudioFeature
 
 
 class RecommenderMixin:
+    USER_LIST = ('particledetector', 'thesoundsofspotify')
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     @db_session
-    def fetch_playlists(self):
+    async def fetch_playlists(self):
         fetched_ids = set(select(p.id for p in Playlist))
-        results = chain(self.user_playlists('particledetector').all(), self.user_playlists('thesoundsofspotify').all())
 
-        for playlist in results:
-            logger.info(f'Fetching {playlist.name}')
-            if playlist.id not in fetched_ids:
-                Playlist.from_dict(playlist)
-            fetched_ids.add(playlist.id)
+        for user in self.USER_LIST:
+            async for playlist in self.user_playlists(user).iterall():
+                logger.info(f'Got {playlist.name}')
+                if playlist.id not in fetched_ids:
+                    Playlist.from_dict(playlist)
+                fetched_ids.add(playlist.id)
 
     @db_session
-    def fetch_user_top(self, time_range):
+    async def fetch_user_top(self, time_range):
         self.user.top_artists.clear()
-        for artist in self.current_user_top_artists(limit=50, time_range=time_range).iterall():
+        async for artist in self.current_user_top_artists(limit=50, time_range=time_range).iterall():
             if self.is_disliked_artist(artist):
                 continue
 
@@ -52,27 +53,27 @@ class RecommenderMixin:
         return Playlist.get(genre=genre, popularity=Playlist.Popularity(popularity).value)
 
     @db_session
-    def top_artists(self, time_range=TimeRange.SHORT_TERM):
+    async def top_artists(self, time_range=TimeRange.SHORT_TERM):
         if self.user.top_expired(time_range):
-            self.fetch_user_top(time_range)
+            await self.fetch_user_top(time_range)
 
         return self.user.top_artists
 
     @db_session
-    def top_genres(self, time_range=TimeRange.SHORT_TERM):
+    async def top_genres(self, time_range=TimeRange.SHORT_TERM):
         if self.user.top_expired(time_range):
-            self.fetch_user_top(time_range)
+            await self.fetch_user_top(time_range)
 
         return self.user.top_genres
 
-    def order_by(self, features, tracks):
-        audio_features = self.audio_features(tracks=tracks)
+    async def order_by(self, features, tracks):
+        audio_features = await self.audio_features(tracks=tracks)
         if isinstance(features, AudioFeature):
             features = features.value
 
         return sorted(audio_features, key=orderby(features))
 
-    def fill_with_related_artists(self, artists, limit=5):
+    async def fill_with_related_artists(self, artists, limit=5):
         tries = 5
         if len(artists) >= limit:
             return artists
@@ -84,7 +85,7 @@ class RecommenderMixin:
             tries -= 1
             related_artists = {
                 a.id
-                for a in self.artist_related_artists(random.choice(artist_list))
+                for a in (await self.artist_related_artists(random.choice(artist_list)))
                 if self.is_not_disliked_artist(a)
             }
 
@@ -94,7 +95,7 @@ class RecommenderMixin:
         return artist_set
 
     @db_session
-    def recommend_by_top_artists(
+    async def recommend_by_top_artists(
         self,
         artist_limit=2,
         track_limit=100,
@@ -109,15 +110,16 @@ class RecommenderMixin:
             list: List of tracks
         """
 
-        artists = self.top_artists(time_range=time_range).select().without_distinct().random(artist_limit)
+        top_artists = await self.top_artists(time_range=time_range)
+        artists = top_artists.select().without_distinct().random(artist_limit)
         if use_related:
-            artists = self.fill_with_related_artists([a.id for a in artists])
+            artists = await self.fill_with_related_artists([a.id for a in artists])
 
-        tracks = self.recommendations(seed_artists=artists, limit=track_limit, **kwargs)
+        tracks = await self.recommendations(seed_artists=artists, limit=track_limit, **kwargs)
         tracks = list(filter(self.is_not_disliked_track, tracks))
 
         if features_order:
-            tracks = self.order_by(features_order, tracks)
+            tracks = await self.order_by(features_order, tracks)
 
         return tracks
 

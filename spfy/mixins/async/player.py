@@ -1,20 +1,32 @@
 import os
 import random
+import asyncio
 import threading
+from functools import partial
 from collections import OrderedDict
 
 from first import first
 from cached_property import cached_property
 
-from .. import config
-from ..cache import Playlist, db_session
-from ..volume import (
+from ... import config
+from ...cache import Playlist, db_session
+from ...volume import (
     AlsaVolumeControl,
     LinuxVolumeControl,
-    SpotifyVolumeControl,
-    ApplescriptVolumeControl
+    ApplescriptVolumeControl,
+    SpotifyVolumeControlAsync
 )
-from ..constants import ItemType, TimeRange, VolumeBackend
+from ...constants import ItemType, TimeRange, VolumeBackend
+
+background_loop = asyncio.get_event_loop()
+
+
+def background_event_loop():
+    asyncio.set_event_loop(background_loop)
+    background_loop.run_forever()
+
+
+threading.Thread(target=background_event_loop, daemon=True).start()
 
 
 class PlayerMixin:
@@ -56,7 +68,9 @@ class PlayerMixin:
         except:
             return None
 
-        return LinuxVolumeControl(self, self.alsa_mixer, spotify_device=self.device, alsa_device=self.alsa_device)
+        return LinuxVolumeControl(
+            self, self.alsa_mixer, spotify_device=self.device, alsa_device=self.alsa_device, _async=True
+        )
 
     @cached_property
     def _alsa_volume_control(self):
@@ -70,7 +84,7 @@ class PlayerMixin:
 
     @cached_property
     def _spotify_volume_control(self):
-        return SpotifyVolumeControl(self, device=self.device)
+        return SpotifyVolumeControlAsync(self, device=self.device)
 
     def backend(self, backend=None, device=None):
         if not backend:
@@ -79,41 +93,67 @@ class PlayerMixin:
         volume_backend = self._backends[VolumeBackend(backend)]
         if not volume_backend:
             raise ValueError(f'Backend {volume_backend} is not available on this system')
-        if isinstance(volume_backend, SpotifyVolumeControl) and device and device != self.device:
-            volume_backend = SpotifyVolumeControl(self, device=device)
+        if isinstance(volume_backend, SpotifyVolumeControlAsync) and device and device != self.device:
+            volume_backend = SpotifyVolumeControlAsync(self, device=device)
 
         return volume_backend
 
-    def change_volume(self, value=0, backend=None, device=None):
+    async def change_volume(self, value=0, backend=None, device=None):
         volume_backend = self.backend(backend, device=device)
-        volume = volume_backend.volume + value
-        volume_backend.volume = volume
+        if isinstance(volume_backend, SpotifyVolumeControlAsync):
+            volume = await volume_backend.volume()
+            await volume_backend.set_volume(volume + value)
+        else:
+            volume = volume_backend.volume + value
+            volume_backend.volume = volume
         return volume
 
-    def volume_up(self, backend=None):
-        return self.change_volume(value=+1, backend=backend)
+    async def volume_up(self, backend=None):
+        return await self.change_volume(value=+1, backend=backend)
 
-    def volume_down(self, backend=None):
-        return self.change_volume(value=-1, backend=backend)
+    async def volume_down(self, backend=None):
+        return await self.change_volume(value=-1, backend=backend)
 
-    def fade_up(self, **kwargs):
-        self.fade(**{**config.volume.fade.up, **kwargs})
+    async def fade_up(self, **kwargs):
+        await self.fade(**{**config.volume.fade.up, **kwargs})
 
-    def fade_down(self, **kwargs):
-        self.fade(**{**config.volume.fade.down, **kwargs})
+    async def fade_down(self, **kwargs):
+        await self.fade(**{**config.volume.fade.down, **kwargs})
 
     #  pylint: disable=too-many-arguments
-    def fade(self, limit=50, start=0, step=1, seconds=300, force=False, backend=None, spotify_volume=100, device=None):
+    async def fade(
+        self,
+        limit=50,
+        start=0,
+        step=1,
+        seconds=300,
+        force=False,
+        backend=None,
+        spotify_volume=100,
+        device=None,
+        blocking=False
+    ):
         volume_backend = self.backend(backend, device=device)
-        if not isinstance(volume_backend, SpotifyVolumeControl):
-            self.change_volume(spotify_volume, backend=VolumeBackend.SPOTIFY, device=device)
+        if not isinstance(volume_backend, SpotifyVolumeControlAsync):
+            await self.change_volume(spotify_volume, backend=VolumeBackend.SPOTIFY, device=device)
 
-        self.change_volume(start, backend=backend, device=device)
+        await self.change_volume(start, backend=backend, device=device)
         kwargs = dict(limit=limit, start=start, step=step, seconds=seconds, force=force)
-        threading.Thread(target=volume_backend.fade, kwargs=kwargs).start()
+
+        loop = asyncio.get_event_loop()
+        if isinstance(volume_backend, SpotifyVolumeControlAsync):
+            task = loop.create_task(volume_backend.fade(**kwargs))
+            if blocking:
+                await task
+            else:
+                return task
+        else:
+            loop.run_in_executor(partial(volume_backend.fade, **kwargs))
+
+        return None
 
     @db_session
-    def play_recommended_tracks(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
+    async def play_recommended_tracks(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
         fade_args = kwargs.get('fade_args') or {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
         recommendation_args = kwargs.get('recommendation_args') or {
             k[4:]: v
@@ -122,32 +162,32 @@ class PlayerMixin:
         }
         recommendation_args['time_range'] = time_range
 
-        tracks = self.recommend_by_top_artists(**recommendation_args)
+        tracks = await self.recommend_by_top_artists(**recommendation_args)
 
-        self.fade_up(device=device, **fade_args)
-        result = self.start_playback(tracks=tracks, device=device)
+        await self.fade_up(device=device, **fade_args)
+        result = await self.start_playback(tracks=tracks, device=device)
         return {'playing': True, 'device': device, 'tracks': tracks, 'result': result}
 
     @db_session
-    def play_recommended_genre(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
+    async def play_recommended_genre(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
         fade_args = kwargs.get('fade_args') or {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
 
         popularity = random.choice(list(Playlist.Popularity)[:3])
-        genre = self.top_genres(time_range=time_range).select().without_distinct().random(1)[0]
+        genre = await self.top_genres(time_range=time_range).select().without_distinct().random(1)[0]
 
         playlist = self.genre_playlist(genre.name, popularity)
         while not playlist:
             playlist = self.genre_playlist(genre.name, popularity)
 
-        self.fade_up(device=device, **fade_args)
-        result = playlist.play(self, device=device)
+        await self.fade_up(device=device, **fade_args)
+        result = await playlist.play(self, device=device)
         return {'playing': True, 'device': device, 'playlist': playlist.to_dict(), 'result': result}
 
     @db_session
-    def play(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
+    async def play(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
         item_type = random.choice([ItemType.TRACKS, ItemType.PLAYLIST])
         if item_type == ItemType.TRACKS:
-            return self.play_recommended_tracks(time_range, device, **kwargs)
+            return await self.play_recommended_tracks(time_range, device, **kwargs)
         if item_type == ItemType.PLAYLIST:
-            return self.play_recommended_genre(time_range, device, **kwargs)
+            return await self.play_recommended_genre(time_range, device, **kwargs)
         return {'playing': False}

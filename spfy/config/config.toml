@@ -5,7 +5,8 @@ redirect_uri = ""
 
 [http]
 connections = 30
-concurrent_connections = 20
+concurrent_connections = 200
+parallel_connections = 20
 retries = 3
 
 [database]

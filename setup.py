@@ -35,6 +35,8 @@ REQUIRES = [
     'cachecontrol',
     'lockfile',
     'python-unsplash-async',
+    'aiohttp',
+    'uvloop',
 ]
 
 try:
@@ -54,11 +56,7 @@ setup(
     maintainer_email='alin.p32@gmail.com',
     url='https://github.com/alin23/spfy',
     license='MIT/Apache-2.0',
-
-    keywords=[
-        'spotify', 'spfy'
-    ],
-
+    keywords=['spotify', 'spfy'],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
@@ -70,23 +68,13 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
-
     install_requires=REQUIRES,
     tests_require=['coverage', 'pytest'],
-
     packages=find_packages(),
-    package_data={
-        'spfy': [
-            'config/*.toml',
-            'html/*.html',
-        ]
-    },
-    data_files=[
-        (str(CONFIGDIR), ['spfy/config/config.toml'])
-    ],
-
-    entry_points={
-        'console_scripts': ['spotify = spfy.wrapper:main']
-    },
-
+    package_data={'spfy': [
+        'config/*.toml',
+        'html/*.html',
+    ]},
+    data_files=[(str(CONFIGDIR), ['spfy/config/config.toml'])],
+    entry_points={'console_scripts': ['spotify = spfy.wrapper:main', 'spotify_async = spfy.async.wrapper:main']},
 )

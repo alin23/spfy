@@ -1,13 +1,17 @@
-class SpotifyException(Exception):
-    def __init__(self, response=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.http_status_code = response.status_code
-        self.headers = response.headers or {}
+import json
 
-        if response.text and len(response.text) > 0 and response.text != 'null':
-            self.msg = f'{response.url}:\n {response.json()["error"]["message"]}'
+
+class SpotifyException(Exception):
+    def __init__(self, *args, status_code=None, headers=None, text=None, url=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.http_status_code = status_code
+        self.headers = headers or {}
+
+        if text and text != 'null':
+            response = json.loads(text)
+            self.msg = f'{url}:\n {response["error"]["message"]}'
         else:
-            self.msg = f'{response.url}: error'
+            self.msg = f'{url}: error'
 
     def __str__(self):
         return f'''
@@ -16,7 +20,7 @@ class SpotifyException(Exception):
 
 
 class SpotifyRateLimitException(SpotifyException):
-    def __init__(self, retry_after=0, *args, **kwargs):
+    def __init__(self, *args, retry_after=0, **kwargs):
         super().__init__(*args, **kwargs)
         self.retry_after = retry_after
 
