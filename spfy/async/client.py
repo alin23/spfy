@@ -802,7 +802,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
     async def get_device_id(self, device=None):
         if device and DEVICE_ID_RE.match(device):
             return device
-        return await self.get_device(device).id
+
+        device = await self.get_device(device)
+        return device.id
 
     async def get_device(self, device=None):
         '''Get Spotify device based on name

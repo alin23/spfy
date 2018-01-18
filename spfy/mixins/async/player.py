@@ -173,7 +173,8 @@ class PlayerMixin:
         fade_args = kwargs.get('fade_args') or {k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')}
 
         popularity = random.choice(list(Playlist.Popularity)[:3])
-        genre = await self.top_genres(time_range=time_range).select().without_distinct().random(1)[0]
+        top_genres = await self.top_genres(time_range=time_range)
+        genre = top_genres.select().without_distinct().random(1)[0]
 
         playlist = self.genre_playlist(genre.name, popularity)
         while not playlist:
