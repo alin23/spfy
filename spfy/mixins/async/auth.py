@@ -27,14 +27,14 @@ def run_app():
 
 
 class AuthMixin:
-    def __init__(self, *args, client_id=None, client_secret=None, redirect_uri=None, userid=None, **kwargs):
+    def __init__(self, *args, client_id=None, client_secret=None, redirect_uri=None, user_id=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.client_id = client_id or config.app.client_id
         self.client_secret = client_secret or config.app.client_secret
         self.redirect_uri = self._get_redirect_uri(redirect_uri)
 
         self.session = None
-        self.userid = userid
+        self.user_id = user_id
 
         self.callback_reached = threading.Event()
 
@@ -55,7 +55,7 @@ class AuthMixin:
     @property
     @db_session
     def user(self):
-        return User[self.userid]
+        return User[self.user_id]
 
     @property
     def is_authenticated(self):
@@ -69,8 +69,8 @@ class AuthMixin:
             self.client_id, redirect_uri=self.redirect_uri, scope=scope, auto_refresh_url=API.TOKEN.value
         )
 
-        if self.userid:
-            user = User.get(id=self.userid)
+        if self.user_id:
+            user = User.get(id=self.user_id)
             if user:
                 session.token = user.token
                 session.token_updater = User.token_updater(user.id)
@@ -79,7 +79,7 @@ class AuthMixin:
         if username or email:
             user = get(u for u in User if u.username == username or u.email == email)
             if user:
-                self.userid = user.id
+                self.user_id = user.id
                 session.token = user.token
                 session.token_updater = User.token_updater(user.id)
                 return session
@@ -100,16 +100,16 @@ class AuthMixin:
 
             if user:
                 user.token = token
-                if user.id != self.userid:
-                    self.userid = user.id
-            elif self.userid:
-                user = User.get_for_update(id=self.userid)
+                if user.id != self.user_id:
+                    self.user_id = user.id
+            elif self.user_id:
+                user = User.get_for_update(id=self.user_id)
                 if user:
                     user.token = token
 
             if not user:
-                self.userid = self.userid or uuid.uuid4()
-                user = User(id=self.userid, username=user_details.id, email=user_details.email, token=token)
+                self.user_id = self.user_id or uuid.uuid4()
+                user = User(id=self.user_id, username=user_details.id, email=user_details.email, token=token)
 
             return session
 
@@ -118,7 +118,7 @@ class AuthMixin:
     @db_session
     async def authenticate_server(self):
         default_user = User.default()
-        self.userid = default_user.id
+        self.user_id = default_user.id
 
         session = self.session or self.get_session(client=BackendApplicationClient(self.client_id))
         session.token_updater = User.token_updater(default_user.id)

@@ -44,7 +44,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         try:
             user = self.user
         except Exception:
-            logger.warning(f'Tried to use an inexistent user: {self.userid}')
+            logger.warning(f'Tried to use an inexistent user: {self.user_id}')
         else:
             user.api_calls += 1
             user.last_usage_at = datetime.utcnow()
@@ -97,7 +97,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             sleep(exc.retry_after)
             return self._internal_call(method, url, payload, params)
 
-        if self.userid:
+        if self.user_id:
             self._increment_api_call_count()
 
         if r.text and r.text != 'null':
