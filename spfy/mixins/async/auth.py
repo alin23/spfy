@@ -59,7 +59,7 @@ class AuthMixin:
 
     @property
     def is_authenticated(self):
-        return bool(self.session and self.session.token)
+        return bool(self.session and self.session.authorized)
 
     @db_session
     async def authenticate_user(
