@@ -72,7 +72,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     async def _internal_call(self, method, url, payload, params):
         logger.debug(url)
-        req = await self.session.request(
+        req = await self.session._request(
             method,
             url,
             proxy=self.proxy,
