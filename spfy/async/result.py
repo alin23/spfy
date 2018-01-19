@@ -44,8 +44,29 @@ class Playable:
         return data
 
 
+# pylint: disable=too-few-public-methods
+class SpotifyResultIterator:
+    def __init__(self, result):
+        self.result = result
+        self.result_iterator = iter(result)
+        self.params_list = self.result.get_next_params_list()
+        self.requests = (self.result._get_with_params(params) for params in self.params_list)
+        self.responses = limited_as_completed(self.requests, config.http.concurrent_connections)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        item = next(self.result_iterator, None)
+        if item is not None:
+            return item
+
+        self.result_iterator = await self.responses.__anext__()  # pylint: disable=no-member
+        return await self.__anext__()
+
+
 class SpotifyResult(addict.Dict):
-    ITER_KEYS = ('items', 'artists', 'tracks', 'albums', 'audio_features')
+    ITER_KEYS = ('items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,9 +76,9 @@ class SpotifyResult(addict.Dict):
     def __iter__(self):
         for key in self.ITER_KEYS:
             if key in self:
+                if 'items' in self[key]:
+                    return iter(self[key]['items'])
                 return iter(self[key])
-        if 'playlists' in self and 'items' in self.playlists:
-            return iter(self.playlists['items'])
         return super().__iter__()
 
     def __getitem__(self, item):
@@ -109,7 +130,7 @@ class SpotifyResult(addict.Dict):
         return []
 
     async def all(self):
-        return [response async for response in self.iterall()]
+        return [item async for item in self.iterall()]  # pylint: disable=not-an-iterable
 
     async def next(self):
         if self._next_result:
@@ -118,10 +139,5 @@ class SpotifyResult(addict.Dict):
             return await self._client._get(self['next'])
         return None
 
-    async def iterall(self):
-        params_list = self.get_next_params_list()
-        if not params_list:
-            return []
-
-        requests = (self._get_with_params(params) for params in params_list)
-        return limited_as_completed(requests, config.http.concurrent_connections)
+    def iterall(self):
+        return SpotifyResultIterator(self)

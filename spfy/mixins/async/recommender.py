@@ -20,7 +20,8 @@ class RecommenderMixin:
         fetched_ids = set(select(p.id for p in Playlist))
 
         for user in self.USER_LIST:
-            async for playlist in self.user_playlists(user).iterall():
+            user_playlists = await self.user_playlists(user)
+            async for playlist in user_playlists.iterall():
                 logger.info(f'Got {playlist.name}')
                 if playlist.id not in fetched_ids:
                     Playlist.from_dict(playlist)
@@ -29,7 +30,8 @@ class RecommenderMixin:
     @db_session
     async def fetch_user_top(self, time_range):
         self.user.top_artists.clear()
-        async for artist in self.current_user_top_artists(limit=50, time_range=time_range).iterall():
+        top_artists = await self.current_user_top_artists(limit=50, time_range=time_range)
+        async for artist in top_artists.iterall():
             if self.is_disliked_artist(artist):
                 continue
 
