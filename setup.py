@@ -37,6 +37,7 @@ REQUIRES = [
     'python-unsplash-async',
     'aiohttp',
     'uvloop',
+    'psycopg2',
 ]
 
 try:
@@ -69,7 +70,7 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
     install_requires=REQUIRES,
-    tests_require=['coverage', 'pytest'],
+    tests_require=['coverage', 'pytest', 'tox', 'pylint', 'mypy'],
     packages=find_packages(),
     package_data={'spfy': [
         'config/*.toml',

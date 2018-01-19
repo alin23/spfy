@@ -1,5 +1,6 @@
 from .. import *  # isort:skip
 
+# pylint: disable=wrong-import-order
 import asyncio
 from itertools import islice
 

@@ -1,7 +1,6 @@
 import logging
 
 import aiohttp
-from aiohttp.client import _RequestContextManager
 from oauthlib.common import urldecode, generate_token
 from oauthlib.oauth2 import (
     TokenExpiredError,

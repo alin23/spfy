@@ -4,12 +4,12 @@ import json
 from time import sleep
 from datetime import datetime
 from operator import attrgetter
-from functools import lru_cache, partialmethod
+from functools import partialmethod
 
 from first import first
 
 from .. import logger
-from ..cache import Playlist, db_session
+from ..cache import Playlist, async_lru, db_session
 from .result import SpotifyResult
 from ..mixins import EmailMixin
 from ..constants import (
@@ -214,7 +214,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_artist_id(artist_id)
         return await self._get(API.ARTIST_TOP_TRACKS.value.format(id=_id), country=country)
 
-    @lru_cache(maxsize=128)
+    @async_lru(maxsize=128)
     async def artist_related_artists(self, artist_id):
         ''' Get Spotify catalog information about artists similar to an
             identified artist. Similarity is based on analysis of the
@@ -798,7 +798,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         return await self._get(API.DEVICES.value)
 
-    @lru_cache(maxsize=128)
+    @async_lru(maxsize=128)
     async def get_device_id(self, device=None):
         if device and DEVICE_ID_RE.match(device):
             return device
