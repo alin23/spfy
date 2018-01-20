@@ -176,7 +176,8 @@ class Genre(db.Entity):
     def get_image_queries(self):
         words = self.name.split()
         stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
-        return [*words, self.name, *sum(stems, [])]
+        queries = [*words, self.name, *sum(stems, [])]
+        return [f'{query} music' for query in queries]
 
     async def fetch_image(self, width=None, height=None):
         image = self.image(width, height)
