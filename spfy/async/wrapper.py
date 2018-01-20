@@ -41,8 +41,11 @@ def main():
     """Main function."""
 
     import asyncio
-    import uvloop
-    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    try:
+        import uvloop
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    except ImportError:
+        pass
     try:
         Spotify.cli = True
         Spotify.loop = asyncio.get_event_loop()

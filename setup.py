@@ -36,7 +36,6 @@ REQUIRES = [
     'lockfile',
     'python-unsplash-async',
     'aiohttp',
-    'uvloop',
     'psycopg2',
 ]
 
