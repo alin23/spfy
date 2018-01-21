@@ -20,6 +20,7 @@ with open('README.md', 'rb') as f:
 REQUIRES = [
     'addict',
     'backoff',
+    'colorthief',
     'fire',
     'first',
     'gunicorn',

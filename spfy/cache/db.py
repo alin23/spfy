@@ -2,10 +2,13 @@ import os
 import re
 import time
 import random
+from io import BytesIO
 from enum import IntEnum
 from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
 from datetime import date, datetime
 
+import aiohttp
+import requests
 import psycopg2.extras
 # pylint: disable=unused-import
 from pony.orm import (
@@ -24,6 +27,7 @@ from pony.orm import (
     db_session,
     composite_key
 )
+from colorthief import ColorThief
 from psycopg2.extensions import register_adapter
 
 from .. import Unsplash, config
@@ -126,6 +130,21 @@ class Image(db.Entity):
             'user_url': self.unsplash_user_url(),
             'site_url': self.unsplash_url()
         }
+
+    @staticmethod
+    async def grab_color_async(image_url):
+        async with aiohttp.ClientSession() as client:
+            async with client.get(image_url) as resp:
+                image_file = BytesIO(await resp.read())
+                color = ColorThief(image_file).get_color(quality=1)
+                return f'#{color[0]:02x}{color[1]:02x}{color[2]:02x}'
+
+    @staticmethod
+    def grab_color(image_url):
+        resp = requests.get(image_url)
+        image_file = BytesIO(resp.content)
+        color = ColorThief(image_file).get_color(quality=1)
+        return f'#{color[0]:02x}{color[1]:02x}{color[2]:02x}'
 
 
 class SpotifyUser(db.Entity):
@@ -314,6 +333,16 @@ class Playlist(db.Entity):
 
         return cls(**fields)
 
+    def image(self, width=None, height=None):
+        if width:
+            image = self.images.select().where(lambda i: i.width >= width).order_by(Image.width).first()
+        elif height:
+            image = self.images.select().where(lambda i: i.height >= height).order_by(Image.height).first()
+        else:
+            image = self.images.select().order_by(desc(Image.width)).first()
+
+        return image
+
 
 class Artist(db.Entity):
     _table_ = 'artists'
@@ -343,7 +372,29 @@ class Artist(db.Entity):
         return f'http://open.spotify.com/artist/{self.id}'
 
     @classmethod
-    def from_dict(cls, artist):
+    async def from_dict_async(cls, artist):
+        if artist.images:
+            try:
+                color = await Image.grab_color_async(artist.images[-1].url)
+            except:
+                color = '#000000'
+
+            for image in artist.images:
+                image.color = color
+
+        return cls.from_dict(artist, grab_image_color=False)
+
+    @classmethod
+    def from_dict(cls, artist, grab_image_color=True):
+        if artist.images and grab_image_color:
+            try:
+                color = Image.grab_color(artist.images[-1].url)
+            except:
+                color = '#000000'
+
+            for image in artist.images:
+                image.color = color
+
         genres = [Genre.get(name=genre) or Genre(name=genre) for genre in artist.genres]
         images = [Image.get(url=image.url) or Image(**image) for image in artist.images]
         return cls(
@@ -354,6 +405,16 @@ class Artist(db.Entity):
             images=images,
             popularity=artist.popularity
         )
+
+    def image(self, width=None, height=None):
+        if width:
+            image = self.images.select().where(lambda i: i.width >= width).order_by(Image.width).first()
+        elif height:
+            image = self.images.select().where(lambda i: i.height >= height).order_by(Image.height).first()
+        else:
+            image = self.images.select().order_by(desc(Image.width)).first()
+
+        return image
 
 
 if config.database.filename:

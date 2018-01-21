@@ -15,58 +15,58 @@ class RecommenderMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    @db_session
     async def fetch_playlists(self):
-        fetched_ids = set(select(p.id for p in Playlist))
+        with db_session:
+            fetched_ids = set(select(p.id for p in Playlist))
 
-        for user in self.USER_LIST:
-            user_playlists = await self.user_playlists(user)
-            async for playlist in user_playlists.iterall():
-                logger.info(f'Got {playlist.name}')
-                if playlist.id not in fetched_ids:
-                    Playlist.from_dict(playlist)
-                fetched_ids.add(playlist.id)
+            for user in self.USER_LIST:
+                user_playlists = await self.user_playlists(user)
+                async for playlist in user_playlists.iterall():
+                    logger.info(f'Got {playlist.name}')
+                    if playlist.id not in fetched_ids:
+                        Playlist.from_dict(playlist)
+                    fetched_ids.add(playlist.id)
 
-    @db_session
     async def fetch_user_top(self, time_range):
-        self.user.top_artists.clear()
-        top_artists = await self.current_user_top_artists(limit=50, time_range=time_range)
-        async for artist in top_artists.iterall():
-            if self.is_disliked_artist(artist):
-                continue
+        with db_session:
+            self.user.top_artists.clear()
+            top_artists = await self.current_user_top_artists(limit=50, time_range=time_range)
+            async for artist in top_artists.iterall():
+                if self.is_disliked_artist(artist):
+                    continue
 
-            if Artist.exists(id=artist.id):
-                self.user.top_artists.add(Artist[artist.id])
-            else:
-                self.user.top_artists.add(Artist.from_dict(artist))
+                if Artist.exists(id=artist.id):
+                    self.user.top_artists.add(Artist[artist.id])
+                else:
+                    self.user.top_artists.add(await Artist.from_dict_async(artist))
 
-        self.user.top_genres = self.user.top_artists.genres.distinct().keys() - self.user.disliked_genres
+            self.user.top_genres = self.user.top_artists.genres.distinct().keys() - self.user.disliked_genres
 
-        if self.user.top_expires_at is None:
-            self.user.top_expires_at = {}
-        self.user.top_expires_at[TimeRange(time_range).value] = time.mktime(
-            (date.today() + timedelta(days=1)).timetuple()
-        )
+            if self.user.top_expires_at is None:
+                self.user.top_expires_at = {}
+            self.user.top_expires_at[TimeRange(time_range).value] = time.mktime(
+                (date.today() + timedelta(days=1)).timetuple()
+            )
 
-    @db_session
     def genre_playlist(self, genre, popularity=Playlist.Popularity.SOUND):  # pylint: disable=no-self-use
-        if not Playlist.exists():
-            raise Exception('You have to call "fetch_playlists" first.')
-        return Playlist.get(genre=genre, popularity=Playlist.Popularity(popularity).value)
+        with db_session:
+            if not Playlist.exists():
+                raise Exception('You have to call "fetch_playlists" first.')
+            return Playlist.get(genre=genre, popularity=Playlist.Popularity(popularity).value)
 
-    @db_session
     async def top_artists(self, time_range=TimeRange.SHORT_TERM):
-        if self.user.top_expired(time_range):
-            await self.fetch_user_top(time_range)
+        with db_session:
+            if self.user.top_expired(time_range):
+                await self.fetch_user_top(time_range)
 
-        return self.user.top_artists
+            return self.user.top_artists
 
-    @db_session
     async def top_genres(self, time_range=TimeRange.SHORT_TERM):
-        if self.user.top_expired(time_range):
-            await self.fetch_user_top(time_range)
+        with db_session:
+            if self.user.top_expired(time_range):
+                await self.fetch_user_top(time_range)
 
-        return self.user.top_genres
+            return self.user.top_genres
 
     async def order_by(self, features, tracks):
         audio_features = await self.audio_features(tracks=tracks)
@@ -96,7 +96,6 @@ class RecommenderMixin:
 
         return artist_set
 
-    @db_session
     async def recommend_by_top_artists(
         self,
         artist_limit=2,
@@ -112,55 +111,56 @@ class RecommenderMixin:
             list: List of tracks
         """
 
-        top_artists = await self.top_artists(time_range=time_range)
-        artists = top_artists.select().without_distinct().random(artist_limit)
-        if use_related:
-            artists = await self.fill_with_related_artists([a.id for a in artists])
+        with db_session:
+            top_artists = await self.top_artists(time_range=time_range)
+            artists = top_artists.select().without_distinct().random(artist_limit)
+            if use_related:
+                artists = await self.fill_with_related_artists([a.id for a in artists])
 
-        tracks = await self.recommendations(seed_artists=artists, limit=track_limit, **kwargs)
-        tracks = list(filter(self.is_not_disliked_track, tracks))
+            tracks = await self.recommendations(seed_artists=artists, limit=track_limit, **kwargs)
+            tracks = list(filter(self.is_not_disliked_track, tracks))
 
-        if features_order:
-            tracks = await self.order_by(features_order, tracks)
+            if features_order:
+                tracks = await self.order_by(features_order, tracks)
 
-        return tracks
+            return tracks
 
-    @db_session
     def is_disliked_artist(self, artist):
-        return (
-            artist.id in set(self.user.disliked_artists.id.distinct().keys())
-            or bool(set(artist.genres or []) & set(self.user.disliked_genres))
-        )
+        with db_session:
+            return (
+                artist.id in set(self.user.disliked_artists.id.distinct().keys())
+                or bool(set(artist.genres or []) & set(self.user.disliked_genres))
+            )
 
-    @db_session
     def is_not_disliked_artist(self, artist):
-        return not self.is_disliked_artist(artist)
+        with db_session:
+            return not self.is_disliked_artist(artist)
 
-    @db_session
     def is_not_disliked_track(self, track):
-        return all(self.is_not_disliked_artist(a) for a in track.artists)
+        with db_session:
+            return all(self.is_not_disliked_artist(a) for a in track.artists)
 
-    @db_session
     def disliked_artists(self):
-        return list(self.user.disliked_artists)
+        with db_session:
+            return list(self.user.disliked_artists)
 
-    @db_session
     def disliked_genres(self):
-        return list(self.user.disliked_genres)
+        with db_session:
+            return list(self.user.disliked_genres)
 
-    @db_session
-    def dislike_artist(self, artist):
-        if isinstance(artist, str):
-            artist = get(a for a in Artist if a.id == artist or a.name == artist)
-        elif isinstance(artist, dict):
-            artist = Artist.get(artist.id) or Artist.from_dict(artist)
+    async def dislike_artist(self, artist):
+        with db_session:
+            if isinstance(artist, str):
+                artist = get(a for a in Artist if a.id == artist or a.name == artist)
+            elif isinstance(artist, dict):
+                artist = Artist.get(artist.id) or (await Artist.from_dict_async(artist))
 
-        self.user.dislike(artist=artist)
+            self.user.dislike(artist=artist)
 
-    @db_session
     def dislike_genre(self, genre):
-        if isinstance(genre, str):
-            genre = genre.lower()
-            genre = Genre.get(name=genre) or Genre(name=genre)
+        with db_session:
+            if isinstance(genre, str):
+                genre = genre.lower()
+                genre = Genre.get(name=genre) or Genre(name=genre)
 
-        self.user.dislike(genre=genre)
+            self.user.dislike(genre=genre)
