@@ -30,7 +30,7 @@ from pony.orm import (
 from colorthief import ColorThief
 from psycopg2.extensions import register_adapter
 
-from .. import Unsplash, config
+from .. import Unsplash, config, logger
 from ..constants import TimeRange
 
 register_adapter(ormtypes.TrackedDict, psycopg2.extras.Json)
@@ -232,13 +232,23 @@ class Genre(db.Entity):
 
 class Playlist(db.Entity):
     _table_ = 'playlists'
+    YEAR = '(?P<year>[0-9]{4})'
+    GENRE = '(?P<genre>.+)'
+    CITY = '(?P<city>.+)'
+    COUNTRY = '(?P<country>.+)'
+    COUNTRY_CODE = '(?P<country_code>[A-Z]{2})'
+    DATE = '(?P<date>[0-9]{8})'
+    GENRE_POPULARITY_TITLE = '(?P<popularity>Sound|Pulse|Edge)'
+    GENRE_POPULARITY_LOWER = '(?P<popularity>sound|pulse|edge)'
+    NEEDLE_POPULARITY = '(?P<popularity>Current|Emerging|Underground)'
 
-    PARTICLE_RE = re.compile('The (?P<popularity>Sound|Pulse|Edge) of (?P<genre>.+)')
-    SOUND_CITY_RE = re.compile('The Sound of (?P<city>.+) (?P<country_code>[A-Z]{2})')
-    NEEDLE_RE = re.compile(
-        'The Needle / (?P<country>.+) (?P<date>[0-9]{8}) - (?P<popularity>Current|Emerging|Underground)'
-    )
-    PINE_NEEDLE_RE = re.compile('The Pine Needle / (?P<country>.+)')
+    PARTICLE_RE = re.compile(f'The {GENRE_POPULARITY_TITLE} of {GENRE}')
+    SOUND_CITY_RE = re.compile(f'The Sound of {CITY} {COUNTRY_CODE}')
+    NEEDLE_RE = re.compile(f'The Needle / {COUNTRY} {DATE}(?: - {NEEDLE_POPULARITY})?')
+    PINE_NEEDLE_RE = re.compile(f'The Pine Needle / {COUNTRY}')
+    YEAR_IN_GENRE_RE = re.compile(f'{YEAR} in {GENRE}')
+    META_GENRE_RE = re.compile(f'Meta{GENRE_POPULARITY_LOWER}: {GENRE}')
+    META_YEAR_IN_GENRE_RE = re.compile(f'Meta{YEAR}: {GENRE}')
 
     class Popularity(IntEnum):
         SOUND = 0
@@ -249,10 +259,14 @@ class Playlist(db.Entity):
         EMERGING = 4
         UNDERGROUND = 5
 
+        YEAR = 6
+        ALL = 7
+
     id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     collaborative = Required(bool)
     images = Set(Image, cascade_delete=True)
     name = Required(str)
+    description = Optional(str)
     owner = Required(SpotifyUser)
     public = Required(bool)
     snapshot_id = Required(str)
@@ -264,7 +278,8 @@ class Playlist(db.Entity):
     city = Optional(str, index=True)
     date = Optional(date)
     christmas = Optional(bool, index=True)
-    composite_key(genre, popularity)
+    meta = Optional(bool, index=True)
+    composite_key(genre, popularity, meta)
 
     def play(self, client, device=None):
         return client.start_playback(playlist=self.uri, device=device)
@@ -302,7 +317,7 @@ class Playlist(db.Entity):
         if match:
             city, country_code = match.groups()
             fields['popularity'] = cls.Popularity.SOUND.value
-            fields['city'] = city.lower()
+            fields['city'] = city
             fields['country_code'] = country_code
             return cls(**fields)
 
@@ -319,17 +334,52 @@ class Playlist(db.Entity):
         if match:
             country = match.groups()[0]
             fields['popularity'] = cls.Popularity.CURRENT.value
-            fields['country'] = country.lower()
+            fields['country'] = country
             fields['christmas'] = True
             return cls(**fields)
 
         match = cls.NEEDLE_RE.match(playlist.name)
         if match:
             country, _date, popularity = match.groups()
-            fields['popularity'] = cls.Popularity[popularity.upper()].value
-            fields['country'] = country.lower()
+            if popularity:
+                fields['popularity'] = cls.Popularity[popularity.upper()].value
+            else:
+                fields['popularity'] = cls.Popularity.ALL.value
+            fields['country'] = country
             fields['date'] = datetime.strptime(_date, '%Y%m%d').date()
             return cls(**fields)
+
+        match = cls.YEAR_IN_GENRE_RE.match(playlist.name)
+        if match:
+            year, genre = match.groups()
+            year = int(year)
+            genre = genre.lower()
+            fields['genre'] = Genre.get(name=genre) or Genre(name=genre)
+            fields['popularity'] = cls.Popularity.YEAR.value
+            fields['date'] = datetime(year, 1, 1)
+            return cls(**fields)
+
+        match = cls.META_GENRE_RE.match(playlist.name)
+        if match:
+            popularity, genre = match.groups()
+            genre = genre.lower()
+            fields['genre'] = Genre.get(name=genre) or Genre(name=genre)
+            fields['popularity'] = cls.Popularity[popularity.upper()].value
+            fields['meta'] = True
+            return cls(**fields)
+
+        match = cls.META_YEAR_IN_GENRE_RE.match(playlist.name)
+        if match:
+            year, genre = match.groups()
+            year = int(year)
+            genre = genre.lower()
+            fields['genre'] = Genre.get(name=genre) or Genre(name=genre)
+            fields['popularity'] = cls.Popularity.YEAR.value
+            fields['date'] = datetime(year, 1, 1)
+            fields['meta'] = True
+            return cls(**fields)
+
+        logger.warning(f'No pattern matches the playlist name: {playlist.name}')
 
         return cls(**fields)
 
