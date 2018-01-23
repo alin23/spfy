@@ -297,7 +297,7 @@ class Playlist(db.Entity):
         return f'http://open.spotify.com/user/{self.owner.id}/playlist/{self.id}'
 
     @classmethod
-    def from_dict(cls, playlist):
+    def from_dict(cls, playlist):  # pylint: disable=too-many-return-statements,too-many-statements
         owner = (
             SpotifyUser.get(id=playlist.owner.id)
             or SpotifyUser(id=playlist.owner.id, name=playlist.owner.get('display_name', playlist.owner.id))
