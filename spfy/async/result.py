@@ -61,7 +61,7 @@ class SpotifyResultIterator:
         if item is not None:
             return item
 
-        self.result_iterator = await self.responses.__anext__()  # pylint: disable=no-member
+        self.result_iterator = iter(await self.responses.__anext__())  # pylint: disable=no-member
         return await self.__anext__()
 
 
