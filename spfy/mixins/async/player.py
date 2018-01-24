@@ -1,7 +1,6 @@
 import os
 import random
 import asyncio
-import threading
 from functools import partial
 from collections import OrderedDict
 
