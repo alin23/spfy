@@ -2,6 +2,7 @@ import uuid
 import socket
 import threading
 from pathlib import Path
+from datetime import datetime
 from wsgiref.simple_server import make_server
 
 import hug
@@ -11,7 +12,7 @@ from requests_oauthlib import OAuth2Session
 from cachecontrol.caches.file_cache import FileCache
 
 from .. import root, config, logger
-from ..cache import User, get, select, db_session
+from ..cache import User, Country, get, select, db_session
 from ..constants import API, AuthFlow, AllScopes
 from ..exceptions import SpotifyCredentialsException
 
@@ -107,7 +108,15 @@ class AuthMixin:
 
             if not user:
                 self.user_id = self.user_id or uuid.uuid4()
-                user = User(id=self.user_id, username=user_details.id, email=user_details.email, token=token)
+                user = User(
+                    id=self.user_id,
+                    username=user_details.id,
+                    email=user_details.email,
+                    token=token,
+                    country=Country.from_str(code=user_details.country),
+                    display_name=user_details.display_name or '',
+                    birthdate=datetime.strptime(user_details.birthdate, '%Y-%m-%d') if user_details.birthdate else None
+                )
 
             return session
 

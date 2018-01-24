@@ -116,6 +116,9 @@ class User(db.Entity):
     id = PrimaryKey(UUID, default=uuid4)  # pylint: disable=redefined-builtin
     email = Required(str, unique=True, index=True)
     username = Required(str, unique=True, index=True)
+    country = Required('Country')
+    display_name = Optional(str)
+    birthdate = Optional(date)
     token = Required(Json, volatile=True)
     api_calls = Required(int, default=0, volatile=True)
     created_at = Required(datetime, default=datetime.now)
@@ -164,7 +167,13 @@ class User(db.Entity):
         try:
             return User[cls.DEFAULT_USERID]
         except ObjectNotFound:
-            return User(id=cls.DEFAULT_USERID, username=cls.DEFAULT_USERNAME, email=cls.DEFAULT_EMAIL, token={})
+            return User(
+                id=cls.DEFAULT_USERID,
+                username=cls.DEFAULT_USERNAME,
+                email=cls.DEFAULT_EMAIL,
+                token={},
+                country=Country.from_str(code='US')
+            )
 
     @staticmethod
     def token_updater(_id):
@@ -265,6 +274,7 @@ class Country(db.Entity, ImageMixin):
 
     name = PrimaryKey(str)
     code = Required(str, index=True, max_len=2)
+    users = Set('User')
     cities = Set('City')
     playlists = Set('Playlist')
     fans = Set(User, reverse='top_countries', table='country_fans')
