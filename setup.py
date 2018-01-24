@@ -38,6 +38,7 @@ REQUIRES = [
     'python-unsplash-async',
     'aiohttp',
     'psycopg2',
+    'pycountry',
 ]
 
 try:
