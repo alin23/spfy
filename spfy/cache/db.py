@@ -30,6 +30,7 @@ from pony.orm import (
 )
 from pycountry import countries
 from colorthief import ColorThief
+from unsplash.errors import UnsplashError
 from psycopg2.extensions import register_adapter
 
 from .. import Unsplash, config, logger
@@ -70,23 +71,34 @@ class ImageMixin:
         queries = self.get_image_queries()
         photo = None
         for query in queries:
-            photos = await Unsplash.photo.random(query=query, orientation='squarish')
+            try:
+                photos = await Unsplash.photo.random(query=query, orientation='squarish')
+            except UnsplashError:
+                continue
+
             if photos:
                 photo = photos[0]
                 break
         else:
-            photo = await Unsplash.photo.random(query=query, orientation='squarish')[0]
+            photo = (await Unsplash.photo.random(query='music', orientation='squarish'))[0]
 
         if photo is None:
             return None
 
+        images = select(i for i in Image if i.url == photo.urls.full).for_update()
+        if images.exists():
+            for image in images:
+                image.set(**{self.__class__.__name__.lower(): self})
+            return self.image(width, height)
+
         ratio = photo.height / photo.width
         params = {
-            'genre': self,
+            self.__class__.__name__.lower(): self,
             'color': photo.color,
             'unsplash_user_fullname': photo.user.name,
             'unsplash_user_username': photo.user.username,
         }
+
         Image(url=photo.urls.full, width=photo.width, height=photo.height, **params)
         Image(url=photo.urls.regular, width=Image.REGULAR, height=int(round(ratio * Image.REGULAR)), **params)
         Image(url=photo.urls.small, width=Image.SMALL, height=int(round(ratio * Image.SMALL)), **params)
