@@ -109,7 +109,7 @@ class PlayerMixin:
             self.change_volume(spotify_volume, backend=VolumeBackend.SPOTIFY, device=device)
 
         self.change_volume(start, backend=backend, device=device)
-        kwargs = dict(limit=limit, start=start, step=step, seconds=seconds, force=force)
+        kwargs = dict(limit=int(limit), start=int(start), step=int(step), seconds=int(seconds), force=bool(force))
         threading.Thread(target=volume_backend.fade, kwargs=kwargs).start()
 
     @db_session

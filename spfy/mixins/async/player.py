@@ -127,7 +127,7 @@ class PlayerMixin:
             await self.change_volume(spotify_volume, backend=VolumeBackend.SPOTIFY, device=device)
 
         await self.change_volume(start, backend=backend, device=device)
-        kwargs = dict(limit=limit, start=start, step=step, seconds=seconds, force=force)
+        kwargs = dict(limit=int(limit), start=int(start), step=int(step), seconds=int(seconds), force=bool(force))
 
         loop = asyncio.get_event_loop()
         if isinstance(volume_backend, SpotifyVolumeControlAsync):
