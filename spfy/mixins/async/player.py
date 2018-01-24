@@ -18,16 +18,6 @@ from ...volume import (
 )
 from ...constants import ItemType, TimeRange, VolumeBackend
 
-background_loop = asyncio.get_event_loop()
-
-
-def background_event_loop():
-    asyncio.set_event_loop(background_loop)
-    background_loop.run_forever()
-
-
-threading.Thread(target=background_event_loop, daemon=True).start()
-
 
 class PlayerMixin:
     def __init__(self, *args, device=None, alsa_device=None, alsa_mixer=None, speaker=None, **kwargs):
