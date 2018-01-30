@@ -6,6 +6,7 @@ from io import BytesIO
 from enum import IntEnum
 from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
 from datetime import date, datetime
+from collections import OrderedDict
 
 import aiohttp
 import requests
@@ -353,15 +354,15 @@ class Playlist(db.Entity, ImageMixin):
     GENRE_POPULARITY_LOWER = '(?P<popularity>sound|pulse|edge)'
     NEEDLE_POPULARITY = '(?P<popularity>Current|Emerging|Underground)'
 
-    PATTERNS = {
-        'sound_of_genre': re.compile(f'The {GENRE_POPULARITY_TITLE} of {GENRE}'),
-        'sound_of_city': re.compile(f'The Sound of {CITY} {COUNTRY_CODE}'),
-        'needle': re.compile(f'The Needle / {COUNTRY} {DATE}(?: - {NEEDLE_POPULARITY})?'),
-        'pine_needle': re.compile(f'The Pine Needle / {COUNTRY}'),
-        'year_in_genre': re.compile(f'{YEAR} in {GENRE}'),
-        'meta_genre': re.compile(f'Meta{GENRE_POPULARITY_LOWER}: {GENRE}'),
-        'meta_year_in_genre': re.compile(f'Meta{YEAR}: {GENRE}'),
-    }
+    PATTERNS = OrderedDict(
+        sound_of_city=re.compile(fr'^The Sound of {CITY} {COUNTRY_CODE}$'),
+        needle=re.compile(fr'^The Needle / {COUNTRY} {DATE}(?: - {NEEDLE_POPULARITY})?$'),
+        pine_needle=re.compile(fr'^The Pine Needle / {COUNTRY}$'),
+        year_in_genre=re.compile(fr'^{YEAR} in {GENRE}$'),
+        meta_genre=re.compile(fr'^Meta{GENRE_POPULARITY_LOWER}: {GENRE}$'),
+        meta_year_in_genre=re.compile(fr'^Meta{YEAR}: {GENRE}$'),
+        sound_of_genre=re.compile(fr'^The {GENRE_POPULARITY_TITLE} of {GENRE}$'),
+    )
 
     class Popularity(IntEnum):
         SOUND = 0
@@ -417,12 +418,6 @@ class Playlist(db.Entity, ImageMixin):
             fields['date'] = datetime(int(year), 1, 1)
             fields['popularity'] = cls.Popularity.YEAR.value
 
-        if 'genre' in groups:
-            genre = groups['genre'].lower()
-
-            fields['genre'] = Genre.get(name=genre) or Genre(name=genre)
-            fields['christmas'] = 'christmas' in genre
-
         if 'city' in groups and 'country_code' in groups:
             city = groups['city']
             country_code = groups['country_code']
@@ -430,6 +425,12 @@ class Playlist(db.Entity, ImageMixin):
             fields['country'] = Country.from_str(code=country_code)
             fields['city'] = City.get(name=city) or City(name=city, country=fields['country'])
             fields['popularity'] = cls.Popularity.SOUND.value
+
+        if 'genre' in groups:
+            genre = groups['genre'].lower()
+
+            fields['genre'] = Genre.get(name=genre) or Genre(name=genre)
+            fields['christmas'] = 'christmas' in genre
 
         if 'country' in groups:
             country = groups['country']
