@@ -86,16 +86,18 @@ class ImageMixin:
         if photo is None:
             return None
 
-        images = select(i for i in Image if i.url == photo.urls.full).for_update()
+        images = select(i for i in Image if i.unsplash_id == photo.id).for_update()
         if images.exists():
+            params = {self.__class__.__name__.lower(): self}
             for image in images:
-                image.set(**{self.__class__.__name__.lower(): self})
+                image.set(**params)
             return self.image(width, height)
 
         ratio = photo.height / photo.width
         params = {
             self.__class__.__name__.lower(): self,
             'color': photo.color,
+            'unsplash_id': photo.id,
             'unsplash_user_fullname': photo.user.name,
             'unsplash_user_username': photo.user.username,
         }
@@ -201,6 +203,7 @@ class Image(db.Entity):
     genre = Optional('Genre')
     country = Optional('Country')
     city = Optional('City')
+    unsplash_id = Optional(str, index=True)
     unsplash_user_fullname = Optional(str)
     unsplash_user_username = Optional(str)
 
