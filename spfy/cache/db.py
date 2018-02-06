@@ -93,6 +93,20 @@ class ImageMixin:
                 image.set(**params)
             return self.image(width, height)
 
+        params = {
+            self.__class__.__name__.lower(): self,
+            'unsplash_id': photo.id
+        }
+
+        image_exists = False
+        for url in (photo.urls.full, photo.urls.regular, photo.urls.small, photo.urls.thumb):
+            image = Image.get(url=url)
+            if image:
+                image_exists = True
+                image.set(**params)
+        if image_exists:
+            return self.image(width, height)
+
         ratio = photo.height / photo.width
         params = {
             self.__class__.__name__.lower(): self,
