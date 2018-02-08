@@ -70,15 +70,18 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 raise SpotifyException(**exception_params)
 
-    async def _internal_call(self, method, url, payload, params):
+    async def _internal_call(self, method, url, payload, params, headers=None):
         logger.debug(url)
+        if not isinstance(payload, (bytes, str)):
+            payload = json.dumps(payload)
+
         req = await self.session._request(
             method,
             url,
             proxy=self.proxy,
             timeout=self.requests_timeout,
-            headers={'Content-Type': 'application/json'},
-            data=json.dumps(payload),
+            headers={'Content-Type': 'application/json', **(headers or {})},
+            data=payload,
             params={k: v
                     for k, v in params.items()
                     if v is not None},
@@ -89,15 +92,15 @@ class SpotifyClient(AuthMixin, EmailMixin):
         async with req as resp:
             logger.debug('HTTP Status Code: {resp.status}')
             logger.debug(f'{method}: {resp.url}')
-            if payload:
-                logger.debug(f'DATA: {json.dumps(payload)}')
+            if payload and not isinstance(payload, bytes):
+                logger.debug(f'DATA: {payload}')
 
             try:
                 await self._check_response(resp)
             except SpotifyRateLimitException as exc:
                 logger.warning(f'Reached API rate limit. Retrying in {exc.retry_after} seconds...')
                 sleep(exc.retry_after)
-                return await self._internal_call(method, url, payload, params)
+                return await self._internal_call(method, url, payload, params, headers)
 
             if self.user_id:
                 self._increment_api_call_count()
@@ -108,7 +111,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 logger.debug(f'RESP: {text}')
                 return SpotifyResult(results, _client=self)
 
-    async def _api_call(self, method, url, args=None, payload=None, **kwargs):
+    async def _api_call(self, method, url, args=None, payload=None, headers=None, **kwargs):
         if not self.is_authenticated:
             raise SpotifyAuthException
 
@@ -121,7 +124,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if not url.startswith('http'):
             url = API.PREFIX.value + url
 
-        return await self._internal_call(method, url, payload, kwargs)
+        return await self._internal_call(method, url, payload, kwargs, headers)
 
     async def _get(self, url, args=None, payload=None, **kwargs):
         return await self._api_call('GET', url, args, payload, **kwargs)
@@ -352,6 +355,22 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         data = {'name': name, 'public': public, 'description': description}
         return await self._post(API.PLAYLISTS.value.format(user_id=user), payload=data)
+
+    async def user_playlist_upload_cover_image(self, user, playlist_id, image):
+        ''' Creates a playlist for a user
+
+            Parameters:
+                - user - the id of the user
+                - playlist_id - the id of the playlist
+                - image - base64 encoded image
+        '''
+        return await self._put(
+            API.PLAYLIST_IMAGES.value.format(user_id=user, playlist_id=playlist_id),
+            payload=image,
+            headers={
+                'Content-Type': 'image/jpeg'
+            }
+        )
 
     async def user_playlist_change_details(
         self, user, playlist_id, name=None, public=None, collaborative=None, description=None

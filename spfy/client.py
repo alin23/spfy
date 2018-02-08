@@ -69,15 +69,18 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 raise SpotifyException(**exception_params)
 
-    def _internal_call(self, method, url, payload, params):
+    def _internal_call(self, method, url, payload, params, headers=None):
         logger.debug(url)
+        if not isinstance(payload, (bytes, str)):
+            payload = json.dumps(payload)
+
         r = self.session.request(
             method,
             url,
             proxies=self.proxies,
             timeout=self.requests_timeout,
-            headers={'Content-Type': 'application/json'},
-            data=json.dumps(payload),
+            headers={'Content-Type': 'application/json', **(headers or {})},
+            data=payload,
             params={k: v
                     for k, v in params.items()
                     if v is not None},
@@ -87,8 +90,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
         logger.debug('HTTP Status Code: {r.status_code}')
         logger.debug(f'{method}: {r.url}')
-        if payload:
-            logger.debug(f'DATA: {json.dumps(payload)}')
+        if payload and not isinstance(payload, bytes):
+            logger.debug(f'DATA: {payload}')
 
         try:
             self._check_response(r)
@@ -106,7 +109,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             return SpotifyResult(results, _client=self)
         return None
 
-    def _api_call(self, method, url, args=None, payload=None, **kwargs):
+    def _api_call(self, method, url, args=None, payload=None, headers=None, **kwargs):
         if not self.is_authenticated:
             raise SpotifyAuthException
 
@@ -119,7 +122,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if not url.startswith('http'):
             url = API.PREFIX.value + url
 
-        return self._internal_call(method, url, payload, kwargs)
+        return self._internal_call(method, url, payload, kwargs, headers)
 
     def _get(self, url, args=None, payload=None, **kwargs):
         return self._api_call('GET', url, args, payload, **kwargs)
@@ -350,6 +353,22 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         data = {'name': name, 'public': public, 'description': description}
         return self._post(API.PLAYLISTS.value.format(user_id=user), payload=data)
+
+    def user_playlist_upload_cover_image(self, user, playlist_id, image):
+        ''' Creates a playlist for a user
+
+            Parameters:
+                - user - the id of the user
+                - playlist_id - the id of the playlist
+                - image - base64 encoded image
+        '''
+        return self._put(
+            API.PLAYLIST_IMAGES.value.format(user_id=user, playlist_id=playlist_id),
+            payload=image,
+            headers={
+                'Content-Type': 'image/jpeg'
+            }
+        )
 
     def user_playlist_change_details(
         self, user, playlist_id, name=None, public=None, collaborative=None, description=None
