@@ -1,6 +1,8 @@
 import time
 import random
+import asyncio
 from datetime import date, timedelta
+from itertools import chain
 
 from pyorderby import orderby
 
@@ -69,7 +71,10 @@ class RecommenderMixin:
             return self.user.top_genres
 
     async def order_by(self, features, tracks):
-        audio_features = await self.audio_features(tracks=tracks)
+        batches = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
+        audio_features = await asyncio.gather([self.audio_features(tracks=t) for t in batches])
+        audio_features = chain.from_iterable(audio_features)
+
         if isinstance(features, AudioFeature):
             features = features.value
 

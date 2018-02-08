@@ -46,10 +46,11 @@ class Playable:
 
 # pylint: disable=too-few-public-methods
 class SpotifyResultIterator:
-    def __init__(self, result):
+    def __init__(self, result, limit=None):
         self.result = result
+        self.limit = limit
         self.result_iterator = iter(result)
-        self.params_list = self.result.get_next_params_list()
+        self.params_list = self.result.get_next_params_list(limit)
         self.requests = (self.result._get_with_params(params) for params in self.params_list)
         self.responses = limited_as_completed(self.requests, config.http.concurrent_connections)
 
@@ -120,17 +121,18 @@ class SpotifyResult(addict.Dict):
     async def _put_with_params(self, params, url=None):
         return await self._client._put(url or self.base_url, **params)
 
-    def get_next_params_list(self):
+    def get_next_params_list(self, limit=None):
         if self['next'] and self['href']:
+            max_limit = limit or 50
             url = urlparse(self['href'])
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             limit = int(params.pop('limit', 20))
             offset = int(params.pop('offset', 0))
-            return [{**params, 'limit': 50, 'offset': off} for off in range(offset + limit, self.total, 50)]
+            return [{**params, 'limit': max_limit, 'offset': off} for off in range(offset + limit, self.total, max_limit)]
         return []
 
-    async def all(self):
-        return [item async for item in self.iterall()]  # pylint: disable=not-an-iterable
+    async def all(self, limit=None):
+        return [item async for item in self.iterall(limit)]  # pylint: disable=not-an-iterable
 
     async def next(self):
         if self._next_result:
@@ -139,5 +141,5 @@ class SpotifyResult(addict.Dict):
             return await self._client._get(self['next'])
         return None
 
-    def iterall(self):
-        return SpotifyResultIterator(self)
+    def iterall(self, limit=None):
+        return SpotifyResultIterator(self, limit)

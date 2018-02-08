@@ -66,7 +66,10 @@ class RecommenderMixin:
         return self.user.top_genres
 
     def order_by(self, features, tracks):
-        audio_features = self.audio_features(tracks=tracks)
+        batches = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
+        audio_features = [self.audio_features(tracks=t) for t in batches]
+        audio_features = chain.from_iterable(audio_features)
+
         if isinstance(features, AudioFeature):
             features = features.value
 

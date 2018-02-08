@@ -100,17 +100,18 @@ class SpotifyResult(addict.Dict):
     def _put_with_params(self, params, url=None):
         return self._client._put(url or self.base_url, **params)
 
-    def get_next_params_list(self):
+    def get_next_params_list(self, limit=None):
         if self['next'] and self['href']:
+            max_limit = limit or 50
             url = urlparse(self['href'])
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             limit = int(params.pop('limit', 20))
             offset = int(params.pop('offset', 0))
-            return [{**params, 'limit': 50, 'offset': off} for off in range(offset + limit, self.total, 50)]
+            return [{**params, 'limit': max_limit, 'offset': off} for off in range(offset + limit, self.total, max_limit)]
         return []
 
-    def all(self):
-        params_list = self.get_next_params_list()
+    def all(self, limit=None):
+        params_list = self.get_next_params_list(limit)
         if not params_list:
             return []
 
