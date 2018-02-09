@@ -10,6 +10,9 @@ parallel_connections = 20
 retries = 3
 
 [database]
+generate_mapping = true
+
+[database.connection]
 provider = "sqlite"
 filename = "$HOME/.spfy.sqlite"
 create_db = true

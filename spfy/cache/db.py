@@ -134,6 +134,7 @@ class User(db.Entity):
     email = Required(str, unique=True, index=True)
     username = Required(str, unique=True, index=True)
     country = Required('Country')
+    preferred_country = Optional('Country')
     display_name = Optional(str)
     birthdate = Optional(date)
     token = Required(Json, volatile=True)
@@ -158,19 +159,52 @@ class User(db.Entity):
     def dislike(self, artist=None, genre=None, country=None, city=None):
         assert artist or genre or country or city
         if artist:
-            self.disliked_artists.add(artist)
-            self.top_artists.remove(artist)
+            artist = Artist.get(id=artist)
+            if artist:
+                self.disliked_artists.add(artist)
+                self.top_artists.remove(artist)
         if genre:
-            self.disliked_genres.add(genre)
-            self.top_genres.remove(genre)
-            self.disliked_artists.add(genre.artists)
-            self.top_artists.remove(genre.artists)
+            genre = Genre.get(name=genre)
+            if genre:
+                self.disliked_genres.add(genre)
+                self.top_genres.remove(genre)
+                self.disliked_artists.add(genre.artists)
+                self.top_artists.remove(genre.artists)
         if country:
-            self.disliked_countries.add(country)
-            self.top_countries.remove(country)
+            country = Country.get(name=country)
+            if country:
+                self.disliked_countries.add(country)
+                self.top_countries.remove(country)
         if city:
-            self.disliked_cities.add(city)
-            self.top_cities.remove(city)
+            city = City.get(name=city)
+            if city:
+                self.disliked_cities.add(city)
+                self.top_cities.remove(city)
+
+    def like(self, artist=None, genre=None, country=None, city=None):
+        assert artist or genre or country or city
+        if artist:
+            artist = Artist.get(id=artist)
+            if artist:
+                self.top_artists.add(artist)
+                self.disliked_artists.remove(artist)
+        if genre:
+            genre = Genre.get(name=genre)
+            if genre:
+                self.top_genres.add(genre)
+                self.disliked_genres.remove(genre)
+                self.top_artists.add(genre.artists)
+                self.disliked_artists.remove(genre.artists)
+        if country:
+            country = Country.get(name=country)
+            if country:
+                self.top_countries.add(country)
+                self.disliked_countries.remove(country)
+        if city:
+            city = City.get(name=city)
+            if city:
+                self.top_cities.add(city)
+                self.disliked_cities.remove(city)
 
     def top_expired(self, time_range):
         time_range = TimeRange(time_range).value
@@ -292,7 +326,8 @@ class Country(db.Entity, ImageMixin):
 
     name = PrimaryKey(str)
     code = Required(str, index=True, max_len=2)
-    users = Set('User')
+    users = Set('User', reverse='country')
+    users_preferring = Set('User', reverse='preferred_country')
     cities = Set('City')
     playlists = Set('Playlist')
     fans = Set(User, reverse='top_countries', table='country_fans')
@@ -562,8 +597,9 @@ class Artist(db.Entity, ImageMixin):
         )
 
 
-if config.database.filename:
-    config.database.filename = os.path.expandvars(config.database.filename)
+if config.database.connection.filename:
+    config.database.connection.filename = os.path.expandvars(config.database.connection.filename)
 
-db.bind(**config.database)
-db.generate_mapping(create_tables=True)
+db.bind(**config.database.connection)
+if config.database.generate_mapping or os.getenv('SPFY_GENERATE_MAPPING') == 'true':
+    db.generate_mapping(create_tables=True)
