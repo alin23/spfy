@@ -402,11 +402,13 @@ class Playlist(db.Entity, ImageMixin):
     COUNTRY = '(?P<country>.+)'
     COUNTRY_CODE = '(?P<country_code>[A-Z]{2})'
     DATE = '(?P<date>[0-9]{8})'
+    INTRO_POPULARITY = '(?P<popularity>Intro)'
     GENRE_POPULARITY_TITLE = '(?P<popularity>Sound|Pulse|Edge)'
     GENRE_POPULARITY_LOWER = '(?P<popularity>sound|pulse|edge)'
     NEEDLE_POPULARITY = '(?P<popularity>Current|Emerging|Underground)'
 
     PATTERNS = OrderedDict(
+        intro_to_genre=re.compile(fr'^{INTRO_POPULARITY} to {GENRE}$'),
         sound_of_city=re.compile(fr'^The Sound of {CITY} {COUNTRY_CODE}$'),
         needle=re.compile(fr'^The Needle / {COUNTRY} {DATE}(?: - {NEEDLE_POPULARITY})?$'),
         pine_needle=re.compile(fr'^The Pine Needle / {COUNTRY}$'),
@@ -427,6 +429,7 @@ class Playlist(db.Entity, ImageMixin):
 
         YEAR = 6
         ALL = 7
+        INTRO = 8
 
     id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     collaborative = Required(bool)
@@ -482,7 +485,8 @@ class Playlist(db.Entity, ImageMixin):
             genre = groups['genre'].lower()
 
             fields['genre'] = Genre.get(name=genre) or Genre(name=genre)
-            fields['christmas'] = 'christmas' in genre
+            if 'christmas' in genre:
+                fields['christmas'] = True
 
         if 'country' in groups:
             country = groups['country']
