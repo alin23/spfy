@@ -444,6 +444,7 @@ class Playlist(db.Entity, ImageMixin):
     country = Optional(Country)
     city = Optional(City)
     date = Optional(date)
+    year = Optional(int)
     christmas = Optional(bool, index=True)
     meta = Optional(bool, index=True)
     images = Set(Image, cascade_delete=True)
@@ -470,6 +471,7 @@ class Playlist(db.Entity, ImageMixin):
         if 'year' in groups:
             year = groups['year']
 
+            fields['year'] = int(year)
             fields['date'] = datetime(int(year), 1, 1)
             fields['popularity'] = cls.Popularity.YEAR.value
 
