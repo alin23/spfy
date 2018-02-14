@@ -8,6 +8,7 @@ from datetime import datetime
 import aiohttp
 import aiohttp.web
 from oauthlib.oauth2 import BackendApplicationClient
+from aiohttp.web_runner import GracefulExit
 
 from ... import root, config, logger
 from ...cache import User, Country, get, select, db_session
@@ -24,7 +25,7 @@ web_app = aiohttp.web.Application()
 def run_app():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    aiohttp.web.run_app(web_app, host='0.0.0.0', port=config.auth.callback.port, handle_signals=False, loop=loop)
+    aiohttp.web.run_app(web_app, host='0.0.0.0', port=config.auth.callback.port, handle_signals=False)
 
 
 class AuthMixin:
@@ -183,7 +184,7 @@ class AuthMixin:
 
         async def callback(request):
             if self.callback_reached.is_set():
-                aiohttp.web.raise_graceful_exit()
+                raise GracefulExit
 
             code = request.query['code']
             state = request.query.get('code')
