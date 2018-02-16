@@ -448,7 +448,6 @@ class Playlist(db.Entity, ImageMixin):
     christmas = Optional(bool, index=True)
     meta = Optional(bool, index=True)
     images = Set(Image, cascade_delete=True)
-    composite_key(genre, popularity, meta)
 
     def play(self, client, device=None):
         return client.start_playback(playlist=self.uri, device=device)
