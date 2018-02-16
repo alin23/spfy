@@ -135,7 +135,8 @@ class SpotifyVolumeControlAsync(VolumeControl):
                 device_volume = await self.volume()
                 old_volume = next_volume - step
 
-                if not force and self.should_stop_fading(device_volume, old_volume):
+                should_stop_fading = await self.should_stop_fading(device_volume, old_volume)
+                if not force and should_stop_fading:
                     logger.debug(
                         f'''A stop fading condition was met:
                         Current volume: {device_volume}
