@@ -2,7 +2,7 @@ import json
 
 
 class SpotifyException(Exception):
-    def __init__(self, *args, status_code=None, headers=None, text=None, url=None, **kwargs):
+    def __init__(self, *args, status_code=None, headers=None, text=None, url=None, **kwargs):  # pylint: disable=unused-argument
         super().__init__()
         self.http_status_code = status_code
         self.headers = headers or {}
