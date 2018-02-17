@@ -1025,6 +1025,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
     _get_playlist_id = partialmethod(_get_id, 'playlist')
 
     def _get_uri(self, _type, result):
+        if isinstance(result, str) and result.startswith('spotify:'):
+            return result
         return 'spotify:' + _type + ":" + self._get_id(_type, result)
 
     def _get_playlist_uri(self, playlist, user=None):
