@@ -86,9 +86,9 @@ class SpotifyResult(addict.Dict):
         if isinstance(item, int):
             for key in self.ITER_KEYS:
                 if key in self:
-                    return self[key][item]
-            if 'playlists' in self and 'items' in self.playlists:
-                return self.playlists['items'][item]
+                    if 'items' in self[key]:
+                        return iter(self[key]['items'][item])
+                    return iter(self[key][item])
         return super().__getitem__(item)
 
     @classmethod

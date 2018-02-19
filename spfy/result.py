@@ -45,7 +45,7 @@ class Playable:
 
 
 class SpotifyResult(addict.Dict):
-    ITER_KEYS = ('items', 'artists', 'tracks', 'albums', 'audio_features')
+    ITER_KEYS = ('items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -56,18 +56,18 @@ class SpotifyResult(addict.Dict):
     def __iter__(self):
         for key in self.ITER_KEYS:
             if key in self:
+                if 'items' in self[key]:
+                    return iter(self[key]['items'])
                 return iter(self[key])
-        if 'playlists' in self and 'items' in self.playlists:
-            return iter(self.playlists['items'])
         return super().__iter__()
 
     def __getitem__(self, item):
         if isinstance(item, int):
             for key in self.ITER_KEYS:
                 if key in self:
-                    return self[key][item]
-            if 'playlists' in self and 'items' in self.playlists:
-                return self.playlists['items'][item]
+                    if 'items' in self[key]:
+                        return iter(self[key]['items'][item])
+                    return iter(self[key][item])
         return super().__getitem__(item)
 
     @classmethod
