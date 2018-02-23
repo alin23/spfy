@@ -37,7 +37,7 @@ REQUIRES = [
     'lockfile',
     'python-unsplash-async',
     'aiohttp',
-    'psycopg2',
+    'psycopg2-binary',
     'pycountry',
 ]
 
