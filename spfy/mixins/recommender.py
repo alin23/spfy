@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from itertools import chain
 
 from pyorderby import orderby
+from pony.orm.core import CacheIndexError
 
 from .. import logger
 from ..cache import Genre, Artist, Playlist, get, select, db_session
@@ -35,7 +36,11 @@ class RecommenderMixin:
             if Artist.exists(id=artist.id):
                 self.user.top_artists.add(Artist[artist.id])
             else:
-                self.user.top_artists.add(Artist.from_dict(artist))
+                try:
+                    artist = Artist.from_dict(artist)
+                except CacheIndexError:
+                    artist = Artist[artist.id]
+                self.user.top_artists.add(artist)
 
         self.user.top_genres = self.user.top_artists.genres.distinct().keys() - self.user.disliked_genres
 
