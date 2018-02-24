@@ -3,7 +3,6 @@ import socket
 import asyncio
 import threading
 from pathlib import Path
-from datetime import datetime
 
 import aiohttp
 import aiohttp.web
@@ -11,7 +10,7 @@ from oauthlib.oauth2 import BackendApplicationClient
 from aiohttp.web_runner import GracefulExit
 
 from ... import root, config, logger
-from ...cache import User, Country, get, select, db_session
+from ...cache import User, get, select, db_session
 from ...constants import API, AuthFlow, AllScopes
 from ...exceptions import SpotifyCredentialsException
 from .aiohttp_oauthlib import OAuth2Session

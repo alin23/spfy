@@ -2,7 +2,6 @@ import uuid
 import socket
 import threading
 from pathlib import Path
-from datetime import datetime
 from wsgiref.simple_server import make_server
 
 import hug
@@ -12,7 +11,7 @@ from requests_oauthlib import OAuth2Session
 from cachecontrol.caches.file_cache import FileCache
 
 from .. import root, config, logger
-from ..cache import User, Country, get, select, db_session
+from ..cache import User, get, select, db_session
 from ..constants import API, AuthFlow, AllScopes
 from ..exceptions import SpotifyCredentialsException
 
