@@ -111,15 +111,9 @@ class AuthMixin:
 
             if not user:
                 self.user_id = self.user_id or uuid.uuid4()
-                user = User(
-                    id=self.user_id,
-                    username=user_details.id,
-                    email=user_details.email,
-                    token=token,
-                    country=Country.from_str(code=user_details.country),
-                    display_name=user_details.display_name or '',
-                    birthdate=datetime.strptime(user_details.birthdate, '%Y-%m-%d') if user_details.birthdate else None
-                )
+                user_details['user_id'] = self.user_id
+                user_details['token'] = token
+                user = User.from_dict(user_details)
 
             return session
 

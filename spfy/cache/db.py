@@ -123,7 +123,7 @@ class ImageMixin:
         return self.image(width, height)
 
 
-class User(db.Entity):
+class User(db.Entity, ImageMixin):
     _table_ = 'users'
 
     DEFAULT_EMAIL = 'spfy@backend'
@@ -135,12 +135,14 @@ class User(db.Entity):
     username = Required(str, unique=True, index=True)
     country = Required('Country')
     preferred_country = Optional('Country')
+    spotify_user = Optional('SpotifyUser')
     display_name = Optional(str)
     birthdate = Optional(date)
     token = Required(Json, volatile=True)
     api_calls = Required(int, default=0, volatile=True)
     created_at = Required(datetime, default=datetime.now)
     last_usage_at = Required(datetime, default=datetime.now)
+    images = Set('Image', cascade_delete=True)
 
     top_artists = Set('Artist')
     disliked_artists = Set('Artist')
@@ -155,6 +157,48 @@ class User(db.Entity):
     disliked_cities = Set('City')
 
     top_expires_at = Optional(Json, volatile=True)
+
+    @classmethod
+    async def from_dict_async(cls, user):
+        if user.images:
+            try:
+                color = await Image.grab_color_async(user.images[-1].url)
+            except:
+                color = '#000000'
+
+            for image in user.images:
+                image.color = color
+
+        return cls.from_dict(user, grab_image_color=False)
+
+    @classmethod
+    def from_dict(cls, user, grab_image_color=True):
+        if user.images and grab_image_color:
+            try:
+                color = Image.grab_color(user.images[-1].url)
+            except:
+                color = '#000000'
+
+            for image in user.images:
+                image.color = color
+
+        images = [Image.get(url=image.url) or Image(**image) for image in user.images]
+        spotify_user = (
+            SpotifyUser.get(id=user.id)
+            or SpotifyUser(id=user.id, name=user.get('display_name') or '')
+        )
+
+        return cls(
+            id=user.user_id,
+            spotify_user=spotify_user,
+            username=user.id,
+            email=user.email,
+            token=user.token,
+            country=Country.from_str(code=user.country),
+            images=images,
+            display_name=user.display_name or '',
+            birthdate=datetime.strptime(user.birthdate, '%Y-%m-%d') if user.birthdate else None
+        )
 
     def dislike(self, artist=None, genre=None, country=None, city=None):
         assert artist or genre or country or city
@@ -251,6 +295,7 @@ class Image(db.Entity):
     genre = Optional('Genre')
     country = Optional('Country')
     city = Optional('City')
+    user = Optional('User')
     unsplash_id = Optional(str, index=True)
     unsplash_user_fullname = Optional(str)
     unsplash_user_username = Optional(str)
@@ -290,6 +335,7 @@ class SpotifyUser(db.Entity):
 
     id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     name = Optional(str)
+    user = Optional('User')
     playlists = Set('Playlist')
 
     @property
@@ -512,7 +558,7 @@ class Playlist(db.Entity, ImageMixin):
     def from_dict(cls, playlist):  # pylint: disable=too-many-return-statements,too-many-statements
         owner = (
             SpotifyUser.get(id=playlist.owner.id)
-            or SpotifyUser(id=playlist.owner.id, name=playlist.owner.get('display_name', playlist.owner.id))
+            or SpotifyUser(id=playlist.owner.id, name=playlist.owner.get('display_name') or '')
         )
         fields = {
             'id': playlist.id,
