@@ -200,6 +200,15 @@ class User(db.Entity, ImageMixin):
             birthdate=datetime.strptime(user.birthdate, '%Y-%m-%d') if user.birthdate else None
         )
 
+    async def dislike_async(self, artist=None, genre=None, country=None, city=None, client=None):
+        if artist and client:
+            if not Artist.exists(id=artist):
+                artist_result = client.artist(artist)
+                if artist_result:
+                    with db_session:
+                        artist_row = await Artist.from_dict_async(artist_result)
+        self.dislike(artist=artist, genre=genre, country=country, city=city)
+
     def dislike(self, artist=None, genre=None, country=None, city=None):
         assert artist or genre or country or city
         if artist:
@@ -208,7 +217,7 @@ class User(db.Entity, ImageMixin):
                 self.disliked_artists.add(artist)
                 self.top_artists.remove(artist)
         if genre:
-            genre = Genre.get(name=genre)
+            genre = Genre.get(name=genre) or Genre(name=genre)
             if genre:
                 self.disliked_genres.add(genre)
                 self.top_genres.remove(genre)
