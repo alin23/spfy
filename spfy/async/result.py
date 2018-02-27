@@ -67,7 +67,7 @@ class SpotifyResultIterator:
 
 
 class SpotifyResult(addict.Dict):
-    ITER_KEYS = ('items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists')
+    ITER_KEYS = ('items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists', 'devices')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
