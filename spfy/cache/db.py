@@ -206,7 +206,7 @@ class User(db.Entity, ImageMixin):
                 artist_result = client.artist(artist)
                 if artist_result:
                     with db_session:
-                        artist_row = await Artist.from_dict_async(artist_result)
+                        artist_row = await Artist.from_dict_async(artist_result)  # pylint: disable=unused-variable
         self.dislike(artist=artist, genre=genre, country=country, city=city)
 
     def dislike(self, artist=None, genre=None, country=None, city=None):
