@@ -76,9 +76,7 @@ class RecommenderMixin:
             return self.user.top_genres
 
     async def order_by(self, features, tracks):
-        batches = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
-        audio_features = await asyncio.gather([self.audio_features(tracks=t) for t in batches])
-        audio_features = chain.from_iterable(audio_features)
+        audio_features = await self.audio_features(tracks=tracks)
 
         if isinstance(features, AudioFeature):
             features = features.value

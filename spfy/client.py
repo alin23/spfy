@@ -5,11 +5,12 @@ from time import sleep
 from datetime import datetime
 from operator import attrgetter
 from functools import lru_cache, partialmethod
+from itertools import chain
 
 from first import first
 
 from . import logger
-from .cache import Playlist, db_session
+from .cache import Playlist, AudioFeatures, select, db_session
 from .mixins import AuthMixin, EmailMixin
 from .result import SpotifyResult
 from .constants import (
@@ -788,25 +789,26 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_track_id(track)
         return self._get(API.AUDIO_ANALYSIS.value.format(id=_id))
 
-    def audio_features(self, track=None, tracks=None):
+    def audio_features(self, track=None, tracks=None, with_cache=True):
         ''' Get audio features for one or multiple tracks based upon their Spotify IDs
             Parameters:
                 - track - a track URI, URL or ID
                 - tracks - a list of track URIs, URLs or IDs, maximum: 100 ids
         '''
-        tracks = tracks or []
-        assert len(tracks) <= 100
-
         if track:
             _id = self._get_track_id(track)
-            results = self._get(API.AUDIO_FEATURES_SINGLE.value.format(id=_id))
-        else:
-            tracks = map(self._get_track_id, tracks)
-            results = self._get(API.AUDIO_FEATURES_MULTIPLE.value, ids=','.join(tracks))
+            return self._get(API.AUDIO_FEATURES_SINGLE.value.format(id=_id))
 
-        if 'audio_features' in results:
-            return results['audio_features']
-        return results
+        tracks = list(map(self._get_track_id, tracks or []))
+        cached_tracks = []
+        if with_cache:
+            cached_tracks = select(a for a in AudioFeatures if a.id in tracks)[:]
+            tracks = list(set(tracks) - {a.id for a in cached_tracks})
+
+        batches = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
+        audio_features = [self._get(API.AUDIO_FEATURES_MULTIPLE.value, ids=','.join(t)) for t in batches]
+        audio_features = [AudioFeatures.from_dict(t) for t in chain.from_iterable(audio_features)] + cached_tracks
+        return audio_features
 
     def devices(self):
         ''' Get a list of user's available devices.

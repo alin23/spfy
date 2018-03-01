@@ -657,6 +657,45 @@ class Artist(db.Entity, ImageMixin):
         )
 
 
+class AudioFeatures(db.Entity):
+    _table_ = 'audio_features'
+    KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+    id = PrimaryKey(str)  # pylint: disable=redefined-builtin
+    acousticness = Required(float)
+    danceability = Required(float)
+    duration_ms = Required(int)
+    energy = Required(float)
+    instrumentalness = Required(float)
+    key = Required(int)
+    liveness = Required(float)
+    loudness = Required(float)
+    mode = Required(bool)
+    speechiness = Required(float)
+    tempo = Required(float)
+    time_signature = Required(int)
+    valence = Required(float)
+
+    @classmethod
+    def from_dict(cls, track):
+        return cls(
+            id=track['id'],
+            acousticness=track['acousticness'],
+            danceability=track['danceability'],
+            duration_ms=track['duration_ms'],
+            energy=track['energy'],
+            instrumentalness=track['instrumentalness'],
+            key=track['key'],
+            liveness=track['liveness'],
+            loudness=track['loudness'],
+            mode=bool(track['mode']),
+            speechiness=track['speechiness'],
+            tempo=track['tempo'],
+            time_signature=track['time_signature'],
+            valence=track['valence'],
+        )
+
+
 if config.database.connection.filename:
     config.database.connection.filename = os.path.expandvars(config.database.connection.filename)
 
