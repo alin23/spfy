@@ -811,6 +811,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_track_id(track)
         return await self._get(API.AUDIO_ANALYSIS.value.format(id=_id))
 
+    @db_session
     async def audio_features(self, track=None, tracks=None, with_cache=True):
         ''' Get audio features for one or multiple tracks based upon their Spotify IDs
             Parameters:
