@@ -418,11 +418,18 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - position - the position to add the tracks
         '''
         _id = self._get_playlist_id(playlist_id)
-        track_uris = map(self._get_track_uri, tracks)
-        payload = {"uris": list(track_uris)}
-        return await self._post(
-            API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id), payload=payload, position=position
-        )
+        url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
+        track_uris = list(map(self._get_track_uri, tracks))
+
+        if len(track_uris) <= 100:
+            return await self._post(url, payload={"uris": track_uris}, position=position)
+
+        batches = [{"uris": track_uris[i:i + 100]} for i in range(0, len(track_uris), 100)]
+        results = [
+            self._post(url, payload=t, position=(None if position is None else i * 100 + position))
+            for i, t in enumerate(batches)
+        ]
+        return [(await result) for result in results]
 
     async def user_playlist_replace_tracks(self, user, playlist_id, tracks):
         ''' Replace all tracks in a playlist
@@ -433,9 +440,19 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - tracks - the list of track ids to add to the playlist
         '''
         _id = self._get_playlist_id(playlist_id)
-        track_uris = map(self._get_track_uri, tracks)
-        payload = {"uris": list(track_uris)}
-        return await self._post(API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id), payload=payload)
+        url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
+        first_100_tracks, rest_tracks = tracks[:100], tracks[100:]
+
+        track_uris = list(map(self._get_track_uri, first_100_tracks))
+        replaced = await self._put(url, payload={"uris": track_uris})
+
+        if not rest_tracks:
+            return replaced
+
+        added = await self.user_playlist_add_tracks(user, playlist_id, rest_tracks)
+        if isinstance(added, list):
+            return [replaced, *added]
+        return [replaced, added]
 
     async def user_playlist_reorder_tracks(
         self, user, playlist_id, range_start, insert_before, range_length=1, snapshot_id=None
@@ -812,9 +829,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             tracks = list(set(tracks) - {a.id for a in cached_tracks})
 
         batches = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
-        audio_features = await asyncio.gather(*[
-            self._get(API.AUDIO_FEATURES_MULTIPLE.value, ids=','.join(t)) for t in batches
-        ])
+        audio_features = await asyncio.gather(
+            *[self._get(API.AUDIO_FEATURES_MULTIPLE.value, ids=','.join(t)) for t in batches]
+        )
         audio_features = [AudioFeatures.from_dict(t) for t in chain.from_iterable(audio_features)] + cached_tracks
         return audio_features
 

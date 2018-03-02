@@ -415,11 +415,18 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - position - the position to add the tracks
         '''
         _id = self._get_playlist_id(playlist_id)
-        track_uris = map(self._get_track_uri, tracks)
-        payload = {"uris": list(track_uris)}
-        return self._post(
-            API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id), payload=payload, position=position
-        )
+        url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
+        track_uris = list(map(self._get_track_uri, tracks))
+
+        if len(track_uris) <= 100:
+            return self._post(url, payload={"uris": track_uris}, position=position)
+
+        batches = [{"uris": track_uris[i:i + 100]} for i in range(0, len(track_uris), 100)]
+        results = [
+            self._post(url, payload=t, position=(None if position is None else i * 100 + position))
+            for i, t in enumerate(batches)
+        ]
+        return results
 
     def user_playlist_replace_tracks(self, user, playlist_id, tracks):
         ''' Replace all tracks in a playlist
@@ -430,9 +437,19 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - tracks - the list of track ids to add to the playlist
         '''
         _id = self._get_playlist_id(playlist_id)
-        track_uris = map(self._get_track_uri, tracks)
-        payload = {"uris": list(track_uris)}
-        return self._post(API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id), payload=payload)
+        url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
+        first_100_tracks, rest_tracks = tracks[:100], tracks[100:]
+
+        track_uris = list(map(self._get_track_uri, first_100_tracks))
+        replaced = self._put(url, payload={"uris": track_uris})
+
+        if not rest_tracks:
+            return replaced
+
+        added = self.user_playlist_add_tracks(user, playlist_id, rest_tracks)
+        if isinstance(added, list):
+            return [replaced, *added]
+        return [replaced, added]
 
     def user_playlist_reorder_tracks(
         self, user, playlist_id, range_start, insert_before, range_length=1, snapshot_id=None
@@ -737,7 +754,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             API.CATEGORY_PLAYLISTS.value.format(id=category_id), country=country, limit=limit, offset=offset
         )
 
-    def recommendations(self, seed_artists=None, seed_genres=None, seed_tracks=None, limit=20, country='from_token', **kwargs):
+    def recommendations(
+        self, seed_artists=None, seed_genres=None, seed_tracks=None, limit=20, country='from_token', **kwargs
+    ):
         ''' Get a list of recommended tracks for one to five seeds.
 
             Parameters:
