@@ -10,7 +10,7 @@ from itertools import chain
 from first import first
 
 from . import logger
-from .cache import Playlist, AudioFeatures, select, db_session
+from .cache import Playlist, AudioFeatures, db, select, db_session
 from .mixins import AuthMixin, EmailMixin
 from .result import SpotifyResult
 from .constants import (
@@ -1031,7 +1031,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 if _type != itype:
                     logger.warning('Expected id of type %s but found type %s %s', _type, itype, result)
                 return fields[-1]
-        elif isinstance(result, SpotifyResult):
+        elif isinstance(result, (SpotifyResult, db.Entity)):
             return result.id
         elif isinstance(result, dict):
             return result['id']
