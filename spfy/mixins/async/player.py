@@ -174,8 +174,8 @@ class PlayerMixin:
         return {'playing': True, 'device': device, 'playlist': playlist.to_dict(), 'result': result}
 
     @db_session
-    async def play(self, time_range=TimeRange.LONG_TERM, device=None, **kwargs):
-        item_type = random.choice([ItemType.TRACKS, ItemType.PLAYLIST])
+    async def play(self, time_range=TimeRange.LONG_TERM, device=None, item_type=None, **kwargs):
+        item_type = item_type or random.choice([ItemType.TRACKS, ItemType.PLAYLIST])
         if item_type == ItemType.TRACKS:
             return await self.play_recommended_tracks(time_range, device, **kwargs)
         if item_type == ItemType.PLAYLIST:

@@ -141,3 +141,7 @@ class API(Enum):
 VOLUME_FADE_SECONDS = 5 * 60
 DEVICE_ID_RE = re.compile(r'[a-zA-Z0-9]{40}')
 PLAYLIST_URI_RE = re.compile(r'spotify:user:[^:]+:playlist:[^:]+')
+
+MAX_KEY = 11
+MAX_LOUDNESS = -60.0
+MAX_POPULARITY = 100

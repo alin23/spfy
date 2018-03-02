@@ -2,12 +2,12 @@ import time
 import random
 from datetime import date, timedelta
 
-from pyorderby import orderby
 from pony.orm.core import CacheIndexError
 
 from ... import logger
+from ...util import normalize_features
 from ...cache import Genre, Artist, Playlist, get, select, db_session
-from ...constants import TimeRange, AudioFeature
+from ...constants import TimeRange
 
 
 class RecommenderMixin:
@@ -75,11 +75,10 @@ class RecommenderMixin:
 
     async def order_by(self, features, tracks):
         audio_features = await self.audio_features(tracks=tracks)
+        audio_features = [a.to_dict(list(features.keys()) + ['id']) for a in audio_features]
+        audio_features = normalize_features(features, audio_features)
 
-        if isinstance(features, AudioFeature):
-            features = features.value
-
-        return sorted(audio_features, key=orderby(features))
+        return audio_features.sort_values().index.tolist()
 
     async def fill_with_related_artists(self, artists, limit=5):
         tries = 5

@@ -26,7 +26,6 @@ REQUIRES = [
     'gunicorn',
     'hug',
     'oauthlib',
-    'pyorderby',
     'requests',
     'requests_oauthlib',
     'mailer',
@@ -39,6 +38,7 @@ REQUIRES = [
     'aiohttp',
     'psycopg2-binary',
     'pycountry',
+    'pandas',
 ]
 
 try:
