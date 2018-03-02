@@ -677,7 +677,7 @@ class AudioFeatures(db.Entity):
     time_signature = Required(int)
     valence = Required(float, min=0.0, max=1.0)
 
-    def to_dict(self, *args, **kwargs):
+    def to_dict(self, *args, **kwargs):  # pylint: disable=arguments-differ
         _dict = super().to_dict(*args, **kwargs)
         if 'mode' in _dict:
             _dict['mode'] = int(_dict['mode'])
