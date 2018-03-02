@@ -677,6 +677,13 @@ class AudioFeatures(db.Entity):
     time_signature = Required(int)
     valence = Required(float)
 
+    def to_dict(self, *args, **kwargs):
+        _dict = super().to_dict(*args, **kwargs)
+        if 'mode' in _dict:
+            _dict['mode'] = int(_dict['mode'])
+
+        return _dict
+
     @classmethod
     def from_dict(cls, track):
         return cls(
