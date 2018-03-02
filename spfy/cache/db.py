@@ -663,19 +663,19 @@ class AudioFeatures(db.Entity):
     KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
     id = PrimaryKey(str)  # pylint: disable=redefined-builtin
-    acousticness = Required(float)
-    danceability = Required(float)
-    duration_ms = Required(int)
-    energy = Required(float)
-    instrumentalness = Required(float)
-    key = Required(int)
-    liveness = Required(float)
-    loudness = Required(float)
+    acousticness = Required(float, min=0.0, max=1.0)
+    danceability = Required(float, min=0.0, max=1.0)
+    duration_ms = Required(int, min=0)
+    energy = Required(float, min=0.0, max=1.0)
+    instrumentalness = Required(float, min=0.0, max=1.0)
+    key = Required(int, min=0, max=11)
+    liveness = Required(float, min=0.0, max=1.0)
+    loudness = Required(float, min=0.0, max=1.0)
     mode = Required(bool)
-    speechiness = Required(float)
-    tempo = Required(float)
+    speechiness = Required(float, min=0.0, max=1.0)
+    tempo = Required(float, min=0, max=1000)
     time_signature = Required(int)
-    valence = Required(float)
+    valence = Required(float, min=0.0, max=1.0)
 
     def to_dict(self, *args, **kwargs):
         _dict = super().to_dict(*args, **kwargs)
