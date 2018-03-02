@@ -670,7 +670,7 @@ class AudioFeatures(db.Entity):
     instrumentalness = Required(float, min=0.0, max=1.0)
     key = Required(int, min=0, max=11)
     liveness = Required(float, min=0.0, max=1.0)
-    loudness = Required(float, min=0.0, max=1.0)
+    loudness = Required(float, min=-60.0, max=0.0)
     mode = Required(bool)
     speechiness = Required(float, min=0.0, max=1.0)
     tempo = Required(float, min=0, max=1000)
