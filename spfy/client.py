@@ -808,7 +808,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_track_id(track)
         return self._get(API.AUDIO_ANALYSIS.value.format(id=_id))
 
-    @db_session
     def audio_features(self, track=None, tracks=None, with_cache=True):
         ''' Get audio features for one or multiple tracks based upon their Spotify IDs
             Parameters:
@@ -822,12 +821,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
         tracks = list(map(self._get_track_id, tracks or []))
         cached_tracks = []
         if with_cache:
-            cached_tracks = select(a for a in AudioFeatures if a.id in tracks)[:]
-            tracks = list(set(tracks) - {a.id for a in cached_tracks})
+            with db_session:
+                cached_tracks = select(a for a in AudioFeatures if a.id in tracks)[:]
+                tracks = list(set(tracks) - {a.id for a in cached_tracks})
 
         batches = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
         audio_features = [self._get(API.AUDIO_FEATURES_MULTIPLE.value, ids=','.join(t)) for t in batches]
-        audio_features = [AudioFeatures.from_dict(t) for t in chain.from_iterable(audio_features)] + cached_tracks
+
+        with db_session:
+            audio_features = [AudioFeatures.from_dict(t) for t in chain.from_iterable(audio_features)] + cached_tracks
+
         return audio_features
 
     def devices(self):
