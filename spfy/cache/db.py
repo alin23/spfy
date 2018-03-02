@@ -657,6 +657,7 @@ class Artist(db.Entity, ImageMixin):
         )
 
 
+# pylint: disable=too-few-public-methods
 class AudioFeatures(db.Entity):
     _table_ = 'audio_features'
     KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']

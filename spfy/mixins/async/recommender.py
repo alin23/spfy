@@ -1,8 +1,6 @@
 import time
 import random
-import asyncio
 from datetime import date, timedelta
-from itertools import chain
 
 from pyorderby import orderby
 from pony.orm.core import CacheIndexError
