@@ -157,7 +157,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_track_id(track_id)
         return self._get(API.TRACK.value.format(id=_id))
 
-    def tracks(self, tracks, market=None):
+    def tracks(self, tracks, market='from_token'):
         ''' returns a list of tracks given a list of track IDs, URIs, or URLs
 
             Parameters:
@@ -260,7 +260,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         album_list = map(self._get_album_id, albums)
         return self._get(API.ALBUMS.value, ids=','.join(album_list))
 
-    def search(self, url, q, limit=10, offset=0, market=None):
+    def search(self, url, q, limit=10, offset=0, market='from_token'):
         ''' searches for an item
 
             Parameters:
@@ -273,16 +273,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         return self._get(url, q=q, limit=limit, offset=offset, market=market)
 
-    def search_track(self, track, limit=10, offset=0, market=None):
+    def search_track(self, track, limit=10, offset=0, market='from_token'):
         return self.search(API.SEARCH_TRACK.value, track, limit=limit, offset=offset, market=market)
 
-    def search_album(self, album, limit=10, offset=0, market=None):
+    def search_album(self, album, limit=10, offset=0, market='from_token'):
         return self.search(API.SEARCH_ALBUM.value, album, limit=limit, offset=offset, market=market)
 
-    def search_artist(self, artist, limit=10, offset=0, market=None):
+    def search_artist(self, artist, limit=10, offset=0, market='from_token'):
         return self.search(API.SEARCH_ARTIST.value, artist, limit=limit, offset=offset, market=market)
 
-    def search_playlist(self, playlist, limit=10, offset=0, market=None):
+    def search_playlist(self, playlist, limit=10, offset=0, market='from_token'):
         return self.search(API.SEARCH_PLAYLIST.value, playlist, limit=limit, offset=offset, market=market)
 
     def profile(self, user):
@@ -323,7 +323,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_playlist_id(playlist_id)
         return self._get(API.PLAYLIST.value.format(user_id=user, playlist_id=_id), fields=fields)
 
-    def user_playlist_tracks(self, user, playlist_id=None, fields=None, limit=100, offset=0, market=None):
+    def user_playlist_tracks(self, user, playlist_id=None, fields=None, limit=100, offset=0, market='from_token'):
         ''' Get full details of the tracks of a playlist owned by a user.
 
             Parameters:
@@ -737,7 +737,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             API.CATEGORY_PLAYLISTS.value.format(id=category_id), country=country, limit=limit, offset=offset
         )
 
-    def recommendations(self, seed_artists=None, seed_genres=None, seed_tracks=None, limit=20, country=None, **kwargs):
+    def recommendations(self, seed_artists=None, seed_genres=None, seed_tracks=None, limit=20, country='from_token', **kwargs):
         ''' Get a list of recommended tracks for one to five seeds.
 
             Parameters:
@@ -850,7 +850,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
         return device
 
-    def current_playback(self, market=None):
+    def current_playback(self, market='from_token'):
         ''' Get information about user's current playback.
 
             Parameters:
@@ -866,7 +866,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         return self._get(API.RECENTLY_PLAYED.value, limit=limit)
 
-    def currently_playing(self, market=None):
+    def currently_playing(self, market='from_token'):
         ''' Get user's currently playing track.
 
             Parameters:
