@@ -55,8 +55,8 @@ def main():
     except KeyboardInterrupt:
         print('Quitting')
     finally:
-        if spotify.session:
-            Spotify.loop.run_until_complete(spotify.session.__aexit__(*sys.exc_info()))
+        if spotify.session and not Spotify.loop.is_running():
+            Spotify.loop.run_until_complete(spotify.session.close())
 
 
 if __name__ == '__main__':

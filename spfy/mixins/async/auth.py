@@ -48,11 +48,6 @@ class AuthMixin:
 
         return redirect_uri
 
-    @staticmethod
-    def get_session(*args, **kwargs):
-        session = OAuth2Session(*args, **kwargs)
-        return session
-
     @property
     @db_session
     def user(self):
@@ -66,7 +61,7 @@ class AuthMixin:
     async def authenticate_user(
         self, username=None, email=None, code=None, state=None, auth_response=None, scope=AllScopes
     ):
-        session = self.session or self.get_session(
+        session = self.session or OAuth2Session(
             self.client_id, redirect_uri=self.redirect_uri, scope=scope, auto_refresh_url=API.TOKEN.value
         )
 
@@ -123,7 +118,7 @@ class AuthMixin:
         default_user = User.default()
         self.user_id = default_user.id
 
-        session = self.session or self.get_session(client=BackendApplicationClient(self.client_id))
+        session = self.session or OAuth2Session(client=BackendApplicationClient(self.client_id))
         session.token_updater = User.token_updater(default_user.id)
 
         if default_user.token:
@@ -168,7 +163,8 @@ class AuthMixin:
     @staticmethod
     async def stop_callback():
         try:
-            await aiohttp.request('GET', f'http://localhost:{config.auth.callback.port}')
+            async with aiohttp.request('GET', f'http://localhost:{config.auth.callback.port}') as resp:
+                await resp.read()
         except aiohttp.client_exceptions.ServerDisconnectedError:
             pass
 
