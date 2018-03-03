@@ -29,6 +29,7 @@ from pony.orm import (
     db_session,
     composite_key
 )
+from pony.orm.core import CacheIndexError
 from pycountry import countries
 from colorthief import ColorThief
 from unsplash.errors import UnsplashError
@@ -205,8 +206,11 @@ class User(db.Entity, ImageMixin):
             if not Artist.exists(id=artist):
                 artist_result = await client.artist(artist)
                 if artist_result:
-                    with db_session:
-                        artist_row = await Artist.from_dict_async(artist_result)  # pylint: disable=unused-variable
+                    try:
+                        with db_session:
+                            artist_row = await Artist.from_dict_async(artist_result)  # pylint: disable=unused-variable
+                    except CacheIndexError:
+                        pass
         self.dislike(artist=artist, genre=genre, country=country, city=city)
 
     def dislike(self, artist=None, genre=None, country=None, city=None):
