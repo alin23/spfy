@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-import sys
-
+import fire
 from pony.orm import db_session
 
-import fire
 import kick
 
 from .. import APP_NAME, config
