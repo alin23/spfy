@@ -72,10 +72,17 @@ class RecommenderMixin:
 
     def order_by(self, features, tracks):
         audio_features = self.audio_features(tracks=tracks)
-        audio_features = [a.to_dict(list(features.keys()) + ['id']) for a in audio_features]
-        audio_features = normalize_features(features, audio_features)
+        track_ids = [a.id for a in audio_features]
 
-        return audio_features.sort_values().index.tolist()
+        audio_features = [a.to_dict(list(features.keys())) for a in audio_features]
+        audio_features = normalize_features(audio_features, track_ids)
+
+        for feature, direction in features.items():
+            audio_features[feature] *= direction
+
+        audio_features.total = audio_features.sum(axis=1)
+
+        return audio_features.sort_values('total').index.tolist()
 
     def fill_with_related_artists(self, artists, limit=5):
         tries = 5
