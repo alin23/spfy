@@ -1,6 +1,7 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
 import json
+import atexit
 import asyncio
 from time import sleep
 from datetime import datetime
@@ -10,7 +11,9 @@ from itertools import chain
 
 from first import first
 
-from .. import logger
+import aioredis
+
+from .. import config, logger
 from ..cache import Playlist, AudioFeatures, select, async_lru, db_session
 from .result import SpotifyResult
 from ..mixins import EmailMixin
@@ -41,6 +44,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         super().__init__(*args, **kwargs)
         self.proxy = proxy
         self.requests_timeout = requests_timeout
+        self.redis_pool = None
 
     @db_session
     def _increment_api_call_count(self):
@@ -72,8 +76,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 raise SpotifyException(**exception_params)
 
+    async def ensure_redis_pool(self):
+        if not self.redis_pool:
+            self.redis_pool = await aioredis.create_pool(**config.redis, loop=self.loop)
+            atexit.register(self.redis_pool.close)
+
     async def _internal_call(self, method, url, payload, params, headers=None):
         logger.debug(url)
+
+        await self.ensure_redis_pool()
+
         if not isinstance(payload, (bytes, str)):
             payload = json.dumps(payload)
 

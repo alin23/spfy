@@ -62,3 +62,8 @@ app_name = ""
 client_id = ""
 client_secret = ""
 redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+
+[redis]
+url = "redis://localhost"
+minsize = 5
+maxsize = 10
