@@ -80,7 +80,7 @@ class RecommenderMixin:
         for feature, direction in features.items():
             audio_features[feature] *= direction
 
-        audio_features.total = audio_features.sum(axis=1)
+        audio_features['total'] = audio_features.sum(axis=1)
 
         return audio_features.sort_values('total').index.tolist()
 
