@@ -68,27 +68,29 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     async def ensure_redis_pool(self):
         if not self.redis:
-            self.redis = await aioredis.create_pool(**config.redis, loop=self.loop)
+            self.redis = await aioredis.create_pool(
+                config.redis.url, minsize=config.redis.minsize, maxsize=config.redis.maxsize, loop=self.loop
+            )
             atexit.register(self.redis.close)
 
     @staticmethod
     def _get_cache_key(url, params, payload):
-        cache_key = sha1(url)
+        cache_key = sha1(url.encode())
         if params:
-            cache_key.update(json.dumps(params))
+            cache_key.update(json.dumps(params).encode())
         if payload:
-            cache_key.update(payload)
+            cache_key.update(payload.encode())
 
         return cache_key.hexdigest()
 
     async def _fetch_response_from_cache(self, method, url, payload, params, headers, cache_key):
-        etag_key = f'{cache_key}:{config.cache.keys.etag}'
-        response_key = f'{cache_key}:{config.cache.keys.response}'
+        etag_key = f'{cache_key}:{config.cache.key.etag}'
+        response_key = f'{cache_key}:{config.cache.key.response}'
 
         logger.info(f'Cache hit: {etag_key}')
         async with self.redis.get() as conn:
             redis = aioredis.Redis(conn)
-            response = redis.get(response_key)
+            response = await redis.get(response_key)
             tr = redis.multi_exec()
 
             try:
@@ -113,8 +115,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if not etag:
             return
 
-        etag_key = f'{cache_key}:{config.cache.keys.etag}'
-        response_key = f'{cache_key}:{config.cache.keys.response}'
+        logger.debug(f'ETAG: {etag}')
+        etag_key = f'{cache_key}:{config.cache.key.etag}'
+        response_key = f'{cache_key}:{config.cache.key.response}'
 
         async with self.redis.get() as conn:
             redis = aioredis.Redis(conn)
@@ -124,11 +127,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
             await tr.execute(return_exceptions=False)
 
     async def _get_cache_header(self, cache_key):
-        etag_key = f'{cache_key}:{config.cache.keys.etag}'
+        etag_key = f'{cache_key}:{config.cache.key.etag}'
 
         async with self.redis.get() as conn:
             redis = aioredis.Redis(conn)
-            etag = await redis.get(etag_key)
+            etag = await redis.get(etag_key, encoding=config.cache.encoding)
             if etag:
                 return {'If-None-Match': etag}
         return {}
@@ -151,12 +154,14 @@ class SpotifyClient(AuthMixin, EmailMixin):
     async def _internal_call(self, method, url, payload, params, headers=None):
         await self.ensure_redis_pool()
 
-        if not isinstance(payload, (bytes, str)):
+        if payload and not isinstance(payload, (bytes, str)):
             payload = json.dumps(payload)
 
         params = {k: v for k, v in params.items() if v is not None}
         cache_key = self._get_cache_key(url, params, payload)
+        logger.debug(f'Cache key: {cache_key}')
         request_args = await self._get_request_args(payload, params, headers, cache_key)
+        logger.debug(f'Request args: {json.dumps(request_args, indent=4)}')
 
         req = await self.session._request(method, url, **request_args)
         async with req as resp:

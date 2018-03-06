@@ -71,6 +71,6 @@ maxsize = 10
 [cache]
 expire = 432_000
 encoding = 'UTF-8'
-    [cache.keys]
+    [cache.key]
     etag = "ETAG"
     response = "RESPONSE"
