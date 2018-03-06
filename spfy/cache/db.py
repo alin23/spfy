@@ -183,17 +183,27 @@ class User(db.Entity, ImageMixin):
             birthdate=datetime.strptime(user.birthdate, '%Y-%m-%d') if user.birthdate else None
         )
 
-    async def dislike_async(self, artist=None, genre=None, country=None, city=None, client=None):
+    async def _fetch_artist(self, artist, client):
         if artist and client:
-            if not Artist.exists(id=artist):
-                artist_result = await client.artist(artist)
-                if artist_result:
-                    try:
-                        with db_session:
-                            artist_row = await Artist.from_dict_async(artist_result)  # pylint: disable=unused-variable
-                    except CacheIndexError:
-                        pass
+            if Artist.exists(id=artist):
+                return artist
+            artist_result = await client.artist(artist)
+            if not artist_result:
+                return artist
+            try:
+                with db_session:
+                    artist_row = await Artist.from_dict_async(artist_result)  # pylint: disable=unused-variable
+            except CacheIndexError:
+                pass
+        return artist
+
+    async def dislike_async(self, artist=None, genre=None, country=None, city=None, client=None):
+        artist = await self._fetch_artist(artist, client)
         self.dislike(artist=artist, genre=genre, country=country, city=city)
+
+    async def like_async(self, artist=None, genre=None, country=None, city=None, client=None):
+        artist = await self._fetch_artist(artist, client)
+        self.like(artist=artist, genre=genre, country=country, city=city)
 
     def dislike(self, artist=None, genre=None, country=None, city=None):
         assert artist or genre or country or city
@@ -210,7 +220,7 @@ class User(db.Entity, ImageMixin):
                 self.disliked_artists.add(genre.artists)
                 self.top_artists.remove(genre.artists)
         if country:
-            country = Country.get(name=country)
+            country = Country.get(code=country)
             if country:
                 self.disliked_countries.add(country)
                 self.top_countries.remove(country)
@@ -235,7 +245,7 @@ class User(db.Entity, ImageMixin):
                 self.top_artists.add(genre.artists)
                 self.disliked_artists.remove(genre.artists)
         if country:
-            country = Country.get(name=country)
+            country = Country.get(code=country)
             if country:
                 self.top_countries.add(country)
                 self.disliked_countries.remove(country)
@@ -365,8 +375,8 @@ class Genre(db.Entity, ImageMixin):
 class Country(db.Entity, ImageMixin):
     _table_ = 'countries'
 
-    name = PrimaryKey(str)
-    code = Required(str, index=True, max_len=2)
+    code = PrimaryKey(str, max_len=2)
+    name = Required(str, index=True)
     users = Set('User', reverse='country')
     users_preferring = Set('User', reverse='preferred_country')
     cities = Set('City')
