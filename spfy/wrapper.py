@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-from pony.orm import db_session
-
 import fire
 import kick
+from pony.orm import db_session
 
 from . import APP_NAME, config, logger
 from .client import SpotifyClient

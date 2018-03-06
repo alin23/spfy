@@ -8,7 +8,12 @@ from cached_property import cached_property
 
 from .. import config
 from ..cache import Playlist, db_session
-from ..volume import (AlsaVolumeControl, LinuxVolumeControl, SpotifyVolumeControl, ApplescriptVolumeControl)
+from ..volume import (
+    AlsaVolumeControl,
+    LinuxVolumeControl,
+    SpotifyVolumeControl,
+    ApplescriptVolumeControl
+)
 from ..constants import ItemType, TimeRange, VolumeBackend
 
 

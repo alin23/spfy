@@ -1,6 +1,5 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
-import ujson as json
 from time import sleep
 from datetime import datetime
 from operator import attrgetter
@@ -9,12 +8,25 @@ from itertools import chain
 
 from first import first
 
+import ujson as json
+
 from . import logger
 from .cache import Playlist, AudioFeatures, db, select, db_session
 from .mixins import AuthMixin, EmailMixin
 from .result import SpotifyResult
-from .constants import (API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature)
-from .exceptions import (SpotifyException, SpotifyAuthException, SpotifyForbiddenException, SpotifyRateLimitException)
+from .constants import (
+    API,
+    DEVICE_ID_RE,
+    PLAYLIST_URI_RE,
+    TimeRange,
+    AudioFeature
+)
+from .exceptions import (
+    SpotifyException,
+    SpotifyAuthException,
+    SpotifyForbiddenException,
+    SpotifyRateLimitException
+)
 
 
 class SpotifyClient(AuthMixin, EmailMixin):

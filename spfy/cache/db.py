@@ -14,8 +14,20 @@ import psycopg2.extras
 from first import first
 # pylint: disable=unused-import
 from pony.orm import (
-    Set, Json, Database, Optional, Required, PrimaryKey, ObjectNotFound, get, desc, select, ormtypes, sql_debug,
-    db_session, composite_key
+    Set,
+    Json,
+    Database,
+    Optional,
+    Required,
+    PrimaryKey,
+    ObjectNotFound,
+    get,
+    desc,
+    select,
+    ormtypes,
+    sql_debug,
+    db_session,
+    composite_key
 )
 from pycountry import countries
 from colorthief import ColorThief

@@ -3,23 +3,34 @@
 import atexit
 import asyncio
 from hashlib import sha1
-import msgpack
 from datetime import datetime
 from operator import attrgetter
 from functools import partialmethod
 from itertools import chain
 
+import msgpack
+import aioredis
 from first import first
 
 import ujson as json
-import aioredis
 
 from .. import config, logger
 from ..cache import Playlist, AudioFeatures, select, async_lru, db_session
 from .result import SpotifyResult
 from ..mixins import EmailMixin
-from ..constants import (API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature)
-from ..exceptions import (SpotifyException, SpotifyAuthException, SpotifyForbiddenException, SpotifyRateLimitException)
+from ..constants import (
+    API,
+    DEVICE_ID_RE,
+    PLAYLIST_URI_RE,
+    TimeRange,
+    AudioFeature
+)
+from ..exceptions import (
+    SpotifyException,
+    SpotifyAuthException,
+    SpotifyForbiddenException,
+    SpotifyRateLimitException
+)
 from ..mixins.async import AuthMixin
 
 
