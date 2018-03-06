@@ -1,9 +1,9 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
-import json
 import atexit
 import asyncio
-from time import sleep
+from hashlib import sha1
+import msgpack
 from datetime import datetime
 from operator import attrgetter
 from functools import partialmethod
@@ -11,25 +11,15 @@ from itertools import chain
 
 from first import first
 
+import ujson as json
 import aioredis
 
 from .. import config, logger
 from ..cache import Playlist, AudioFeatures, select, async_lru, db_session
 from .result import SpotifyResult
 from ..mixins import EmailMixin
-from ..constants import (
-    API,
-    DEVICE_ID_RE,
-    PLAYLIST_URI_RE,
-    TimeRange,
-    AudioFeature
-)
-from ..exceptions import (
-    SpotifyException,
-    SpotifyAuthException,
-    SpotifyForbiddenException,
-    SpotifyRateLimitException
-)
+from ..constants import (API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature)
+from ..exceptions import (SpotifyException, SpotifyAuthException, SpotifyForbiddenException, SpotifyRateLimitException)
 from ..mixins.async import AuthMixin
 
 
@@ -81,48 +71,111 @@ class SpotifyClient(AuthMixin, EmailMixin):
             self.redis = await aioredis.create_pool(**config.redis, loop=self.loop)
             atexit.register(self.redis.close)
 
-    async def _internal_call(self, method, url, payload, params, headers=None):
-        logger.debug(url)
+    @staticmethod
+    def _get_cache_key(url, params, payload):
+        cache_key = sha1(url)
+        if params:
+            cache_key.update(json.dumps(params))
+        if payload:
+            cache_key.update(payload)
 
+        return cache_key.hexdigest()
+
+    async def _fetch_response_from_cache(self, method, url, payload, params, headers, cache_key):
+        etag_key = f'{cache_key}:{config.cache.keys.etag}'
+        response_key = f'{cache_key}:{config.cache.keys.response}'
+
+        logger.info(f'Cache hit: {etag_key}')
+        async with self.redis.get() as conn:
+            redis = aioredis.Redis(conn)
+            response = redis.get(response_key)
+            tr = redis.multi_exec()
+
+            try:
+                results = msgpack.loads(response, encoding=config.cache.encoding)
+            except:
+                results = None
+
+            if not results:
+                logger.error(f'Cached response is invalid: {etag_key}')
+                tr.delete(etag_key)
+                tr.delete(response_key)
+                await tr.execute(return_exceptions=False)
+                return await self._internal_call(method, url, payload, params, headers)
+
+            tr.expire(etag_key, config.cache.expire)
+            tr.expire(response_key, config.cache.expire)
+            await tr.execute(return_exceptions=False)
+
+            return SpotifyResult(results, _client=self)
+
+    async def _cache_response(self, etag, results, cache_key):
+        if not etag:
+            return
+
+        etag_key = f'{cache_key}:{config.cache.keys.etag}'
+        response_key = f'{cache_key}:{config.cache.keys.response}'
+
+        async with self.redis.get() as conn:
+            redis = aioredis.Redis(conn)
+            tr = redis.multi_exec()
+            tr.set(etag_key, etag, expire=config.cache.expire)
+            tr.set(response_key, msgpack.dumps(results, encoding=config.cache.encoding), expire=config.cache.expire)
+            await tr.execute(return_exceptions=False)
+
+    async def _get_cache_header(self, cache_key):
+        etag_key = f'{cache_key}:{config.cache.keys.etag}'
+
+        async with self.redis.get() as conn:
+            redis = aioredis.Redis(conn)
+            etag = await redis.get(etag_key)
+            if etag:
+                return {'If-None-Match': etag}
+        return {}
+
+    async def _get_request_args(self, payload, params, headers, etag_key):
+        return {
+            'proxy': self.proxy,
+            'timeout': self.requests_timeout,
+            'headers': {
+                'Content-Type': 'application/json',
+                **(await self._get_cache_header(etag_key)),
+                **(headers or {})
+            },
+            'data': payload,
+            'params': params,
+            'client_id': self.client_id,
+            'client_secret': self.client_secret
+        }
+
+    async def _internal_call(self, method, url, payload, params, headers=None):
         await self.ensure_redis_pool()
 
         if not isinstance(payload, (bytes, str)):
             payload = json.dumps(payload)
 
-        req = await self.session._request(
-            method,
-            url,
-            proxy=self.proxy,
-            timeout=self.requests_timeout,
-            headers={'Content-Type': 'application/json', **(headers or {})},
-            data=payload,
-            params={k: v
-                    for k, v in params.items()
-                    if v is not None},
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-        )
+        params = {k: v for k, v in params.items() if v is not None}
+        cache_key = self._get_cache_key(url, params, payload)
+        request_args = await self._get_request_args(payload, params, headers, cache_key)
 
+        req = await self.session._request(method, url, **request_args)
         async with req as resp:
-            logger.debug('HTTP Status Code: {resp.status}')
-            logger.debug(f'{method}: {resp.url}')
-            if payload and not isinstance(payload, bytes):
-                logger.debug(f'DATA: {payload}')
+            if self.user_id:
+                self._increment_api_call_count()
 
+            if resp.status == 304:
+                return await self._fetch_response_from_cache(method, url, payload, params, headers, cache_key)
             try:
                 await self._check_response(resp)
             except SpotifyRateLimitException as exc:
                 logger.warning(f'Reached API rate limit. Retrying in {exc.retry_after} seconds...')
-                sleep(exc.retry_after)
+                await asyncio.sleep(exc.retry_after)
                 return await self._internal_call(method, url, payload, params, headers)
-
-            if self.user_id:
-                self._increment_api_call_count()
 
             text = await resp.text()
             if text and text != 'null':
                 results = json.loads(text)
-                logger.debug(f'RESP: {text}')
+                await self._cache_response(resp.headers.get('etag'), results, cache_key)
                 return SpotifyResult(results, _client=self)
 
     async def _api_call(self, method, url, args=None, payload=None, headers=None, **kwargs):
@@ -381,9 +434,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return await self._put(
             API.PLAYLIST_IMAGES.value.format(user_id=user, playlist_id=playlist_id),
             payload=image,
-            headers={
-                'Content-Type': 'image/jpeg'
-            }
+            headers={'Content-Type': 'image/jpeg'}
         )
 
     async def user_playlist_change_details(

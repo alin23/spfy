@@ -107,7 +107,10 @@ class SpotifyResult(addict.Dict):
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             limit = int(params.pop('limit', 20))
             offset = int(params.pop('offset', 0))
-            return [{**params, 'limit': max_limit, 'offset': off} for off in range(offset + limit, self.total, max_limit)]
+            return [{
+                **params, 'limit': max_limit,
+                'offset': off
+            } for off in range(offset + limit, self.total, max_limit)]
         return []
 
     def all(self, limit=None):

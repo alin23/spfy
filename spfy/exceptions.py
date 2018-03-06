@@ -1,4 +1,4 @@
-import json
+import ujson as json
 
 
 class SpotifyException(Exception):

@@ -1,6 +1,6 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
-import json
+import ujson as json
 from time import sleep
 from datetime import datetime
 from operator import attrgetter
@@ -13,19 +13,8 @@ from . import logger
 from .cache import Playlist, AudioFeatures, db, select, db_session
 from .mixins import AuthMixin, EmailMixin
 from .result import SpotifyResult
-from .constants import (
-    API,
-    DEVICE_ID_RE,
-    PLAYLIST_URI_RE,
-    TimeRange,
-    AudioFeature
-)
-from .exceptions import (
-    SpotifyException,
-    SpotifyAuthException,
-    SpotifyForbiddenException,
-    SpotifyRateLimitException
-)
+from .constants import (API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature)
+from .exceptions import (SpotifyException, SpotifyAuthException, SpotifyForbiddenException, SpotifyRateLimitException)
 
 
 class SpotifyClient(AuthMixin, EmailMixin):
@@ -80,7 +69,10 @@ class SpotifyClient(AuthMixin, EmailMixin):
             url,
             proxies=self.proxies,
             timeout=self.requests_timeout,
-            headers={'Content-Type': 'application/json', **(headers or {})},
+            headers={
+                'Content-Type': 'application/json',
+                **(headers or {})
+            },
             data=payload,
             params={k: v
                     for k, v in params.items()
@@ -366,9 +358,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return self._put(
             API.PLAYLIST_IMAGES.value.format(user_id=user, playlist_id=playlist_id),
             payload=image,
-            headers={
-                'Content-Type': 'image/jpeg'
-            }
+            headers={'Content-Type': 'image/jpeg'}
         )
 
     def user_playlist_change_details(

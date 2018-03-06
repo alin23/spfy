@@ -39,6 +39,9 @@ REQUIRES = [
     'psycopg2-binary',
     'pycountry',
     'pandas',
+    'ujson',
+    'aioredis',
+    'msgpack',
 ]
 
 try:

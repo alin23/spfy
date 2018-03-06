@@ -2,12 +2,7 @@ import logging
 
 import aiohttp
 from oauthlib.common import urldecode, generate_token
-from oauthlib.oauth2 import (
-    TokenExpiredError,
-    WebApplicationClient,
-    InsecureTransportError,
-    is_secure_transport
-)
+from oauthlib.oauth2 import (TokenExpiredError, WebApplicationClient, InsecureTransportError, is_secure_transport)
 
 log = logging.getLogger(__name__)
 

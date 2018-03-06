@@ -4,7 +4,7 @@ from pony.orm import db_session
 
 import kick
 
-from .. import APP_NAME, config
+from .. import APP_NAME, config, logger
 from .client import SpotifyClient
 from ..mixins.async import PlayerMixin, RecommenderMixin
 
@@ -25,9 +25,12 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
         names = [name for name in names if not name.startswith('_') and name != 'user']
         return names
 
-    async def auth(self, email=None, username=None):
+    async def auth(self, email=config.auth.email, username=config.auth.username):
         if self.cli and not self.is_authenticated:
-            await self.authenticate(email=email, username=username)
+            try:
+                await self.authenticate(email=email, username=username)
+            except Exception as exc:
+                logger.exception(exc)
         return self
 
     @staticmethod

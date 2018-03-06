@@ -14,24 +14,12 @@ import psycopg2.extras
 from first import first
 # pylint: disable=unused-import
 from pony.orm import (
-    Set,
-    Json,
-    Database,
-    Optional,
-    Required,
-    PrimaryKey,
-    ObjectNotFound,
-    get,
-    desc,
-    select,
-    ormtypes,
-    sql_debug,
-    db_session,
-    composite_key
+    Set, Json, Database, Optional, Required, PrimaryKey, ObjectNotFound, get, desc, select, ormtypes, sql_debug,
+    db_session, composite_key
 )
-from pony.orm.core import CacheIndexError
 from pycountry import countries
 from colorthief import ColorThief
+from pony.orm.core import CacheIndexError
 from unsplash.errors import UnsplashError
 from psycopg2.extensions import register_adapter
 
@@ -94,10 +82,7 @@ class ImageMixin:
                 image.set(**params)
             return self.image(width, height)
 
-        params = {
-            self.__class__.__name__.lower(): self,
-            'unsplash_id': photo.id
-        }
+        params = {self.__class__.__name__.lower(): self, 'unsplash_id': photo.id}
 
         image_exists = False
         for url in (photo.urls.full, photo.urls.regular, photo.urls.small, photo.urls.thumb):
@@ -184,10 +169,7 @@ class User(db.Entity, ImageMixin):
                 image.color = color
 
         images = [Image.get(url=image.url) or Image(**image) for image in user.images]
-        spotify_user = (
-            SpotifyUser.get(id=user.id)
-            or SpotifyUser(id=user.id, name=user.get('display_name') or '')
-        )
+        spotify_user = (SpotifyUser.get(id=user.id) or SpotifyUser(id=user.id, name=user.get('display_name') or ''))
 
         return cls(
             id=user.user_id,
@@ -467,14 +449,14 @@ class Playlist(db.Entity, ImageMixin):
     NEEDLE_POPULARITY = '(?P<popularity>Current|Emerging|Underground)'
 
     PATTERNS = OrderedDict(
-        intro_to_genre=re.compile(fr'^{INTRO_POPULARITY} to {GENRE}$'),
-        sound_of_city=re.compile(fr'^The Sound of {CITY} {COUNTRY_CODE}$'),
-        needle=re.compile(fr'^The Needle / {COUNTRY} {DATE}(?: - {NEEDLE_POPULARITY})?$'),
-        pine_needle=re.compile(fr'^The Pine Needle / {COUNTRY}$'),
-        year_in_genre=re.compile(fr'^{YEAR} in {GENRE}$'),
-        meta_genre=re.compile(fr'^Meta{GENRE_POPULARITY_LOWER}: {GENRE}$'),
-        meta_year_in_genre=re.compile(fr'^Meta{YEAR}: {GENRE}$'),
-        sound_of_genre=re.compile(fr'^The {GENRE_POPULARITY_TITLE} of {GENRE}$'),
+        intro_to_genre=re.compile(f'^{INTRO_POPULARITY} to {GENRE}$'),
+        sound_of_city=re.compile(f'^The Sound of {CITY} {COUNTRY_CODE}$'),
+        needle=re.compile(f'^The Needle / {COUNTRY} {DATE}(?: - {NEEDLE_POPULARITY})?$'),
+        pine_needle=re.compile(f'^The Pine Needle / {COUNTRY}$'),
+        year_in_genre=re.compile(f'^{YEAR} in {GENRE}$'),
+        meta_genre=re.compile(f'^Meta{GENRE_POPULARITY_LOWER}: {GENRE}$'),
+        meta_year_in_genre=re.compile(f'^Meta{YEAR}: {GENRE}$'),
+        sound_of_genre=re.compile(f'^The {GENRE_POPULARITY_TITLE} of {GENRE}$'),
     )
 
     class Popularity(IntEnum):

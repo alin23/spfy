@@ -4,7 +4,7 @@ from pony.orm import db_session
 import fire
 import kick
 
-from . import APP_NAME, config
+from . import APP_NAME, config, logger
 from .client import SpotifyClient
 from .mixins import PlayerMixin, RecommenderMixin
 
@@ -17,8 +17,14 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
         super().__init__(*args, **kwargs)
         self.email = email or config.auth.email
         self.username = username or config.auth.username
+
+    def auth(self, email=config.auth.email, username=config.auth.username):
         if self.cli and not self.is_authenticated:
-            self.authenticate(email=self.email, username=self.username)
+            try:
+                self.authenticate(email=email, username=username)
+            except Exception as exc:
+                logger.exception(exc)
+        return self
 
     def __dir__(self):
         names = super().__dir__()
