@@ -138,7 +138,8 @@ disable=print-statement,
         broad-except,
         bare-except,
         useless-super-delegation,
-        ungrouped-imports
+        ungrouped-imports,
+        bad-whitespace
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

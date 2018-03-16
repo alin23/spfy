@@ -12,6 +12,7 @@ LOCAL_ATTRIBUTES = {'_client', '_next_result', '_next_result_available', '_playa
 
 
 class Playable:
+
     def __init__(self, result):
         self.result = result
         self.client = self.result._client
@@ -40,19 +41,25 @@ class Playable:
             data['context_uri'] = self.client._get_uri(self.result.type, self.result)
         elif item.type == 'track':
             data['uris'] = list(map(self.client._get_track_uri, self.result))
-
         return data
+
+
 
 
 # pylint: disable=too-few-public-methods
 class SpotifyResultIterator:
+
     def __init__(self, result, limit=None):
         self.result = result
         self.limit = limit
         self.result_iterator = iter(result)
         self.params_list = self.result.get_next_params_list(limit)
-        self.requests = (self.result._get_with_params(params) for params in self.params_list)
-        self.responses = limited_as_completed(self.requests, config.http.concurrent_connections)
+        self.requests = (
+            self.result._get_with_params(params) for params in self.params_list
+        )
+        self.responses = limited_as_completed(
+            self.requests, config.http.concurrent_connections
+        )
 
     def __aiter__(self):
         return self
@@ -62,12 +69,15 @@ class SpotifyResultIterator:
         if item is not None:
             return item
 
-        self.result_iterator = iter(await self.responses.__anext__())  # pylint: disable=no-member
+        # pylint: disable=no-member
+        self.result_iterator = iter(await self.responses.__anext__())
         return await self.__anext__()
 
 
 class SpotifyResult(addict.Dict):
-    ITER_KEYS = ('items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists', 'devices')
+    ITER_KEYS = (
+        'items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists', 'devices'
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -79,7 +89,9 @@ class SpotifyResult(addict.Dict):
             if key in self:
                 if 'items' in self[key]:
                     return iter(self[key]['items'])
+
                 return iter(self[key])
+
         return super().__iter__()
 
     def __getitem__(self, item):
@@ -88,15 +100,19 @@ class SpotifyResult(addict.Dict):
                 if key in self:
                     if 'items' in self[key]:
                         return iter(self[key]['items'][item])
+
                     return iter(self[key][item])
+
         return super().__getitem__(item)
 
     @classmethod
     def _hook(cls, item):
         if isinstance(item, dict):
             return addict.Dict(item)
+
         elif isinstance(item, (list, tuple)):
             return type(item)(cls._hook(elem) for elem in item)
+
         return item
 
     def items(self):
@@ -113,7 +129,7 @@ class SpotifyResult(addict.Dict):
 
     @cached_property
     def base_url(self):
-        return urlunparse([*urlparse(self.href)[:3], '', '', ''])
+        return urlunparse([* urlparse(self.href)[:3], '', '', ''])
 
     async def _get_with_params(self, params, url=None):
         return await self._client._get(url or self.base_url, **params)
@@ -128,20 +144,24 @@ class SpotifyResult(addict.Dict):
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             limit = int(params.pop('limit', 20))
             offset = int(params.pop('offset', 0))
-            return [{
-                **params, 'limit': max_limit,
-                'offset': off
-            } for off in range(offset + limit, self.total, max_limit)]
+            return [
+                {**params, 'limit': max_limit, 'offset': off}
+                for off in range(offset + limit, self.total, max_limit)
+            ]
+
         return []
 
     async def all(self, limit=None):
-        return [item async for item in self.iterall(limit)]  # pylint: disable=not-an-iterable
+        # pylint: disable=not-an-iterable
+        return [item async for item in self.iterall(limit)]
 
     async def next(self):
         if self._next_result:
             return self._next_result
+
         if self['next']:
             return await self._client._get(self['next'])
+
         return None
 
     def iterall(self, limit=None):

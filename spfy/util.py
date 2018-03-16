@@ -5,7 +5,9 @@ import pandas as pd
 from .constants import MAX_KEY, MAX_LOUDNESS, MAX_POPULARITY, AudioFeature
 
 
-def normalize_features(features: List[Dict[str, float]], track_ids: List[str]) -> pd.DataFrame:
+def normalize_features(
+    features: List[Dict[str, float]], track_ids: List[str]
+) -> pd.DataFrame:
     """Normalizes a set of audio features to values between 0 and 1
 
     Args:
@@ -16,23 +18,16 @@ def normalize_features(features: List[Dict[str, float]], track_ids: List[str]) -
         pd.DataFrame: Feature values between 0 and 1
     """
     data = pd.DataFrame(features, dtype='float64', index=pd.Index(track_ids))
-
     if AudioFeature.TEMPO.value in data:
         data.tempo /= data.tempo.max()
-
     if AudioFeature.DURATION_MS.value in data:
         data.duration_ms /= data.duration_ms.max()
-
     if AudioFeature.TIME_SIGNATURE.value in data:
         data.time_signature /= data.time_signature.max()
-
     if AudioFeature.KEY.value in data:
         data.key /= MAX_KEY
-
     if AudioFeature.LOUDNESS.value in data:
         data.loudness = 1 - data.loudness / MAX_LOUDNESS
-
     if AudioFeature.POPULARITY.value in data:
         data.popularity /= MAX_POPULARITY
-
     return data

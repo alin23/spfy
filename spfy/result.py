@@ -14,12 +14,15 @@ LOCAL_ATTRIBUTES = {'_client', '_next_result', '_next_result_available', '_playa
 
 
 class Playable:
+
     def __init__(self, result):
         self.result = result
         self.client = self.result._client
 
     def play(self, device=None, index=None):
-        return self.result._put_with_params(dict(device_id=device, payload=self.get_data(index)), url=API.PLAY.value)
+        return self.result._put_with_params(
+            dict(device_id=device, payload=self.get_data(index)), url=API.PLAY.value
+        )
 
     def get_data(self, index=None):
         data = {}
@@ -40,12 +43,13 @@ class Playable:
             data['context_uri'] = self.client._get_uri(self.result.type, self.result)
         elif item.type == 'track':
             data['uris'] = list(map(self.client._get_track_uri, self.result))
-
         return data
 
 
 class SpotifyResult(addict.Dict):
-    ITER_KEYS = ('items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists', 'devices')
+    ITER_KEYS = (
+        'items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists', 'devices'
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -58,7 +62,9 @@ class SpotifyResult(addict.Dict):
             if key in self:
                 if 'items' in self[key]:
                     return iter(self[key]['items'])
+
                 return iter(self[key])
+
         return super().__iter__()
 
     def __getitem__(self, item):
@@ -67,15 +73,19 @@ class SpotifyResult(addict.Dict):
                 if key in self:
                     if 'items' in self[key]:
                         return iter(self[key]['items'][item])
+
                     return iter(self[key][item])
+
         return super().__getitem__(item)
 
     @classmethod
     def _hook(cls, item):
         if isinstance(item, dict):
             return addict.Dict(item)
+
         if isinstance(item, (list, tuple)):
             return type(item)(cls._hook(elem) for elem in item)
+
         return item
 
     def items(self):
@@ -92,7 +102,7 @@ class SpotifyResult(addict.Dict):
 
     @cached_property
     def base_url(self):
-        return urlunparse([*urlparse(self.href)[:3], '', '', ''])
+        return urlunparse([* urlparse(self.href)[:3], '', '', ''])
 
     def _get_with_params(self, params, url=None):
         return self._client._get(url or self.base_url, **params)
@@ -107,10 +117,11 @@ class SpotifyResult(addict.Dict):
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
             limit = int(params.pop('limit', 20))
             offset = int(params.pop('offset', 0))
-            return [{
-                **params, 'limit': max_limit,
-                'offset': off
-            } for off in range(offset + limit, self.total, max_limit)]
+            return [
+                {**params, 'limit': max_limit, 'offset': off}
+                for off in range(offset + limit, self.total, max_limit)
+            ]
+
         return []
 
     def all(self, limit=None):
@@ -118,13 +129,20 @@ class SpotifyResult(addict.Dict):
         if not params_list:
             return []
 
-        with ThreadPoolExecutor(max_workers=config.http.parallel_connections) as executor:
-            return chain.from_iterable(executor.map(self._get_with_params, params_list, timeout=10 * len(params_list)))
+        with ThreadPoolExecutor(
+            max_workers=config.http.parallel_connections
+        ) as executor:
+            return chain.from_iterable(
+                executor.map(
+                    self._get_with_params, params_list, timeout=10 * len(params_list)
+                )
+            )
 
     @cached_property
     def next(self):
         if self['next']:
             return self._client._get(self['next'])
+
         return None
 
     def _fetch_next_result(self, result):
@@ -133,9 +151,8 @@ class SpotifyResult(addict.Dict):
 
     def iterall(self):
         result = self
-
         while result:
-            threading.Thread(target=self._fetch_next_result, args=(result, )).start()
+            threading.Thread(target=self._fetch_next_result, args=(result,)).start()
             for item in result:
                 yield item
 

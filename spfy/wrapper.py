@@ -37,7 +37,6 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
 
 def main():
     """Main function."""
-
     try:
         Spotify.cli = True
         with db_session:

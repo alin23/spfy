@@ -20,24 +20,33 @@ CACHE_FILE = Path.home() / '.cache' / 'spfy' / '.web_cache'
 
 
 class AuthMixin:
-    def __init__(self, *args, client_id=None, client_secret=None, redirect_uri=None, user_id=None, **kwargs):
+
+    def __init__(
+        self,
+        *args,
+        client_id=None,
+        client_secret=None,
+        redirect_uri=None,
+        user_id=None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.client_id = client_id or config.app.client_id
         self.client_secret = client_secret or config.app.client_secret
         self.redirect_uri = self._get_redirect_uri(redirect_uri)
-
         self.session = None
         self.user_id = user_id
-
         self.callback_reached = threading.Event()
 
     @staticmethod
     def _get_redirect_uri(redirect_uri):
-        redirect_uri = (redirect_uri or config.app.redirect_uri or f'http://{socket.gethostname()}.local')
-
+        redirect_uri = (
+            redirect_uri or
+            config.app.redirect_uri or
+            f'http://{socket.gethostname()}.local'
+        )
         if config.auth.callback.enabled and config.auth.callback.port and redirect_uri:
             redirect_uri += f':{config.auth.callback.port}'
-
         return redirect_uri
 
     @staticmethod
@@ -47,7 +56,7 @@ class AuthMixin:
             cache=FileCache(CACHE_FILE),
             pool_connections=config.http.connections,
             pool_maxsize=config.http.connections,
-            max_retries=config.http.retries
+            max_retries=config.http.retries,
         )
         session.mount('http://', cache_adapter)
         return session
@@ -62,11 +71,21 @@ class AuthMixin:
         return bool(self.session and self.session.authorized)
 
     @db_session
-    def authenticate_user(self, username=None, email=None, code=None, state=None, auth_response=None, scope=AllScopes):
+    def authenticate_user(
+        self,
+        username=None,
+        email=None,
+        code=None,
+        state=None,
+        auth_response=None,
+        scope=AllScopes,
+    ):
         session = self.session or self.get_session(
-            self.client_id, redirect_uri=self.redirect_uri, scope=scope, auto_refresh_url=API.TOKEN.value
+            self.client_id,
+            redirect_uri=self.redirect_uri,
+            scope=scope,
+            auto_refresh_url=API.TOKEN.value,
         )
-
         if self.user_id:
             user = User.get(id=self.user_id)
             if user:
@@ -89,13 +108,16 @@ class AuthMixin:
                 client_secret=self.client_secret,
                 code=code,
                 state=state,
-                authorization_response=auth_response
+                authorization_response=auth_response,
             )
-
             user_details = self.current_user()
-            user = select(u for u in User
-                          if u.username == user_details.id or u.email == user_details.email).for_update().get()
-
+            user = select(
+                u
+                for u in User
+                if u.username == user_details.id or u.email == user_details.email
+            ).for_update(
+            ).get(
+            )
             if user:
                 user.token = token
                 if user.id != self.user_id:
@@ -104,13 +126,11 @@ class AuthMixin:
                 user = User.get_for_update(id=self.user_id)
                 if user:
                     user.token = token
-
             if not user:
                 self.user_id = self.user_id or uuid.uuid4()
                 user_details['user_id'] = self.user_id
                 user_details['token'] = token
                 user = User.from_dict(user_details)
-
             return session
 
         return session
@@ -119,17 +139,18 @@ class AuthMixin:
     def authenticate_server(self):
         default_user = User.default()
         self.user_id = default_user.id
-
-        session = self.session or self.get_session(client=BackendApplicationClient(self.client_id))
+        session = self.session or self.get_session(
+            client=BackendApplicationClient(self.client_id)
+        )
         session.token_updater = User.token_updater(default_user.id)
-
         if default_user.token:
             session.token = default_user.token
         else:
             default_user.token = session.fetch_token(
-                token_url=API.TOKEN.value, client_id=self.client_id, client_secret=self.client_secret
+                token_url=API.TOKEN.value,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
             )
-
         return session
 
     def authenticate(self, flow=config.auth.flow, **auth_params):
@@ -144,14 +165,14 @@ class AuthMixin:
             if not self.session.token:
                 if config.auth.callback.enabled:
                     self.start_callback()
-
-                authorization_url, _ = self.session.authorization_url(API.AUTHORIZE.value)
+                authorization_url, _ = self.session.authorization_url(
+                    API.AUTHORIZE.value
+                )
                 if config.auth.send_auth_url_to_email:
                     email = auth_params.get('email') or config.auth.email
                     self.send_auth_email(email, authorization_url)
                 else:
                     print(f'Login here: {authorization_url}')
-
                 self.wait_for_authorization()
 
     def wait_for_authorization(self):
@@ -179,14 +200,14 @@ class AuthMixin:
                 html = html.replace('BACKGROUND_COLOR', '#65D46E')
             except Exception as exc:
                 logger.exception(exc)
-                html = html.replace('SPOTIFY_AUTH_MESSAGE', 'Could not get authorization token.')
+                html = html.replace(
+                    'SPOTIFY_AUTH_MESSAGE', 'Could not get authorization token.'
+                )
                 html = html.replace('BACKGROUND_COLOR', '#EC2E50')
             finally:
                 self.callback_reached.set()
-
             return html
 
         api = __hug__.http.server(None)  # pylint: disable=undefined-variable
         self.httpd = make_server('', config.auth.callback.port, api)
-
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
