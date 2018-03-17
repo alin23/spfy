@@ -17,6 +17,7 @@ def normalize_features(
     Returns:
         pd.DataFrame: Feature values between 0 and 1
     """
+    # pylint: disable=no-member
     data = pd.DataFrame(features, dtype='float64', index=pd.Index(track_ids))
     if AudioFeature.TEMPO.value in data:
         data.tempo /= data.tempo.max()

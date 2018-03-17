@@ -52,6 +52,7 @@ class PlayerMixin:
     @cached_property
     def _applescript_volume_control(self):
         try:
+            # pylint: disable=no-member
             if os.uname().sysname != 'Darwin':
                 return None
 
@@ -63,6 +64,7 @@ class PlayerMixin:
     @cached_property
     def _linux_volume_control(self):
         try:
+            # pylint: disable=no-member
             if os.uname().sysname != 'Linux':
                 return None
 
@@ -79,6 +81,7 @@ class PlayerMixin:
     @cached_property
     def _alsa_volume_control(self):
         try:
+            # pylint: disable=no-member
             if os.uname().sysname != 'Linux':
                 return None
 

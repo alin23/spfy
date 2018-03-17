@@ -191,7 +191,7 @@ class AuthMixin:
         # pylint: disable=unused-variable
         @hug.get('/', output=hug.output_format.html)
         def callback(code: hug.types.text, state: hug.types.text):
-            html = AUTH_HTML_FILE.read_text()
+            html = AUTH_HTML_FILE.read_text()  # pylint: disable=no-member
             try:
                 self.session = self.authenticate_user(code=code, state=state)
                 html = html.replace('SPOTIFY_AUTH_MESSAGE', 'Successfully logged in!')

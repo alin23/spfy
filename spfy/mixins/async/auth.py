@@ -197,7 +197,7 @@ class AuthMixin:
 
             code = request.query['code']
             state = request.query.get('code')
-            html = AUTH_HTML_FILE.read_text()
+            html = AUTH_HTML_FILE.read_text()  # pylint: disable=no-member
             try:
                 self.session = asyncio.run_coroutine_threadsafe(
                     self.authenticate_user(code=code, state=state), loop=self.loop

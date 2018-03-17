@@ -85,7 +85,7 @@ class SpotifyVolumeControl(VolumeControl):
 
     @property
     def volume(self):
-        return int(self.spotify.get_device(device=self.device).volume_percent) + 1
+        return int(self.spotify.get_device(device=self.device).volume_percent or 0) + 1
 
     @volume.setter
     def volume(self, val):
@@ -116,7 +116,7 @@ class SpotifyVolumeControlAsync(VolumeControl):
 
     async def volume(self):  # pylint: disable=method-hidden
         device = await self.spotify.get_device(device=self.device)
-        return int(device.volume_percent) + 1
+        return int(device.volume_percent or 0) + 1
 
     async def set_volume(self, val):
         await self.spotify.volume(min(max(val, 1), 100), device=self.device)
