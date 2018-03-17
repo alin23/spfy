@@ -5,18 +5,16 @@ from setuptools import setup, find_packages
 
 CONFIGDIR = pathlib.Path.home() / '.config' / 'spfy'
 CONFIGDIR.mkdir(parents=True, exist_ok=True)
-
 with open('spfy/__init__.py', 'r') as f:
     for line in f:
         if line.startswith('__version__'):
             version = line.strip().split('=')[1].strip(' \'"')
             break
+
     else:
         version = '0.0.1'
-
 with open('README.md', 'rb') as f:
     readme = f.read().decode('utf-8')
-
 REQUIRES = [
     'addict',
     'backoff',
@@ -43,13 +41,11 @@ REQUIRES = [
     'aioredis',
     'msgpack',
 ]
-
 try:
     if os.uname().sysname == 'Linux':
         REQUIRES.append('pyalsaaudio')
 except:
     pass
-
 setup(
     name='spfy',
     version=version,
@@ -76,10 +72,11 @@ setup(
     install_requires=REQUIRES,
     tests_require=['coverage', 'pytest', 'tox', 'pylint', 'mypy'],
     packages=find_packages(),
-    package_data={'spfy': [
-        'config/*.toml',
-        'html/*.html',
-    ]},
+    package_data={'spfy': ['config/*.toml', 'html/*.html']},
     data_files=[(str(CONFIGDIR), ['spfy/config/config.toml'])],
-    entry_points={'console_scripts': ['spotify = spfy.wrapper:main', 'spotify_async = spfy.async.wrapper:main']},
+    entry_points={
+        'console_scripts': [
+            'spotify = spfy.wrapper:main', 'spotify_async = spfy.async.wrapper:main'
+        ]
+    },
 )
