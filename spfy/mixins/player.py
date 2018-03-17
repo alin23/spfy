@@ -125,7 +125,6 @@ class PlayerMixin:
     def fade_down(self, **kwargs):
         self.fade(** {**config.volume.fade.down, **kwargs})
 
-
     #  pylint: disable=too-many-arguments
     def fade(
         self,
@@ -177,8 +176,9 @@ class PlayerMixin:
             k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')
         }
         popularity = random.choice(list(Playlist.Popularity)[:3])
-        genre = self.top_genres(time_range=time_range).select().without_distinct(
-        ).random(
+        genre = self.top_genres(
+            time_range=time_range
+        ).select().without_distinct().random(
             1
         )[
             0

@@ -45,8 +45,7 @@ class RecommenderMixin:
                     except CacheIndexError:
                         artist = Artist[artist.id]
                     self.user.top_artists.add(artist)
-            self.user.top_genres = self.user.top_artists.genres.distinct().keys(
-            ) - self.user.disliked_genres
+            self.user.top_genres = self.user.top_artists.genres.distinct().keys() - self.user.disliked_genres
             if self.user.top_expires_at is None:
                 self.user.top_expires_at = {}
             self.user.top_expires_at[TimeRange(time_range).value] = time.mktime(
@@ -136,8 +135,8 @@ class RecommenderMixin:
     def is_disliked_artist(self, artist):
         with db_session:
             return (
-                artist.id in set(self.user.disliked_artists.id.distinct().keys()) or
-                bool(set(artist.genres or []) & set(self.user.disliked_genres))
+                artist.id in set(self.user.disliked_artists.id.distinct().keys())
+                or bool(set(artist.genres or []) & set(self.user.disliked_genres))
             )
 
     def is_not_disliked_artist(self, artist):

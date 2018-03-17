@@ -50,9 +50,9 @@ class AuthMixin:
     @staticmethod
     def _get_redirect_uri(redirect_uri):
         redirect_uri = (
-            redirect_uri or
-            config.app.redirect_uri or
-            f'http://{socket.gethostname()}.local'
+            redirect_uri
+            or config.app.redirect_uri
+            or f'http://{socket.gethostname()}.local'
         )
         if config.auth.callback.enabled and config.auth.callback.port and redirect_uri:
             redirect_uri += f':{config.auth.callback.port}'
@@ -112,9 +112,7 @@ class AuthMixin:
                 u
                 for u in User
                 if u.username == user_details.id or u.email == user_details.email
-            ).for_update(
-            ).get(
-            )
+            ).for_update().get()
             if user:
                 user.token = token
                 if user.id != self.user_id:

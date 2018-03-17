@@ -102,7 +102,7 @@ class SpotifyResult(addict.Dict):
 
     @cached_property
     def base_url(self):
-        return urlunparse([* urlparse(self.href)[:3], '', '', ''])
+        return urlunparse([*urlparse(self.href)[:3], '', '', ''])
 
     def _get_with_params(self, params, url=None):
         return self._client._get(url or self.base_url, **params)

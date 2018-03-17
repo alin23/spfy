@@ -286,8 +286,8 @@ class LinuxVolumeControl(AlsaVolumeControl):
 
     def should_stop_fading(self, device_volume, old_volume):
         return (
-            super().should_stop_fading(device_volume, old_volume) or
-            self.spotify_should_stop_fading(device_volume, old_volume)
+            super().should_stop_fading(device_volume, old_volume)
+            or self.spotify_should_stop_fading(device_volume, old_volume)
         )
 
     def spotify_should_stop_fading(self, device_volume, old_volume):

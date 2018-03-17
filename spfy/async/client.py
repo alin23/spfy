@@ -18,13 +18,7 @@ from .. import config, logger
 from ..cache import Playlist, AudioFeatures, select, async_lru, db_session
 from .result import SpotifyResult
 from ..mixins import EmailMixin
-from ..constants import (
-    API,
-    DEVICE_ID_RE,
-    PLAYLIST_URI_RE,
-    TimeRange,
-    AudioFeature
-)
+from ..constants import API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature
 from ..exceptions import (
     SpotifyException,
     SpotifyAuthException,

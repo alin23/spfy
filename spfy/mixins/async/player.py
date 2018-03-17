@@ -131,7 +131,6 @@ class PlayerMixin:
     async def fade_down(self, **kwargs):
         await self.fade(** {**config.volume.fade.down, **kwargs})
 
-
     #  pylint: disable=too-many-arguments
     async def fade(
         self,

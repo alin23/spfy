@@ -160,7 +160,6 @@ class OAuth2Session(aiohttp.ClientSession):
             url, redirect_uri=self.redirect_uri, scope=self.scope, state=state, **kwargs
         ), state
 
-
     #  pylint: disable=too-many-locals
     async def fetch_token(
         self,
@@ -367,7 +366,6 @@ class OAuth2Session(aiohttp.ClientSession):
                 log.debug('No new refresh token given. Re-using old.')
                 self.token['refresh_token'] = refresh_token
         return self.token
-
 
     #  pylint: disable=arguments-differ
     async def _request(

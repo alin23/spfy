@@ -12,7 +12,6 @@ import aiohttp
 import requests
 import psycopg2.extras
 from first import first
-
 # pylint: disable=unused-import
 from pony.orm import (
     Set,
@@ -54,13 +53,11 @@ class ImageMixin:
         if width:
             image = self.images.select().where(lambda i: i.width >= width).order_by(
                 Image.width
-            ).first(
-            )
+            ).first()
         elif height:
             image = self.images.select().where(lambda i: i.height >= height).order_by(
                 Image.height
-            ).first(
-            )
+            ).first()
         else:
             image = self.images.select().order_by(desc(Image.width)).first()
         return image
@@ -68,7 +65,7 @@ class ImageMixin:
     def get_image_queries(self):
         words = self.name.split()
         stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
-        queries = [*words, self.name, * sum(stems, [])]
+        queries = [*words, self.name, *sum(stems, [])]
         return [f'{query} music' for query in queries]
 
     async def fetch_unsplash_image(self, width=None, height=None):
@@ -198,8 +195,8 @@ class User(db.Entity, ImageMixin):
                 image.color = color
         images = [Image.get(url=image.url) or Image(**image) for image in user.images]
         spotify_user = (
-            SpotifyUser.get(id=user.id) or
-            SpotifyUser(id=user.id, name=user.get('display_name') or '')
+            SpotifyUser.get(id=user.id)
+            or SpotifyUser(id=user.id, name=user.get('display_name') or '')
         )
         return cls(
             id=user.user_id,
@@ -297,9 +294,9 @@ class User(db.Entity, ImageMixin):
     def top_expired(self, time_range):
         time_range = TimeRange(time_range).value
         return (
-            not self.top_expires_at or
-            time_range not in self.top_expires_at or
-            time.time() >= self.top_expires_at[time_range]
+            not self.top_expires_at
+            or time_range not in self.top_expires_at
+            or time.time() >= self.top_expires_at[time_range]
         )
 
     @classmethod
@@ -465,7 +462,7 @@ class Country(db.Entity, ImageMixin):
     def get_image_queries(self):
         words = self.name.split()
         stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
-        queries = [self.name, *words, * sum(stems, [])]
+        queries = [self.name, *words, *sum(stems, [])]
         return queries
 
 
@@ -481,7 +478,7 @@ class City(db.Entity, ImageMixin):
     def get_image_queries(self):
         words = self.name.split()
         stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
-        queries = [self.name, self.country.name, *words, * sum(stems, [])]
+        queries = [self.name, self.country.name, *words, *sum(stems, [])]
         return queries
 
 
@@ -594,8 +591,8 @@ class Playlist(db.Entity, ImageMixin):
         cls, playlist
     ):  # pylint: disable=too-many-return-statements,too-many-statements
         owner = (
-            SpotifyUser.get(id=playlist.owner.id) or
-            SpotifyUser(
+            SpotifyUser.get(id=playlist.owner.id)
+            or SpotifyUser(
                 id=playlist.owner.id, name=playlist.owner.get('display_name') or ''
             )
         )
@@ -607,8 +604,8 @@ class Playlist(db.Entity, ImageMixin):
             'public': playlist.public,
             'snapshot_id': playlist.snapshot_id,
             'tracks': playlist.tracks.total,
-            'christmas': 'Pine Needle' in playlist.name or
-            'christmas' in playlist.name.lower(),
+            'christmas': 'Pine Needle' in playlist.name
+            or 'christmas' in playlist.name.lower(),
             'meta': playlist.name.startswith('Meta'),
             'images': [Image.get(url=im.url) or Image(**im) for im in playlist.images],
         }
@@ -680,8 +677,6 @@ class Artist(db.Entity, ImageMixin):
             images=images,
             popularity=artist.popularity,
         )
-
-
 
 
 # pylint: disable=too-few-public-methods

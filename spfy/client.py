@@ -14,7 +14,7 @@ from . import logger
 from .cache import Playlist, AudioFeatures, db, select, db_session
 from .mixins import AuthMixin, EmailMixin
 from .result import SpotifyResult
-from .constants import (API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature)
+from .constants import API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature
 from .exceptions import (
     SpotifyException,
     SpotifyAuthException,
