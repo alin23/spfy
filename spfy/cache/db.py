@@ -151,7 +151,7 @@ class User(db.Entity, ImageMixin):
     DEFAULT_USERNAME = 'spfy-backend'
     DEFAULT_USERID = uuid5(NAMESPACE_URL, DEFAULT_USERNAME)
     id = PrimaryKey(UUID, default=uuid4)  # pylint: disable=redefined-builtin
-    email = Required(str, unique=True, index=True)
+    email = Optional(str, unique=True, index=True)
     username = Required(str, unique=True, index=True)
     country = Required('Country')
     preferred_country = Optional('Country')
