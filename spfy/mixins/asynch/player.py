@@ -11,7 +11,7 @@ from ... import config
 from ...cache import Playlist, db_session
 from ...volume import (
     AlsaVolumeControl,
-    LinuxVolumeControl,
+    LinuxVolumeControlAsync,
     ApplescriptVolumeControl,
     SpotifyVolumeControlAsync,
 )
@@ -72,12 +72,11 @@ class PlayerMixin:
         except:
             return None
 
-        return LinuxVolumeControl(
+        return LinuxVolumeControlAsync(
             self,
             self.alsa_mixer,
             spotify_device=self.device,
             alsa_device=self.alsa_device,
-            _async=True,
         )
 
     @cached_property
@@ -161,12 +160,14 @@ class PlayerMixin:
             force=bool(force),
         )
         loop = asyncio.get_event_loop()
-        if isinstance(volume_backend, SpotifyVolumeControlAsync):
-            task = loop.create_task(volume_backend.fade(**kwargs))
+        if isinstance(
+            volume_backend, (SpotifyVolumeControlAsync, LinuxVolumeControlAsync)
+        ):
+            coro = volume_backend.fade(**kwargs)
             if blocking:
-                await task
+                await coro
             else:
-                return task
+                return loop.create_task(coro)
 
         else:
             loop.run_in_executor(None, partial(volume_backend.fade, **kwargs))
