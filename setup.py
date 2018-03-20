@@ -76,7 +76,7 @@ setup(
     data_files=[(str(CONFIGDIR), ['spfy/config/config.toml'])],
     entry_points={
         'console_scripts': [
-            'spotify = spfy.wrapper:main', 'spotify_async = spfy.async.wrapper:main'
+            'spotify = spfy.wrapper:main', 'spotify_async = spfy.asynch.wrapper:main'
         ]
     },
 )

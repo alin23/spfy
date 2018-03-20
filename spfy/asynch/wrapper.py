@@ -5,7 +5,7 @@ from pony.orm import db_session
 
 from .. import APP_NAME, config, logger
 from .client import SpotifyClient
-from ..mixins.async import PlayerMixin, RecommenderMixin
+from ..mixins.asynch import PlayerMixin, RecommenderMixin
 
 
 # pylint: disable=too-many-ancestors
@@ -41,8 +41,10 @@ def main():
     """Main function."""
 
     import asyncio
+
     try:
         import uvloop
+
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     except ImportError:
         pass

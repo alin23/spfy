@@ -95,7 +95,6 @@ class AuthMixin:
                 user = get(u for u in User if u.username == username)
             elif email:
                 user = get(u for u in User if u.email == email)
-
             if user:
                 self.user_id = user.id
                 session.token = user.token
