@@ -242,9 +242,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         _id = self._get_track_id(track_id)
         # pylint: disable=no-member
-        return await self._get(
-            API.TRACK.value.format(id=_id)
-        )
+        return await self._get(API.TRACK.value.format(id=_id))
 
     async def tracks(self, tracks, market='from_token'):
         ''' returns a list of tracks given a list of track IDs, URIs, or URLs
@@ -266,9 +264,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
-        return await self._get(
-            API.ARTIST.value.format(id=_id)
-        )
+        return await self._get(API.ARTIST.value.format(id=_id))
 
     async def artists(self, artists):
         ''' returns a list of artists given the artist IDs, URIs, or URLs
@@ -326,9 +322,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
-        return await self._get(
-            API.ARTIST_RELATED_ARTISTS.value.format(id=_id)
-        )
+        return await self._get(API.ARTIST_RELATED_ARTISTS.value.format(id=_id))
 
     async def album(self, album_id):
         ''' returns a single album given the album's ID, URIs or URL
@@ -338,9 +332,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         _id = self._get_album_id(album_id)
         # pylint: disable=no-member
-        return await self._get(
-            API.ALBUM.value.format(id=_id)
-        )
+        return await self._get(API.ALBUM.value.format(id=_id))
 
     async def album_tracks(self, album_id, limit=50, offset=0):
         ''' Get Spotify catalog information about an album's tracks
@@ -409,9 +401,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - user - the id of the user
         '''
         # pylint: disable=no-member
-        return await self._get(
-            API.USER.value.format(user_id=user)
-        )
+        return await self._get(API.USER.value.format(user_id=user))
 
     async def current_user_playlists(self, limit=50, offset=0):
         """ Get current user playlists without required getting his profile
@@ -472,9 +462,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
         return await self._get(
-            API.PLAYLIST_TRACKS.value.format(
-                user_id=user, playlist_id=_id
-            ),
+            API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id),
             limit=limit,
             offset=offset,
             fields=fields,
@@ -492,9 +480,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         data = {'name': name, 'public': public, 'description': description}
         # pylint: disable=no-member
-        return await self._post(
-            API.PLAYLISTS.value.format(user_id=user), payload=data
-        )
+        return await self._post(API.PLAYLISTS.value.format(user_id=user), payload=data)
 
     async def user_playlist_upload_cover_image(self, user, playlist_id, image):
         ''' Creates a playlist for a user
@@ -506,9 +492,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         # pylint: disable=no-member
         return await self._put(
-            API.PLAYLIST_IMAGES.value.format(
-                user_id=user, playlist_id=playlist_id
-            ),
+            API.PLAYLIST_IMAGES.value.format(user_id=user, playlist_id=playlist_id),
             payload=image,
             headers={'Content-Type': 'image/jpeg'},
         )
@@ -569,9 +553,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
-        url = API.PLAYLIST_TRACKS.value.format(
-            user_id=user, playlist_id=_id
-        )
+        url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
         track_uris = list(map(self._get_track_uri, tracks))
         if len(track_uris) <= 100:
             return await self._post(
@@ -601,9 +583,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
-        url = API.PLAYLIST_TRACKS.value.format(
-            user_id=user, playlist_id=_id
-        )
+        url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
         first_100_tracks, rest_tracks = tracks[:100], tracks[100:]
         track_uris = list(map(self._get_track_uri, first_100_tracks))
         replaced = await self._put(url, payload={"uris": track_uris})
@@ -1043,9 +1023,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         '''
         _id = self._get_track_id(track)
         # pylint: disable=no-member
-        return await self._get(
-            API.AUDIO_ANALYSIS.value.format(id=_id)
-        )
+        return await self._get(API.AUDIO_ANALYSIS.value.format(id=_id))
 
     async def audio_features(self, track=None, tracks=None, with_cache=True):
         ''' Get audio features for one or multiple tracks based upon their Spotify IDs
@@ -1056,9 +1034,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if track:
             _id = self._get_track_id(track)
             # pylint: disable=no-member
-            return await self._get(
-                API.AUDIO_FEATURES_SINGLE.value.format(id=_id)
-            )
+            return await self._get(API.AUDIO_FEATURES_SINGLE.value.format(id=_id))
 
         tracks = list(map(self._get_track_id, tracks or []))
         cached_tracks = []
