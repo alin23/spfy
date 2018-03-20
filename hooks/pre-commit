@@ -36,14 +36,27 @@ TEXTS[13]="I see you never make the same mistake twice. You make it five or six 
 TEXT=${TEXTS[$(($RANDOM % ${#TEXTS[@]}))]}
 
 FOLDER=spfy
+CHANGED=0
+STATUS=0
 
-printf "${BOLD_GREEN}Sorting imports 🙄${NC}\n"
-isort -y -rc $FOLDER
-echo ''
+if ! isort -j4 -rc -c -tc $FOLDER 1>/dev/null 2>/dev/null; then
+    CHANGED=1
+    printf "${BOLD_GREEN}Sorting imports 🙄${NC}\n"
+    isort -j4 -y -rc -tc $FOLDER
+    echo ''
+fi
 
-printf "${BOLD_PURPLE}Removing ugly code 🤢${NC}\n"
-black $FOLDER
-echo ''
+if ! black --check --fast $FOLDER 1>/dev/null 2>/dev/null; then
+    CHANGED=1
+    printf "${BOLD_PURPLE}Removing ugly code 🤢${NC}\n"
+    black $FOLDER
+    echo ''
+fi
+
+if [[ $CHANGED -ne 0 ]]; then
+    printf "${BOLD_ORANGE}I changed some files ¯\_(ツ)_/¯\nYou'll have to add them again before committing${NC}\n"
+    exit $CHANGED
+fi
 
 printf "${BOLD_RED}Checking for shitty code 💩${NC}\n"
 if ! pylint $FOLDER; then

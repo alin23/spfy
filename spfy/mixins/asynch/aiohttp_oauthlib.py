@@ -2,7 +2,8 @@ import logging
 
 import aiohttp
 from oauthlib.common import urldecode, generate_token
-from oauthlib.oauth2 import (
+
+from oauthlib.oauth2 import (  # isort:skip
     TokenExpiredError, WebApplicationClient, InsecureTransportError, is_secure_transport
 )
 
