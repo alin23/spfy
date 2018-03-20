@@ -169,7 +169,7 @@ class PlayerMixin:
                 return task
 
         else:
-            loop.run_in_executor(partial(volume_backend.fade, **kwargs))
+            loop.run_in_executor(None, partial(volume_backend.fade, **kwargs))
         return None
 
     @db_session
