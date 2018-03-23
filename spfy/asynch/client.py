@@ -26,6 +26,7 @@ from ..exceptions import (
     SpotifyRateLimitException,
 )
 from ..mixins.asynch import AuthMixin
+from ..mixins.asynch.aiohttp_oauthlib import TokenUpdated
 
 
 class SpotifyClient(AuthMixin, EmailMixin):
@@ -173,7 +174,10 @@ class SpotifyClient(AuthMixin, EmailMixin):
         logger.debug(f'Cache key: {cache_key}')
         request_args = await self._get_request_args(payload, params, headers, cache_key)
         logger.debug(f'Request args: {json.dumps(request_args, indent=4)}')
-        req = await self.session._request(method, url, **request_args)
+        try:
+            req = await self.session._request(method, url, **request_args)
+        except TokenUpdated:
+            req = await self.session._request(method, url, **request_args)
         async with req as resp:
             if self.user_id:
                 self._increment_api_call_count()
