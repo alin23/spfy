@@ -12,7 +12,6 @@ import aiohttp
 import requests
 import psycopg2.extras
 from first import first
-# pylint: disable=unused-import
 from pony.orm import (
     Set,
     Json,
@@ -21,13 +20,11 @@ from pony.orm import (
     Required,
     PrimaryKey,
     ObjectNotFound,
-    get,
     desc,
     select,
     ormtypes,
     sql_debug,
     db_session,
-    composite_key,
 )
 from pycountry import countries
 from colorthief import ColorThief
@@ -343,6 +340,7 @@ class Image(db.Entity):
     unsplash_user_username = Optional(str)
 
     # pylint: disable=no-self-use
+
     def unsplash_url(self):
         return f'https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral'
 
@@ -680,6 +678,8 @@ class Artist(db.Entity, ImageMixin):
 
 
 # pylint: disable=too-few-public-methods
+
+
 class AudioFeatures(db.Entity):
     _table_ = 'audio_features'
     KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -728,6 +728,6 @@ if config.database.connection.filename:
     config.database.connection.filename = os.path.expandvars(
         config.database.connection.filename
     )
-db.bind(** config.database.connection)
+db.bind(**config.database.connection)
 if config.database.generate_mapping or os.getenv('SPFY_GENERATE_MAPPING') == 'true':
     db.generate_mapping(create_tables=True)

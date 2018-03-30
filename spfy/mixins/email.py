@@ -6,6 +6,8 @@ LOGIN_HTML = root / 'html' / 'login.html'
 
 
 # pylint: disable=too-few-public-methods
+
+
 class EmailMixin:
 
     def __init__(self, *args, **kwargs):
@@ -14,7 +16,7 @@ class EmailMixin:
     @staticmethod
     def send_auth_email(email, auth_url):
         logger.info(f'Login here to use Spotify API: {auth_url}')
-        mailer = Mailer(** config.email)
+        mailer = Mailer(**config.email)
         # pylint: disable=no-member
         html_content = LOGIN_HTML.read_text().replace(
             'SPOTIFY_AUTHENTICATION_URL', auth_url

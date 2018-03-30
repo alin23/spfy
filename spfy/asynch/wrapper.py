@@ -7,8 +7,9 @@ from .. import APP_NAME, config, logger
 from .client import SpotifyClient
 from ..mixins.asynch import PlayerMixin, RecommenderMixin
 
-
 # pylint: disable=too-many-ancestors
+
+
 class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
     """Spotify high-level wrapper."""
     cli = False

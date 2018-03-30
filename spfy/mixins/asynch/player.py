@@ -128,12 +128,13 @@ class PlayerMixin:
         return await self.change_volume(value=-1, backend=backend)
 
     async def fade_up(self, **kwargs):
-        await self.fade(** {**config.volume.fade.up, **kwargs})
+        await self.fade(**{**config.volume.fade.up, **kwargs})
 
     async def fade_down(self, **kwargs):
-        await self.fade(** {**config.volume.fade.down, **kwargs})
+        await self.fade(**{**config.volume.fade.down, **kwargs})
 
     #  pylint: disable=too-many-arguments
+
     async def fade(
         self,
         limit=50,

@@ -3,11 +3,12 @@ import random
 from datetime import date, timedelta
 from itertools import chain
 
+from pony.orm import get
 from pony.orm.core import CacheIndexError
 
 from .. import logger
 from ..util import normalize_features
-from ..cache import Genre, Artist, Playlist, get, select, db_session
+from ..cache import Genre, Artist, Playlist, select, db_session
 from ..constants import TimeRange
 
 

@@ -5,13 +5,14 @@ from pathlib import Path
 from wsgiref.simple_server import make_server
 
 import hug
+from pony.orm import get
 from cachecontrol import CacheControlAdapter
 from oauthlib.oauth2 import BackendApplicationClient
 from requests_oauthlib import OAuth2Session
 from cachecontrol.caches.file_cache import FileCache
 
 from .. import root, config, logger
-from ..cache import User, get, select, db_session
+from ..cache import User, select, db_session
 from ..constants import API, AuthFlow, AllScopes
 from ..exceptions import SpotifyCredentialsException
 
@@ -189,6 +190,7 @@ class AuthMixin:
         self.callback_reached.clear()
 
         # pylint: disable=unused-variable
+
         @hug.get('/', output=hug.output_format.html)
         def callback(code: hug.types.text, state: hug.types.text):
             html = AUTH_HTML_FILE.read_text()  # pylint: disable=no-member

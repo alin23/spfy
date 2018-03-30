@@ -36,6 +36,7 @@ class OAuth2Session(aiohttp.ClientSession):
     """
 
     #  pylint: disable=too-many-arguments
+
     def __init__(
         self,
         client_id=None,
@@ -162,6 +163,7 @@ class OAuth2Session(aiohttp.ClientSession):
         ), state
 
     #  pylint: disable=too-many-locals
+
     async def fetch_token(
         self,
         token_url,
@@ -369,6 +371,7 @@ class OAuth2Session(aiohttp.ClientSession):
         return self.token
 
     #  pylint: disable=arguments-differ
+
     async def _request(
         self,
         method,

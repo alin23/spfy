@@ -47,7 +47,7 @@ if ! isort -j4 -rc -c -tc $FOLDER 1>/dev/null 2>/dev/null; then
 fi
 
 if ! black --check --fast $FOLDER 1>/dev/null 2>/dev/null; then
-    CHANGED=1
+    test $(uname) = 'MINGW64_NT-6.1' || CHANGED=1
     printf "${BOLD_PURPLE}Removing ugly code 🤢${NC}\n"
     black $FOLDER
     echo ''

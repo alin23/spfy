@@ -6,11 +6,12 @@ from pathlib import Path
 
 import aiohttp
 import aiohttp.web
+from pony.orm import get
 from oauthlib.oauth2 import BackendApplicationClient
 from aiohttp.web_runner import GracefulExit
 
 from ... import root, config, logger
-from ...cache import User, get, select, db_session
+from ...cache import User, select, db_session
 from ...constants import API, AuthFlow, AllScopes
 from ...exceptions import SpotifyCredentialsException
 from .aiohttp_oauthlib import OAuth2Session
@@ -67,7 +68,6 @@ class AuthMixin:
     def is_authenticated(self):
         return bool(self.session and self.session.authorized)
 
-    @db_session
     async def authenticate_user(
         self,
         username=None,
@@ -83,53 +83,54 @@ class AuthMixin:
             scope=scope,
             auto_refresh_url=API.TOKEN.value,
         )
-        if self.user_id:
-            user = User.get(id=self.user_id)
-            if user:
-                session.token = user.token
-                session.token_updater = User.token_updater(user.id)
-                return session
+        with db_session:
+            if self.user_id:
+                user = User.get(id=self.user_id)
+                if user:
+                    session.token = user.token
+                    session.token_updater = User.token_updater(user.id)
+                    return session
 
-        if username or email:
-            if username:
-                user = get(u for u in User if u.username == username)
-            elif email:
-                user = get(u for u in User if u.email == email)
-            if user:
-                self.user_id = user.id
-                session.token = user.token
-                session.token_updater = User.token_updater(user.id)
-                return session
-
-        if code or auth_response:
-            token = await session.fetch_token(
-                token_url=API.TOKEN.value,
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-                code=code,
-                state=state,
-                authorization_response=auth_response,
-            )
-            user_details = await self.current_user()
-            user = select(
-                u
-                for u in User
-                if u.username == user_details.id or u.email == user_details.email
-            ).for_update().get()
-            if user:
-                user.token = token
-                if user.id != self.user_id:
+            if username or email:
+                if username:
+                    user = get(u for u in User if u.username == username)
+                elif email:
+                    user = get(u for u in User if u.email == email)
+                if user:
                     self.user_id = user.id
-            elif self.user_id:
-                user = User.get_for_update(id=self.user_id)
+                    session.token = user.token
+                    session.token_updater = User.token_updater(user.id)
+                    return session
+
+            if code or auth_response:
+                token = await session.fetch_token(
+                    token_url=API.TOKEN.value,
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    code=code,
+                    state=state,
+                    authorization_response=auth_response,
+                )
+                user_details = await self.current_user()
+                user = select(
+                    u
+                    for u in User
+                    if u.username == user_details.id or u.email == user_details.email
+                ).for_update().get()
                 if user:
                     user.token = token
-            if not user:
-                self.user_id = self.user_id or uuid.uuid4()
-                user_details['user_id'] = self.user_id
-                user_details['token'] = token
-                user = User.from_dict(user_details)
-            return session
+                    if user.id != self.user_id:
+                        self.user_id = user.id
+                elif self.user_id:
+                    user = User.get_for_update(id=self.user_id)
+                    if user:
+                        user.token = token
+                if not user:
+                    self.user_id = self.user_id or uuid.uuid4()
+                    user_details['user_id'] = self.user_id
+                    user_details['token'] = token
+                    user = User.from_dict(user_details)
+                return session
 
         return session
 

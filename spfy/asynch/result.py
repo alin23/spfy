@@ -45,6 +45,8 @@ class Playable:
 
 
 # pylint: disable=too-few-public-methods
+
+
 class SpotifyResultIterator:
 
     def __init__(self, result, limit=None):

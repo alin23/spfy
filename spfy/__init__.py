@@ -19,7 +19,7 @@ Unsplash = None
 if config.unsplash.auth.client_id:
     from unsplash import Auth, Api
 
-    auth = Auth(** config.unsplash.auth)
+    auth = Auth(**config.unsplash.auth)
     Unsplash = Api(auth)
 from .client import SpotifyClient
 from .result import SpotifyResult
