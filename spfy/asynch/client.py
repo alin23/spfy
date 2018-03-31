@@ -132,11 +132,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
         async with self.redis.get() as conn:
             redis = aioredis.Redis(conn)
             tr = redis.multi_exec()
-            tr.set(etag_key, etag, expire=config.cache.expire)
-            tr.set(
+            tr.setex(etag_key, config.cache.expire, etag)
+            tr.setex(
                 response_key,
+                config.cache.expire,
                 msgpack.dumps(results, encoding=config.cache.encoding),
-                expire=config.cache.expire,
             )
             await tr.execute(return_exceptions=False)
 
