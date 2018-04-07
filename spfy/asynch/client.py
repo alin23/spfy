@@ -93,7 +93,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if params:
             cache_key.update(json.dumps(params).encode())
         if payload:
-            cache_key.update(payload.encode())
+            if isinstance(payload, str):
+                payload = payload.encode()
+            cache_key.update(payload)
         return cache_key.hexdigest()
 
     async def _fetch_response_from_cache(

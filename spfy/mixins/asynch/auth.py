@@ -86,7 +86,7 @@ class AuthMixin:
         with db_session:
             if self.user_id:
                 user = User.get(id=self.user_id)
-                if user:
+                if user and user.token:
                     session.token = user.token
                     session.token_updater = User.token_updater(user.id)
                     return session
