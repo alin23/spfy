@@ -945,7 +945,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     @lru_cache(maxsize=128)
     def get_device_id(self, device=None):
-        if device and DEVICE_ID_RE.match(device):
+        if isinstance(device, (str, bytes)) and DEVICE_ID_RE.match(device):
             return device
 
         return self.get_device(device).id
@@ -1176,7 +1176,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return 'spotify:' + _type + ":" + self._get_id(_type, result)
 
     def _get_playlist_uri(self, playlist, user=None):
-        if PLAYLIST_URI_RE.match(playlist):
+        if isinstance(playlist, (str, bytes)) and PLAYLIST_URI_RE.match(playlist):
             return playlist
 
         if isinstance(playlist, Playlist):
