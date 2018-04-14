@@ -71,7 +71,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 raise SpotifyException(**exception_params)
 
-    def _internal_call(self, method, url, payload, params, headers=None):
+    def _internal_call(self, method, url, payload, params, headers=None, retries=0):
         logger.debug(url)
         if not isinstance(payload, (bytes, str)):
             payload = json.dumps(payload)
@@ -90,6 +90,14 @@ class SpotifyClient(AuthMixin, EmailMixin):
         logger.debug(f'{method}: {r.url}')
         if payload and not isinstance(payload, bytes):
             logger.debug(f'DATA: {payload}')
+
+        if r.status_code == 202 and retries > 0:
+            logger.warning(
+                f'Device is temporarily unavailable. Retrying in 5 seconds...'
+            )
+            sleep(5)
+            return self._internal_call(method, url, payload, params, headers, retries=retries - 1)
+
         try:
             self._check_response(r)
         except SpotifyRateLimitException as exc:

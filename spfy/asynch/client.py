@@ -167,7 +167,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             'client_secret': self.client_secret,
         }
 
-    async def _internal_call(self, method, url, payload, params, headers=None):
+    async def _internal_call(self, method, url, payload, params, headers=None, retries=5):
         await self.ensure_redis_pool()
         if payload and not isinstance(payload, (bytes, str)):
             payload = json.dumps(payload)
@@ -187,6 +187,12 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 return await self._fetch_response_from_cache(
                     method, url, payload, params, headers, cache_key
                 )
+            if resp.status == 202 and retries > 0:
+                logger.warning(
+                    f'Device is temporarily unavailable. Retrying in 5 seconds...'
+                )
+                await asyncio.sleep(5)
+                return await self._internal_call(method, url, payload, params, headers, retries=retries - 1)
 
             try:
                 await self._check_response(resp)
