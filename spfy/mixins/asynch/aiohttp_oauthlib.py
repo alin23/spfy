@@ -89,19 +89,19 @@ class OAuth2Session(aiohttp.ClientSession):
         # Allow customizations for non compliant providers through various
         # hooks to adjust requests and responses.
         self.compliance_hook = {
-            'access_token_response': set(),
-            'refresh_token_response': set(),
-            'protected_request': set(),
+            "access_token_response": set(),
+            "refresh_token_response": set(),
+            "protected_request": set(),
         }
 
     def new_state(self):
         """Generates a state string to be used in authorizations."""
         try:
             self._state = self.state()
-            log.debug(f'Generated new state {self._state}.')
+            log.debug(f"Generated new state {self._state}.")
         except TypeError:
             self._state = self.state
-            log.debug(f'Re-using previously supplied state {self._state}.')
+            log.debug(f"Re-using previously supplied state {self._state}.")
         return self._state
 
     @property
@@ -169,11 +169,11 @@ class OAuth2Session(aiohttp.ClientSession):
         token_url,
         code=None,
         authorization_response=None,
-        body='',
+        body="",
         auth=None,
         username=None,
         password=None,
-        method='POST',
+        method="POST",
         timeout=None,
         headers=None,
         verify_ssl=True,
@@ -216,7 +216,7 @@ class OAuth2Session(aiohttp.ClientSession):
             code = self._client.code
             if not code:
                 raise ValueError(
-                    'Please supply either code or ' 'authorization_response parameters.'
+                    "Please supply either code or " "authorization_response parameters."
                 )
 
         body = self._client.prepare_request_body(
@@ -227,27 +227,27 @@ class OAuth2Session(aiohttp.ClientSession):
             password=password,
             **kwargs,
         )
-        client_id = kwargs.get('client_id', '')
+        client_id = kwargs.get("client_id", "")
         if auth is None:
             if client_id:
                 log.debug(
                     f'Encoding client_id "{client_id}" with client_secret as Basic auth credentials.'
                 )
-                client_secret = kwargs.get('client_secret', '')
-                client_secret = client_secret if client_secret is not None else ''
+                client_secret = kwargs.get("client_secret", "")
+                client_secret = client_secret if client_secret is not None else ""
                 auth = aiohttp.BasicAuth(client_id, client_secret)
             elif username:
                 if password is None:
-                    raise ValueError('Username was supplied, but not password.')
+                    raise ValueError("Username was supplied, but not password.")
 
-                log.debug('Encoding username, password as Basic auth credentials.')
+                log.debug("Encoding username, password as Basic auth credentials.")
                 auth = aiohttp.BasicAuth(username, password)
         headers = headers or {
-            'Accept': 'application/json',
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
         }
         self.token = {}
-        if method.upper() == 'POST':
+        if method.upper() == "POST":
             req = self.post(
                 token_url,
                 data=dict(urldecode(body)),
@@ -257,8 +257,8 @@ class OAuth2Session(aiohttp.ClientSession):
                 verify_ssl=verify_ssl,
                 proxy=proxy,
             )
-            log.debug(f'Prepared fetch token request body {body}')
-        elif method.upper() == 'GET':
+            log.debug(f"Prepared fetch token request body {body}")
+        elif method.upper() == "GET":
             # if method is not 'POST', switch body to querystring and GET
             req = self.get(
                 token_url,
@@ -269,24 +269,24 @@ class OAuth2Session(aiohttp.ClientSession):
                 verify_ssl=verify_ssl,
                 proxy=proxy,
             )
-            log.debug(f'Prepared fetch token request querystring {body}')
+            log.debug(f"Prepared fetch token request querystring {body}")
         else:
-            raise ValueError('The method kwarg must be POST or GET.')
+            raise ValueError("The method kwarg must be POST or GET.")
 
         async with req as resp:
             text = await resp.text()
-            log.debug(f'Request to fetch token completed with status {resp.status}.')
-            log.debug(f'Request headers were {resp.request_info.headers}')
-            log.debug(f'Response headers were {resp.headers} and content {text}.')
+            log.debug(f"Request to fetch token completed with status {resp.status}.")
+            log.debug(f"Request headers were {resp.request_info.headers}")
+            log.debug(f"Response headers were {resp.headers} and content {text}.")
             log.debug(
                 f'Invoking {len(self.compliance_hook["access_token_response"])} token response hooks.'
             )
-            for hook in self.compliance_hook['access_token_response']:
-                log.debug(f'Invoking hook {hook}.')
+            for hook in self.compliance_hook["access_token_response"]:
+                log.debug(f"Invoking hook {hook}.")
                 resp = hook(resp)
             self._client.parse_request_body_response(text, scope=self.scope)
             self.token = self._client.token
-            log.debug(f'Obtained token {self.token}.')
+            log.debug(f"Obtained token {self.token}.")
         return self.token
 
     def token_from_fragment(self, authorization_response):
@@ -305,7 +305,7 @@ class OAuth2Session(aiohttp.ClientSession):
         self,
         token_url,
         refresh_token=None,
-        body='',
+        body="",
         auth=None,
         timeout=None,
         headers=None,
@@ -326,22 +326,22 @@ class OAuth2Session(aiohttp.ClientSession):
         :return: A token dict
         """
         if not token_url:
-            raise ValueError('No token endpoint set for auto_refresh.')
+            raise ValueError("No token endpoint set for auto_refresh.")
 
         if not is_secure_transport(token_url):
             raise InsecureTransportError()
 
-        refresh_token = refresh_token or self.token.get('refresh_token')
-        log.debug(f'Adding auto refresh key word arguments {self.auto_refresh_kwargs}.')
+        refresh_token = refresh_token or self.token.get("refresh_token")
+        log.debug(f"Adding auto refresh key word arguments {self.auto_refresh_kwargs}.")
         kwargs.update(self.auto_refresh_kwargs)
         body = self._client.prepare_refresh_body(
             body=body, refresh_token=refresh_token, scope=self.scope, **kwargs
         )
-        log.debug(f'Prepared refresh token request body {body}')
+        log.debug(f"Prepared refresh token request body {body}")
         if headers is None:
             headers = {
-                'Accept': 'application/json',
-                'Content-Type': ('application/x-www-form-urlencoded;charset=UTF-8'),
+                "Accept": "application/json",
+                "Content-Type": ("application/x-www-form-urlencoded;charset=UTF-8"),
             }
         async with self.post(
             token_url,
@@ -354,20 +354,20 @@ class OAuth2Session(aiohttp.ClientSession):
             proxy=proxy,
         ) as resp:
             text = await resp.text()
-            log.debug(f'Request to refresh token completed with status {resp.status}.')
-            log.debug(f'Response headers were {resp.headers} and content {text}.')
+            log.debug(f"Request to refresh token completed with status {resp.status}.")
+            log.debug(f"Response headers were {resp.headers} and content {text}.")
             log.debug(
                 f'Invoking {len(self.compliance_hook["refresh_token_response"])} token response hooks.'
             )
-            for hook in self.compliance_hook['refresh_token_response']:
-                log.debug(f'Invoking hook {hook}.')
+            for hook in self.compliance_hook["refresh_token_response"]:
+                log.debug(f"Invoking hook {hook}.")
                 resp = hook(resp)
             self.token = self._client.parse_request_body_response(
                 text, scope=self.scope
             )
-            if 'refresh_token' not in self.token:
-                log.debug('No new refresh token given. Re-using old.')
-                self.token['refresh_token'] = refresh_token
+            if "refresh_token" not in self.token:
+                log.debug("No new refresh token given. Re-using old.")
+                self.token["refresh_token"] = refresh_token
         return self.token
 
     #  pylint: disable=arguments-differ
@@ -389,13 +389,13 @@ class OAuth2Session(aiohttp.ClientSession):
 
         if self.token and not withhold_token:
             log.debug(
-                'Invoking %d protected resource request hooks.',
-                len(self.compliance_hook['protected_request']),
+                "Invoking %d protected resource request hooks.",
+                len(self.compliance_hook["protected_request"]),
             )
-            for hook in self.compliance_hook['protected_request']:
-                log.debug(f'Invoking hook {hook}.')
+            for hook in self.compliance_hook["protected_request"]:
+                log.debug(f"Invoking hook {hook}.")
                 url, headers, data = hook(url, headers, data)
-            log.debug(f'Adding token {self.token} to request.')
+            log.debug(f"Adding token {self.token} to request.")
             try:
                 url, headers, data = self._client.add_token(
                     url, http_method=method, body=data, headers=headers
@@ -404,10 +404,10 @@ class OAuth2Session(aiohttp.ClientSession):
             except TokenExpiredError:
                 if self.auto_refresh_url:
                     log.debug(
-                        f'Auto refresh is set, attempting to refresh at {self.auto_refresh_url}.'
+                        f"Auto refresh is set, attempting to refresh at {self.auto_refresh_url}."
                     )
                     # We mustn't pass auth twice.
-                    auth = kwargs.pop('auth', None)
+                    auth = kwargs.pop("auth", None)
                     if client_id and client_secret and (auth is None):
                         log.debug(
                             f'Encoding client_id "{client_id}" with client_secret as Basic auth credentials.'
@@ -418,7 +418,7 @@ class OAuth2Session(aiohttp.ClientSession):
                     )
                     if self.token_updater:
                         log.debug(
-                            f'Updating token to {token} using {self.token_updater}.'
+                            f"Updating token to {token} using {self.token_updater}."
                         )
                         self.token_updater(token)
                         url, headers, data = self._client.add_token(
@@ -430,9 +430,9 @@ class OAuth2Session(aiohttp.ClientSession):
                 else:
                     raise
 
-        log.debug(f'Requesting url {url} using method {method}.')
-        log.debug(f'Supplying headers {headers} and data {data}')
-        log.debug(f'Passing through key word arguments {kwargs}.')
+        log.debug(f"Requesting url {url} using method {method}.")
+        log.debug(f"Supplying headers {headers} and data {data}")
+        log.debug(f"Passing through key word arguments {kwargs}.")
         return await super(OAuth2Session, self)._request(
             method, url, headers=headers, data=data, **kwargs
         )
@@ -449,6 +449,6 @@ class OAuth2Session(aiohttp.ClientSession):
         or open an issue.
         """
         if hook_type not in self.compliance_hook:
-            raise ValueError(f'Hook type {hook_type} is not in {self.compliance_hook}.')
+            raise ValueError(f"Hook type {hook_type} is not in {self.compliance_hook}.")
 
         self.compliance_hook[hook_type].add(hook)

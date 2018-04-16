@@ -49,13 +49,13 @@ class VolumeControl(abc.ABC):
                 old_volume = next_volume - step
                 if not force and self.should_stop_fading(device_volume, old_volume):
                     logger.debug(
-                        f'''A stop fading condition was met:
+                        f"""A stop fading condition was met:
                         Current volume: {device_volume}
-                        Old volume: {old_volume}'''
+                        Old volume: {old_volume}"""
                     )
                     break
 
-                logger.debug(f'Setting volume to {next_volume}')
+                logger.debug(f"Setting volume to {next_volume}")
                 self.volume = next_volume
         except Exception as exc:
             logger.exception(exc)
@@ -80,7 +80,7 @@ class SpotifyVolumeControl(VolumeControl):
 
     def should_stop_fading(self, device_volume, old_volume):
         is_playing = self.spotify.current_playback().is_playing
-        logger.debug(f'Spotify playing: {is_playing}')
+        logger.debug(f"Spotify playing: {is_playing}")
         return super().should_stop_fading(device_volume, old_volume) or not is_playing
 
     @property
@@ -111,7 +111,7 @@ class SpotifyVolumeControlAsync(VolumeControl):
 
     async def should_stop_fading(self, device_volume, old_volume):
         is_playing = (await self.spotify.current_playback()).is_playing
-        logger.debug(f'Spotify playing: {is_playing}')
+        logger.debug(f"Spotify playing: {is_playing}")
         return super().should_stop_fading(device_volume, old_volume) or not is_playing
 
     async def volume(self):  # pylint: disable=method-hidden
@@ -138,13 +138,13 @@ class SpotifyVolumeControlAsync(VolumeControl):
                 )
                 if not force and should_stop_fading:
                     logger.debug(
-                        f'''A stop fading condition was met:
+                        f"""A stop fading condition was met:
                         Current volume: {device_volume}
-                        Old volume: {old_volume}'''
+                        Old volume: {old_volume}"""
                     )
                     break
 
-                logger.debug(f'Setting volume to {next_volume}')
+                logger.debug(f"Setting volume to {next_volume}")
                 await self.set_volume(next_volume)
         except Exception as exc:
             logger.exception(exc)
@@ -171,7 +171,7 @@ class AlsaVolumeControl(VolumeControl):
 
     def should_stop_fading(self, device_volume, old_volume):
         is_mute = self.mixer.getmute()[0]
-        logger.debug(f'Mute status: {is_mute}')
+        logger.debug(f"Mute status: {is_mute}")
         return super().should_stop_fading(device_volume, old_volume) or is_mute
 
     @property
@@ -201,20 +201,20 @@ class ApplescriptVolumeControl(VolumeControl):
     def osascript(cmd):
         cmd = f"/usr/bin/osascript -e '{cmd}'"
         result = subprocess.check_output(cmd, shell=True).decode().strip()
-        logger.debug('Command: %s', cmd)
-        logger.debug('Output: %s', result)
+        logger.debug("Command: %s", cmd)
+        logger.debug("Output: %s", result)
         return result
 
     @staticmethod
     def switch_audio_device(device):
-        logger.debug(f'Switching audio device: {device}')
-        subprocess.call(f"/usr/local/bin/SwitchAudioSource -s \"{device}\"", shell=True)
+        logger.debug(f"Switching audio device: {device}")
+        subprocess.call(f'/usr/local/bin/SwitchAudioSource -s "{device}"', shell=True)
 
     def should_stop_fading(self, device_volume, old_volume):
         is_playing = self.osascript(
             'tell application "Spotify" to get player state'
-        ) == 'playing'
-        logger.debug(f'Spotify playing: {is_playing}')
+        ) == "playing"
+        logger.debug(f"Spotify playing: {is_playing}")
         return super().should_stop_fading(device_volume, old_volume) or not is_playing
 
     def spotify_mute(self):
@@ -228,10 +228,10 @@ class ApplescriptVolumeControl(VolumeControl):
             self.spotify_volume = 1
 
     def mute(self):
-        self.osascript('set volume with output muted')
+        self.osascript("set volume with output muted")
 
     def unmute(self):
-        self.osascript('set volume without output muted')
+        self.osascript("set volume without output muted")
 
     @property
     def spotify_volume(self):
@@ -245,11 +245,11 @@ class ApplescriptVolumeControl(VolumeControl):
 
     @property
     def system_volume(self):
-        return int(self.osascript('output volume of (get volume settings)'))
+        return int(self.osascript("output volume of (get volume settings)"))
 
     @system_volume.setter
     def system_volume(self, val):
-        self.osascript(f'set volume output volume {max(val, 1)}')
+        self.osascript(f"set volume output volume {max(val, 1)}")
 
     @property
     def volume(self):
@@ -320,13 +320,13 @@ class LinuxVolumeControlAsync(AlsaVolumeControl):
                 )
                 if not force and should_stop_fading:
                     logger.debug(
-                        f'''A stop fading condition was met:
+                        f"""A stop fading condition was met:
                         Current volume: {device_volume}
-                        Old volume: {old_volume}'''
+                        Old volume: {old_volume}"""
                     )
                     break
 
-                logger.debug(f'Setting volume to {next_volume}')
+                logger.debug(f"Setting volume to {next_volume}")
                 self.volume = next_volume
         except Exception as exc:
             logger.exception(exc)

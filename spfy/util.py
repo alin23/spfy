@@ -2,7 +2,11 @@ from typing import Dict, List
 
 import pandas as pd
 
-from .constants import MAX_KEY, MAX_LOUDNESS, MAX_POPULARITY, AudioFeature
+from .constants import AudioFeature, AudioFeatureRange
+
+MAX_KEY = AudioFeatureRange.KEY.value[-1]
+MAX_LOUDNESS = AudioFeatureRange.LOUDNESS.value[0]
+MAX_POPULARITY = AudioFeatureRange.POPULARITY.value[-1]
 
 
 def normalize_features(
@@ -18,7 +22,7 @@ def normalize_features(
         pd.DataFrame: Feature values between 0 and 1
     """
     # pylint: disable=no-member
-    data = pd.DataFrame(features, dtype='float64', index=pd.Index(track_ids))
+    data = pd.DataFrame(features, dtype="float64", index=pd.Index(track_ids))
     if AudioFeature.TEMPO.value in data:
         data.tempo /= data.tempo.max()
     if AudioFeature.DURATION_MS.value in data:

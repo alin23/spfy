@@ -53,7 +53,7 @@ class PlayerMixin:
     def _applescript_volume_control(self):
         try:
             # pylint: disable=no-member
-            if os.uname().sysname != 'Darwin':
+            if os.uname().sysname != "Darwin":
                 return None
 
         except:
@@ -65,7 +65,7 @@ class PlayerMixin:
     def _linux_volume_control(self):
         try:
             # pylint: disable=no-member
-            if os.uname().sysname != 'Linux':
+            if os.uname().sysname != "Linux":
                 return None
 
         except:
@@ -82,7 +82,7 @@ class PlayerMixin:
     def _alsa_volume_control(self):
         try:
             # pylint: disable=no-member
-            if os.uname().sysname != 'Linux':
+            if os.uname().sysname != "Linux":
                 return None
 
         except:
@@ -101,12 +101,14 @@ class PlayerMixin:
         volume_backend = self._backends[VolumeBackend(backend)]
         if not volume_backend:
             raise ValueError(
-                f'Backend {volume_backend} is not available on this system'
+                f"Backend {volume_backend} is not available on this system"
             )
 
-        if isinstance(
-            volume_backend, SpotifyVolumeControl
-        ) and device and device != self.device:
+        if (
+            isinstance(volume_backend, SpotifyVolumeControl)
+            and device
+            and device != self.device
+        ):
             volume_backend = SpotifyVolumeControl(self, device=device)
         return volume_backend
 
@@ -160,24 +162,24 @@ class PlayerMixin:
     def play_recommended_tracks(
         self, time_range=TimeRange.LONG_TERM, device=None, **kwargs
     ):
-        fade_args = kwargs.get('fade_args') or {
-            k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')
+        fade_args = kwargs.get("fade_args") or {
+            k[5:]: v for k, v in kwargs.items() if k.startswith("fade_")
         }
-        recommendation_args = kwargs.get('recommendation_args') or {
-            k[4:]: v for k, v in kwargs.items() if k.startswith('rec_')
+        recommendation_args = kwargs.get("recommendation_args") or {
+            k[4:]: v for k, v in kwargs.items() if k.startswith("rec_")
         }
-        recommendation_args['time_range'] = time_range
+        recommendation_args["time_range"] = time_range
         tracks = self.recommend_by_top_artists(**recommendation_args)
         self.fade_up(device=device, **fade_args)
         result = self.start_playback(tracks=tracks, device=device)
-        return {'playing': True, 'device': device, 'tracks': tracks, 'result': result}
+        return {"playing": True, "device": device, "tracks": tracks, "result": result}
 
     @db_session
     def play_recommended_genre(
         self, time_range=TimeRange.LONG_TERM, device=None, **kwargs
     ):
-        fade_args = kwargs.get('fade_args') or {
-            k[5:]: v for k, v in kwargs.items() if k.startswith('fade_')
+        fade_args = kwargs.get("fade_args") or {
+            k[5:]: v for k, v in kwargs.items() if k.startswith("fade_")
         }
         popularity = random.choice(list(Playlist.Popularity)[:3])
         genre = self.top_genres(
@@ -193,10 +195,10 @@ class PlayerMixin:
         self.fade_up(device=device, **fade_args)
         result = playlist.play(self, device=device)
         return {
-            'playing': True,
-            'device': device,
-            'playlist': playlist.to_dict(),
-            'result': result,
+            "playing": True,
+            "device": device,
+            "playlist": playlist.to_dict(),
+            "result": result,
         }
 
     @db_session
@@ -210,4 +212,4 @@ class PlayerMixin:
         if item_type == ItemType.PLAYLIST:
             return self.play_recommended_genre(time_range, device, **kwargs)
 
-        return {'playing': False}
+        return {"playing": False}

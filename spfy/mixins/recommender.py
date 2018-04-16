@@ -21,11 +21,11 @@ class RecommenderMixin:
     def fetch_playlists(self):
         fetched_ids = set(select(p.id for p in Playlist))
         results = chain(
-            self.user_playlists('particledetector').all(),
-            self.user_playlists('thesoundsofspotify').all(),
+            self.user_playlists("particledetector").all(),
+            self.user_playlists("thesoundsofspotify").all(),
         )
         for playlist in results:
-            logger.info(f'Fetching {playlist.name}')
+            logger.info(f"Fetching {playlist.name}")
             if playlist.id not in fetched_ids:
                 Playlist.from_dict(playlist)
             fetched_ids.add(playlist.id)
@@ -84,8 +84,8 @@ class RecommenderMixin:
         audio_features = normalize_features(audio_features, track_ids)
         for feature, direction in features.items():
             audio_features[feature] *= direction
-        audio_features['total'] = audio_features.sum(axis=1)
-        return audio_features.sort_values('total').index.tolist()
+        audio_features["total"] = audio_features.sum(axis=1)
+        return audio_features.sort_values("total").index.tolist()
 
     def fill_with_related_artists(self, artists, limit=5):
         tries = 5

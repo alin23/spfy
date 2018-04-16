@@ -36,11 +36,11 @@ from .. import Unsplash, config, logger
 from ..constants import TimeRange
 
 register_adapter(ormtypes.TrackedDict, psycopg2.extras.Json)
-if os.getenv('SQL_DEBUG'):
+if os.getenv("SQL_DEBUG"):
     sql_debug(True)
     import logging
 
-    logging.getLogger('pony.orm.sql').setLevel(logging.DEBUG)
+    logging.getLogger("pony.orm.sql").setLevel(logging.DEBUG)
 db = Database()
 
 
@@ -63,7 +63,7 @@ class ImageMixin:
         words = self.name.split()
         stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
         queries = [*words, self.name, *sum(stems, [])]
-        return [f'{query} music' for query in queries]
+        return [f"{query} music" for query in queries]
 
     async def fetch_unsplash_image(self, width=None, height=None):
         image = self.image(width, height)
@@ -75,7 +75,7 @@ class ImageMixin:
         for query in queries:
             try:
                 photos = await Unsplash.photo.random(
-                    query=query, orientation='squarish'
+                    query=query, orientation="squarish"
                 )
             except UnsplashError:
                 continue
@@ -86,7 +86,7 @@ class ImageMixin:
 
         else:
             photo = (
-                await Unsplash.photo.random(query='music', orientation='squarish')
+                await Unsplash.photo.random(query="music", orientation="squarish")
             )[
                 0
             ]
@@ -100,7 +100,7 @@ class ImageMixin:
                 image.set(**params)
             return self.image(width, height)
 
-        params = {self.__class__.__name__.lower(): self, 'unsplash_id': photo.id}
+        params = {self.__class__.__name__.lower(): self, "unsplash_id": photo.id}
         image_exists = False
         for url in (
             photo.urls.full, photo.urls.regular, photo.urls.small, photo.urls.thumb
@@ -115,10 +115,10 @@ class ImageMixin:
         ratio = photo.height / photo.width
         params = {
             self.__class__.__name__.lower(): self,
-            'color': photo.color,
-            'unsplash_id': photo.id,
-            'unsplash_user_fullname': photo.user.name,
-            'unsplash_user_username': photo.user.username,
+            "color": photo.color,
+            "unsplash_id": photo.id,
+            "unsplash_user_fullname": photo.user.name,
+            "unsplash_user_username": photo.user.username,
         }
         Image(url=photo.urls.full, width=photo.width, height=photo.height, **params)
         Image(
@@ -143,31 +143,31 @@ class ImageMixin:
 
 
 class User(db.Entity, ImageMixin):
-    _table_ = 'users'
-    DEFAULT_EMAIL = 'spfy@backend'
-    DEFAULT_USERNAME = 'spfy-backend'
+    _table_ = "users"
+    DEFAULT_EMAIL = "spfy@backend"
+    DEFAULT_USERNAME = "spfy-backend"
     DEFAULT_USERID = uuid5(NAMESPACE_URL, DEFAULT_USERNAME)
     id = PrimaryKey(UUID, default=uuid4)  # pylint: disable=redefined-builtin
     email = Optional(str, unique=True, index=True)
     username = Required(str, unique=True, index=True)
-    country = Required('Country')
-    preferred_country = Optional('Country')
-    spotify_user = Optional('SpotifyUser')
+    country = Required("Country")
+    preferred_country = Optional("Country")
+    spotify_user = Optional("SpotifyUser")
     display_name = Optional(str)
     birthdate = Optional(date)
     token = Required(Json, volatile=True)
     api_calls = Required(int, default=0, volatile=True)
     created_at = Required(datetime, default=datetime.now)
     last_usage_at = Required(datetime, default=datetime.now)
-    images = Set('Image', cascade_delete=True)
-    top_artists = Set('Artist')
-    disliked_artists = Set('Artist')
-    top_genres = Set('Genre')
-    disliked_genres = Set('Genre')
-    top_countries = Set('Country')
-    disliked_countries = Set('Country')
-    top_cities = Set('City')
-    disliked_cities = Set('City')
+    images = Set("Image", cascade_delete=True)
+    top_artists = Set("Artist")
+    disliked_artists = Set("Artist")
+    top_genres = Set("Genre")
+    disliked_genres = Set("Genre")
+    top_countries = Set("Country")
+    disliked_countries = Set("Country")
+    top_cities = Set("City")
+    disliked_cities = Set("City")
     top_expires_at = Optional(Json, volatile=True)
 
     @classmethod
@@ -176,7 +176,7 @@ class User(db.Entity, ImageMixin):
             try:
                 color = await Image.grab_color_async(user.images[-1].url)
             except:
-                color = '#000000'
+                color = "#000000"
             for image in user.images:
                 image.color = color
         return cls.from_dict(user, grab_image_color=False)
@@ -187,13 +187,13 @@ class User(db.Entity, ImageMixin):
             try:
                 color = Image.grab_color(user.images[-1].url)
             except:
-                color = '#000000'
+                color = "#000000"
             for image in user.images:
                 image.color = color
         images = [Image.get(url=image.url) or Image(**image) for image in user.images]
         spotify_user = (
             SpotifyUser.get(id=user.id)
-            or SpotifyUser(id=user.id, name=user.get('display_name') or '')
+            or SpotifyUser(id=user.id, name=user.get("display_name") or "")
         )
         return cls(
             id=user.user_id,
@@ -203,9 +203,9 @@ class User(db.Entity, ImageMixin):
             token=user.token,
             country=Country.from_str(code=user.country),
             images=images,
-            display_name=user.display_name or '',
+            display_name=user.display_name or "",
             birthdate=datetime.strptime(
-                user.birthdate, '%Y-%m-%d'
+                user.birthdate, "%Y-%m-%d"
             ) if user.birthdate else None,
         )
 
@@ -307,7 +307,7 @@ class User(db.Entity, ImageMixin):
                 username=cls.DEFAULT_USERNAME,
                 email=cls.DEFAULT_EMAIL,
                 token={},
-                country=Country.from_str(code='US'),
+                country=Country.from_str(code="US"),
             )
 
     @staticmethod
@@ -321,7 +321,7 @@ class User(db.Entity, ImageMixin):
 
 
 class Image(db.Entity):
-    _table_ = 'images'
+    _table_ = "images"
     REGULAR = 1080
     SMALL = 400
     THUMB = 200
@@ -329,12 +329,12 @@ class Image(db.Entity):
     height = Optional(int)
     width = Optional(int)
     color = Optional(str)
-    playlist = Optional('Playlist')
-    artist = Optional('Artist')
-    genre = Optional('Genre')
-    country = Optional('Country')
-    city = Optional('City')
-    user = Optional('User')
+    playlist = Optional("Playlist")
+    artist = Optional("Artist")
+    genre = Optional("Genre")
+    country = Optional("Country")
+    city = Optional("City")
+    user = Optional("User")
     unsplash_id = Optional(str, index=True)
     unsplash_user_fullname = Optional(str)
     unsplash_user_username = Optional(str)
@@ -342,16 +342,16 @@ class Image(db.Entity):
     # pylint: disable=no-self-use
 
     def unsplash_url(self):
-        return f'https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral'
+        return f"https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral"
 
     def unsplash_user_url(self):
-        return f'https://unsplash.com/@{self.unsplash_user_username}?utm_source={config.unsplash.app_name}&utm_medium=referral'
+        return f"https://unsplash.com/@{self.unsplash_user_username}?utm_source={config.unsplash.app_name}&utm_medium=referral"
 
     def unsplash_credits(self):
         return {
-            'user_name': self.unsplash_user_fullname,
-            'user_url': self.unsplash_user_url(),
-            'site_url': self.unsplash_url(),
+            "user_name": self.unsplash_user_fullname,
+            "user_url": self.unsplash_user_url(),
+            "site_url": self.unsplash_url(),
         }
 
     @staticmethod
@@ -360,43 +360,43 @@ class Image(db.Entity):
             async with client.get(image_url) as resp:
                 image_file = BytesIO(await resp.read())
                 color = ColorThief(image_file).get_color(quality=1)
-                return f'#{color[0]:02x}{color[1]:02x}{color[2]:02x}'
+                return f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
 
     @staticmethod
     def grab_color(image_url):
         resp = requests.get(image_url)
         image_file = BytesIO(resp.content)
         color = ColorThief(image_file).get_color(quality=1)
-        return f'#{color[0]:02x}{color[1]:02x}{color[2]:02x}'
+        return f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
 
 
 class SpotifyUser(db.Entity):
-    _table_ = 'spotify_users'
+    _table_ = "spotify_users"
     id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     name = Optional(str)
-    user = Optional('User')
-    playlists = Set('Playlist')
+    user = Optional("User")
+    playlists = Set("Playlist")
 
     @property
     def uri(self):
-        return f'spotify:user:{self.id}'
+        return f"spotify:user:{self.id}"
 
     @property
     def href(self):
-        return f'https://api.spotify.com/v1/users/{self.id}'
+        return f"https://api.spotify.com/v1/users/{self.id}"
 
     @property
     def external_url(self):
-        return f'http://open.spotify.com/user/{self.id}'
+        return f"http://open.spotify.com/user/{self.id}"
 
 
 class Genre(db.Entity, ImageMixin):
-    _table_ = 'genres'
+    _table_ = "genres"
     name = PrimaryKey(str)
-    artists = Set('Artist')
-    playlists = Set('Playlist')
-    fans = Set(User, reverse='top_genres', table='genre_fans')
-    haters = Set(User, reverse='disliked_genres', table='genre_haters')
+    artists = Set("Artist")
+    playlists = Set("Playlist")
+    fans = Set(User, reverse="top_genres", table="genre_fans")
+    haters = Set(User, reverse="disliked_genres", table="genre_haters")
     images = Set(Image, cascade_delete=True)
 
     def play(self, client, device=None):
@@ -406,15 +406,15 @@ class Genre(db.Entity, ImageMixin):
 
 
 class Country(db.Entity, ImageMixin):
-    _table_ = 'countries'
+    _table_ = "countries"
     code = PrimaryKey(str, max_len=2)
     name = Required(str, index=True)
-    users = Set('User', reverse='country')
-    users_preferring = Set('User', reverse='preferred_country')
-    cities = Set('City')
-    playlists = Set('Playlist')
-    fans = Set(User, reverse='top_countries', table='country_fans')
-    haters = Set(User, reverse='disliked_countries', table='country_haters')
+    users = Set("User", reverse="country")
+    users_preferring = Set("User", reverse="preferred_country")
+    cities = Set("City")
+    playlists = Set("Playlist")
+    fans = Set(User, reverse="top_countries", table="country_fans")
+    haters = Set(User, reverse="disliked_countries", table="country_haters")
     images = Set(Image, cascade_delete=True)
 
     @staticmethod
@@ -428,10 +428,10 @@ class Country(db.Entity, ImageMixin):
     @classmethod
     def from_str(cls, name=None, code=None):
         iso_country = None
-        if name == 'UK':
-            iso_country = countries.get(alpha_2='GB')
-        elif name == 'USA':
-            iso_country = countries.get(alpha_2='US')
+        if name == "UK":
+            iso_country = countries.get(alpha_2="GB")
+        elif name == "USA":
+            iso_country = countries.get(alpha_2="US")
         elif name is not None:
             try:
                 iso_country = countries.get(name=name)
@@ -450,7 +450,7 @@ class Country(db.Entity, ImageMixin):
                     countries, key=lambda c: code.lower() in c.alpha_2.lower()
                 )
         if not iso_country:
-            logger.error(f'Could not find a country with name={name} and code={code}')
+            logger.error(f"Could not find a country with name={name} and code={code}")
             return None
 
         return cls.get(name=iso_country.name) or cls(
@@ -465,12 +465,12 @@ class Country(db.Entity, ImageMixin):
 
 
 class City(db.Entity, ImageMixin):
-    _table_ = 'cities'
+    _table_ = "cities"
     name = PrimaryKey(str)
     country = Required(Country)
-    playlists = Set('Playlist')
-    fans = Set(User, reverse='top_cities', table='city_fans')
-    haters = Set(User, reverse='disliked_cities', table='city_haters')
+    playlists = Set("Playlist")
+    fans = Set(User, reverse="top_cities", table="city_fans")
+    haters = Set(User, reverse="disliked_cities", table="city_haters")
     images = Set(Image, cascade_delete=True)
 
     def get_image_queries(self):
@@ -481,28 +481,28 @@ class City(db.Entity, ImageMixin):
 
 
 class Playlist(db.Entity, ImageMixin):
-    _table_ = 'playlists'
-    YEAR = '(?P<year>[0-9]{4})'
-    GENRE = '(?P<genre>.+)'
-    CITY = '(?P<city>.+)'
-    COUNTRY = '(?P<country>.+)'
-    COUNTRY_CODE = '(?P<country_code>[A-Z]{2})'
-    DATE = '(?P<date>[0-9]{8})'
-    INTRO_POPULARITY = '(?P<popularity>Intro)'
-    GENRE_POPULARITY_TITLE = '(?P<popularity>Sound|Pulse|Edge)'
-    GENRE_POPULARITY_LOWER = '(?P<popularity>sound|pulse|edge)'
-    NEEDLE_POPULARITY = '(?P<popularity>Current|Emerging|Underground)'
+    _table_ = "playlists"
+    YEAR = "(?P<year>[0-9]{4})"
+    GENRE = "(?P<genre>.+)"
+    CITY = "(?P<city>.+)"
+    COUNTRY = "(?P<country>.+)"
+    COUNTRY_CODE = "(?P<country_code>[A-Z]{2})"
+    DATE = "(?P<date>[0-9]{8})"
+    INTRO_POPULARITY = "(?P<popularity>Intro)"
+    GENRE_POPULARITY_TITLE = "(?P<popularity>Sound|Pulse|Edge)"
+    GENRE_POPULARITY_LOWER = "(?P<popularity>sound|pulse|edge)"
+    NEEDLE_POPULARITY = "(?P<popularity>Current|Emerging|Underground)"
     PATTERNS = OrderedDict(
-        intro_to_genre=re.compile(f'^{INTRO_POPULARITY} to {GENRE}$'),
-        sound_of_city=re.compile(f'^The Sound of {CITY} {COUNTRY_CODE}$'),
+        intro_to_genre=re.compile(f"^{INTRO_POPULARITY} to {GENRE}$"),
+        sound_of_city=re.compile(f"^The Sound of {CITY} {COUNTRY_CODE}$"),
         needle=re.compile(
-            f'^The Needle / {COUNTRY} {DATE}(?: - {NEEDLE_POPULARITY})?$'
+            f"^The Needle / {COUNTRY} {DATE}(?: - {NEEDLE_POPULARITY})?$"
         ),
-        pine_needle=re.compile(f'^The Pine Needle / {COUNTRY}$'),
-        year_in_genre=re.compile(f'^{YEAR} in {GENRE}$'),
-        meta_genre=re.compile(f'^Meta{GENRE_POPULARITY_LOWER}: {GENRE}$'),
-        meta_year_in_genre=re.compile(f'^Meta{YEAR}: {GENRE}$'),
-        sound_of_genre=re.compile(f'^The {GENRE_POPULARITY_TITLE} of {GENRE}$'),
+        pine_needle=re.compile(f"^The Pine Needle / {COUNTRY}$"),
+        year_in_genre=re.compile(f"^{YEAR} in {GENRE}$"),
+        meta_genre=re.compile(f"^Meta{GENRE_POPULARITY_LOWER}: {GENRE}$"),
+        meta_year_in_genre=re.compile(f"^Meta{YEAR}: {GENRE}$"),
+        sound_of_genre=re.compile(f"^The {GENRE_POPULARITY_TITLE} of {GENRE}$"),
     )
 
     class Popularity(IntEnum):
@@ -539,49 +539,49 @@ class Playlist(db.Entity, ImageMixin):
 
     @property
     def uri(self):
-        return f'spotify:user:{self.owner.id}:playlist:{self.id}'
+        return f"spotify:user:{self.owner.id}:playlist:{self.id}"
 
     @property
     def href(self):
-        return f'https://api.spotify.com/v1/users/{self.owner.id}/playlists/{self.id}'
+        return f"https://api.spotify.com/v1/users/{self.owner.id}/playlists/{self.id}"
 
     @property
     def external_url(self):
-        return f'http://open.spotify.com/user/{self.owner.id}/playlist/{self.id}'
+        return f"http://open.spotify.com/user/{self.owner.id}/playlist/{self.id}"
 
     @classmethod
     def get_fields(cls, groups):
         fields = {}
-        if 'year' in groups:
-            year = groups['year']
-            fields['year'] = int(year)
-            fields['date'] = datetime(int(year), 1, 1)
-            fields['popularity'] = cls.Popularity.YEAR.value
-        if 'city' in groups and 'country_code' in groups:
-            city = groups['city']
-            country_code = groups['country_code']
-            fields['country'] = Country.from_str(code=country_code)
-            fields['city'] = City.get(name=city) or City(
-                name=city, country=fields['country']
+        if "year" in groups:
+            year = groups["year"]
+            fields["year"] = int(year)
+            fields["date"] = datetime(int(year), 1, 1)
+            fields["popularity"] = cls.Popularity.YEAR.value
+        if "city" in groups and "country_code" in groups:
+            city = groups["city"]
+            country_code = groups["country_code"]
+            fields["country"] = Country.from_str(code=country_code)
+            fields["city"] = City.get(name=city) or City(
+                name=city, country=fields["country"]
             )
-            fields['popularity'] = cls.Popularity.SOUND.value
-        if 'genre' in groups:
-            genre = groups['genre'].lower()
-            fields['genre'] = Genre.get(name=genre) or Genre(name=genre)
-            if 'christmas' in genre:
-                fields['christmas'] = True
-        if 'country' in groups:
-            country = groups['country']
-            fields['country'] = Country.from_str(name=country)
-        if 'date' in groups:
-            _date = groups['date']
-            fields['date'] = datetime.strptime(_date, '%Y%m%d').date()
-        if 'popularity' in groups:
-            popularity = groups['popularity']
+            fields["popularity"] = cls.Popularity.SOUND.value
+        if "genre" in groups:
+            genre = groups["genre"].lower()
+            fields["genre"] = Genre.get(name=genre) or Genre(name=genre)
+            if "christmas" in genre:
+                fields["christmas"] = True
+        if "country" in groups:
+            country = groups["country"]
+            fields["country"] = Country.from_str(name=country)
+        if "date" in groups:
+            _date = groups["date"]
+            fields["date"] = datetime.strptime(_date, "%Y%m%d").date()
+        if "popularity" in groups:
+            popularity = groups["popularity"]
             if popularity:
-                fields['popularity'] = cls.Popularity[popularity.upper()].value
+                fields["popularity"] = cls.Popularity[popularity.upper()].value
             else:
-                fields['popularity'] = cls.Popularity.ALL.value
+                fields["popularity"] = cls.Popularity.ALL.value
         return fields
 
     @classmethod
@@ -591,21 +591,21 @@ class Playlist(db.Entity, ImageMixin):
         owner = (
             SpotifyUser.get(id=playlist.owner.id)
             or SpotifyUser(
-                id=playlist.owner.id, name=playlist.owner.get('display_name') or ''
+                id=playlist.owner.id, name=playlist.owner.get("display_name") or ""
             )
         )
         fields = {
-            'id': playlist.id,
-            'collaborative': playlist.collaborative,
-            'name': playlist.name,
-            'owner': owner,
-            'public': playlist.public,
-            'snapshot_id': playlist.snapshot_id,
-            'tracks': playlist.tracks.total,
-            'christmas': 'Pine Needle' in playlist.name
-            or 'christmas' in playlist.name.lower(),
-            'meta': playlist.name.startswith('Meta'),
-            'images': [Image.get(url=im.url) or Image(**im) for im in playlist.images],
+            "id": playlist.id,
+            "collaborative": playlist.collaborative,
+            "name": playlist.name,
+            "owner": owner,
+            "public": playlist.public,
+            "snapshot_id": playlist.snapshot_id,
+            "tracks": playlist.tracks.total,
+            "christmas": "Pine Needle" in playlist.name
+            or "christmas" in playlist.name.lower(),
+            "meta": playlist.name.startswith("Meta"),
+            "images": [Image.get(url=im.url) or Image(**im) for im in playlist.images],
         }
         for pattern in cls.PATTERNS.values():
             match = pattern.match(playlist.name)
@@ -615,18 +615,18 @@ class Playlist(db.Entity, ImageMixin):
                 break
 
         else:
-            logger.warning(f'No pattern matches the playlist: {playlist.name}')
+            logger.warning(f"No pattern matches the playlist: {playlist.name}")
         return cls(**fields)
 
 
 class Artist(db.Entity, ImageMixin):
-    _table_ = 'artists'
+    _table_ = "artists"
     id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     name = Required(str, index=True)
     followers = Required(int)
     genres = Set(Genre)
-    fans = Set(User, reverse='top_artists', table='artist_fans')
-    haters = Set(User, reverse='disliked_artists', table='artist_haters')
+    fans = Set(User, reverse="top_artists", table="artist_fans")
+    haters = Set(User, reverse="disliked_artists", table="artist_haters")
     popularity = Optional(int)
     images = Set(Image, cascade_delete=True)
 
@@ -635,15 +635,15 @@ class Artist(db.Entity, ImageMixin):
 
     @property
     def uri(self):
-        return f'spotify:artist:{self.id}'
+        return f"spotify:artist:{self.id}"
 
     @property
     def href(self):
-        return f'https://api.spotify.com/v1/artists/{self.id}'
+        return f"https://api.spotify.com/v1/artists/{self.id}"
 
     @property
     def external_url(self):
-        return f'http://open.spotify.com/artist/{self.id}'
+        return f"http://open.spotify.com/artist/{self.id}"
 
     @classmethod
     async def from_dict_async(cls, artist):
@@ -651,7 +651,7 @@ class Artist(db.Entity, ImageMixin):
             try:
                 color = await Image.grab_color_async(artist.images[-1].url)
             except:
-                color = '#000000'
+                color = "#000000"
             for image in artist.images:
                 image.color = color
         return cls.from_dict(artist, grab_image_color=False)
@@ -662,7 +662,7 @@ class Artist(db.Entity, ImageMixin):
             try:
                 color = Image.grab_color(artist.images[-1].url)
             except:
-                color = '#000000'
+                color = "#000000"
             for image in artist.images:
                 image.color = color
         genres = [Genre.get(name=genre) or Genre(name=genre) for genre in artist.genres]
@@ -681,8 +681,8 @@ class Artist(db.Entity, ImageMixin):
 
 
 class AudioFeatures(db.Entity):
-    _table_ = 'audio_features'
-    KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    _table_ = "audio_features"
+    KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
     id = PrimaryKey(str)  # pylint: disable=redefined-builtin
     acousticness = Required(float, min=0.0, max=1.0)
     danceability = Required(float, min=0.0, max=1.0)
@@ -700,27 +700,27 @@ class AudioFeatures(db.Entity):
 
     def to_dict(self, *args, **kwargs):  # pylint: disable=arguments-differ
         _dict = super().to_dict(*args, **kwargs)
-        if 'mode' in _dict:
-            _dict['mode'] = int(_dict['mode'])
+        if "mode" in _dict:
+            _dict["mode"] = int(_dict["mode"])
         return _dict
 
     @classmethod
     def from_dict(cls, track):
         return cls(
-            id=track['id'],
-            acousticness=track['acousticness'],
-            danceability=track['danceability'],
-            duration_ms=track['duration_ms'],
-            energy=track['energy'],
-            instrumentalness=track['instrumentalness'],
-            key=track['key'],
-            liveness=track['liveness'],
-            loudness=track['loudness'],
-            mode=bool(track['mode']),
-            speechiness=track['speechiness'],
-            tempo=track['tempo'],
-            time_signature=track['time_signature'],
-            valence=track['valence'],
+            id=track["id"],
+            acousticness=track["acousticness"],
+            danceability=track["danceability"],
+            duration_ms=track["duration_ms"],
+            energy=track["energy"],
+            instrumentalness=track["instrumentalness"],
+            key=track["key"],
+            liveness=track["liveness"],
+            loudness=track["loudness"],
+            mode=bool(track["mode"]),
+            speechiness=track["speechiness"],
+            tempo=track["tempo"],
+            time_signature=track["time_signature"],
+            valence=track["valence"],
         )
 
 
@@ -729,5 +729,5 @@ if config.database.connection.filename:
         config.database.connection.filename
     )
 db.bind(**config.database.connection)
-if config.database.generate_mapping or os.getenv('SPFY_GENERATE_MAPPING') == 'true':
+if config.database.generate_mapping or os.getenv("SPFY_GENERATE_MAPPING") == "true":
     db.generate_mapping(create_tables=True)

@@ -22,7 +22,7 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
 
     def __dir__(self):
         names = super().__dir__()
-        names = [name for name in names if not name.startswith('_') and name != 'user']
+        names = [name for name in names if not name.startswith("_") and name != "user"]
         return names
 
     async def auth(self, email=config.auth.email, username=config.auth.username):
@@ -34,7 +34,7 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
         return self
 
     @staticmethod
-    def update_config(name='config'):
+    def update_config(name="config"):
         kick.update_config(APP_NAME.lower(), variant=name)
 
 
@@ -56,11 +56,11 @@ def main():
         with db_session:
             fire.Fire(spotify)
     except KeyboardInterrupt:
-        print('Quitting')
+        print("Quitting")
     finally:
         if spotify.session and not Spotify.loop.is_running():
             Spotify.loop.run_until_complete(spotify.session.close())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

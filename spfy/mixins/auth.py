@@ -16,8 +16,8 @@ from ..cache import User, select, db_session
 from ..constants import API, AuthFlow, AllScopes
 from ..exceptions import SpotifyCredentialsException
 
-AUTH_HTML_FILE = root / 'html' / 'auth_message.html'
-CACHE_FILE = Path.home() / '.cache' / 'spfy' / '.web_cache'
+AUTH_HTML_FILE = root / "html" / "auth_message.html"
+CACHE_FILE = Path.home() / ".cache" / "spfy" / ".web_cache"
 
 
 class AuthMixin:
@@ -44,10 +44,10 @@ class AuthMixin:
         redirect_uri = (
             redirect_uri
             or config.app.redirect_uri
-            or f'http://{socket.gethostname()}.local'
+            or f"http://{socket.gethostname()}.local"
         )
         if config.auth.callback.enabled and config.auth.callback.port and redirect_uri:
-            redirect_uri += f':{config.auth.callback.port}'
+            redirect_uri += f":{config.auth.callback.port}"
         return redirect_uri
 
     @staticmethod
@@ -59,7 +59,7 @@ class AuthMixin:
             pool_maxsize=config.http.connections,
             max_retries=config.http.retries,
         )
-        session.mount('http://', cache_adapter)
+        session.mount("http://", cache_adapter)
         return session
 
     @property
@@ -127,8 +127,8 @@ class AuthMixin:
                     user.token = token
             if not user:
                 self.user_id = self.user_id or uuid.uuid4()
-                user_details['user_id'] = self.user_id
-                user_details['token'] = token
+                user_details["user_id"] = self.user_id
+                user_details["token"] = token
                 user = User.from_dict(user_details)
             return session
 
@@ -168,15 +168,15 @@ class AuthMixin:
                     API.AUTHORIZE.value
                 )
                 if config.auth.send_auth_url_to_email:
-                    email = auth_params.get('email') or config.auth.email
+                    email = auth_params.get("email") or config.auth.email
                     self.send_auth_email(email, authorization_url)
                 else:
-                    print(f'Login here: {authorization_url}')
+                    print(f"Login here: {authorization_url}")
                 self.wait_for_authorization()
 
     def wait_for_authorization(self):
         if not config.auth.callback.enabled:
-            url = input('Paste the URL you are redirected to:')
+            url = input("Paste the URL you are redirected to:")
             self.session = self.authenticate_user(auth_response=url)
         else:
             self.callback_reached.wait(config.auth.callback.timeout)
@@ -191,23 +191,23 @@ class AuthMixin:
 
         # pylint: disable=unused-variable
 
-        @hug.get('/', output=hug.output_format.html)
+        @hug.get("/", output=hug.output_format.html)
         def callback(code: hug.types.text, state: hug.types.text):
             html = AUTH_HTML_FILE.read_text()  # pylint: disable=no-member
             try:
                 self.session = self.authenticate_user(code=code, state=state)
-                html = html.replace('SPOTIFY_AUTH_MESSAGE', 'Successfully logged in!')
-                html = html.replace('BACKGROUND_COLOR', '#65D46E')
+                html = html.replace("SPOTIFY_AUTH_MESSAGE", "Successfully logged in!")
+                html = html.replace("BACKGROUND_COLOR", "#65D46E")
             except Exception as exc:
                 logger.exception(exc)
                 html = html.replace(
-                    'SPOTIFY_AUTH_MESSAGE', 'Could not get authorization token.'
+                    "SPOTIFY_AUTH_MESSAGE", "Could not get authorization token."
                 )
-                html = html.replace('BACKGROUND_COLOR', '#EC2E50')
+                html = html.replace("BACKGROUND_COLOR", "#EC2E50")
             finally:
                 self.callback_reached.set()
             return html
 
         api = __hug__.http.server(None)  # pylint: disable=undefined-variable
-        self.httpd = make_server('', config.auth.callback.port, api)
+        self.httpd = make_server("", config.auth.callback.port, api)
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()

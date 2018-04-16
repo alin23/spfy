@@ -9,16 +9,16 @@ class SpotifyException(Exception):
         super().__init__()
         self.http_status_code = status_code
         self.headers = headers or {}
-        if text and text != 'null':
+        if text and text != "null":
             response = json.loads(text)
             self.msg = f'{url}:\n {response["error"]["message"]}'
         else:
-            self.msg = f'{url}: error'
+            self.msg = f"{url}: error"
 
     def __str__(self):
-        return f'''
+        return f"""
         HTTP Status Code: {self.http_status_code}
-        {self.msg}'''
+        {self.msg}"""
 
 
 class SpotifyRateLimitException(SpotifyException):
@@ -37,17 +37,17 @@ class SpotifyForbiddenException(SpotifyException):
 class SpotifyCredentialsException(Exception):
 
     def __str__(self):
-        return '''
+        return """
         You need to set your Spotify API credentials in ~/.config/spfy/config.toml
 
         Get your credentials at
             https://developer.spotify.com/my-applications
-        '''
+        """
 
 
 class SpotifyAuthException(Exception):
 
     def __str__(self):
-        return '''
+        return """
         You need to authenticate before making any request.
-        '''
+        """

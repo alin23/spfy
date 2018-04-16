@@ -32,12 +32,12 @@ from ..mixins.asynch.aiohttp_oauthlib import TokenUpdated
 class SpotifyClient(AuthMixin, EmailMixin):
 
     def __init__(self, *args, proxy=None, requests_timeout=None, **kwargs):
-        '''
+        """
         Create a Spotify API object.
 
         :param proxy: Definition of proxy
         :param requests_timeout: Tell Requests to stop waiting for a response after a given number of seconds
-        '''
+        """
         super().__init__(*args, **kwargs)
         self.proxy = proxy
         self.requests_timeout = requests_timeout
@@ -48,7 +48,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         try:
             user = self.user
         except Exception:
-            logger.warning(f'Tried to use an inexistent user: {self.user_id}')
+            logger.warning(f"Tried to use an inexistent user: {self.user_id}")
         else:
             user.api_calls += 1
             user.last_usage_at = datetime.utcnow()
@@ -58,16 +58,17 @@ class SpotifyClient(AuthMixin, EmailMixin):
             response.raise_for_status()
         except:
             exception_params = {
-                'status_code': response.status,
-                'url': response.url,
-                'headers': response.headers,
-                'text': await response.text(),
+                "status_code": response.status,
+                "url": response.url,
+                "headers": response.headers,
+                "text": await response.text(),
             }
-            if response.status == 429 or (
-                response.status >= 500 and response.status < 600
+            if (
+                response.status == 429
+                or (response.status >= 500 and response.status < 600)
             ):
                 raise SpotifyRateLimitException(
-                    retry_after=int(response.headers.get('Retry-After', 0)),
+                    retry_after=int(response.headers.get("Retry-After", 0)),
                     **exception_params,
                 )
 
@@ -101,9 +102,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
     async def _fetch_response_from_cache(
         self, method, url, payload, params, headers, cache_key
     ):
-        etag_key = f'{cache_key}:{config.cache.key.etag}'
-        response_key = f'{cache_key}:{config.cache.key.response}'
-        logger.info(f'Cache hit: {etag_key}')
+        etag_key = f"{cache_key}:{config.cache.key.etag}"
+        response_key = f"{cache_key}:{config.cache.key.response}"
+        logger.info(f"Cache hit: {etag_key}")
         async with self.redis.get() as conn:
             redis = aioredis.Redis(conn)
             response = await redis.get(response_key)
@@ -113,7 +114,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             except:
                 results = None
             if not results:
-                logger.error(f'Cached response is invalid: {etag_key}')
+                logger.error(f"Cached response is invalid: {etag_key}")
                 tr.delete(etag_key)
                 tr.delete(response_key)
                 await tr.execute(return_exceptions=False)
@@ -128,9 +129,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if not etag:
             return
 
-        logger.debug(f'ETAG: {etag}')
-        etag_key = f'{cache_key}:{config.cache.key.etag}'
-        response_key = f'{cache_key}:{config.cache.key.response}'
+        logger.debug(f"ETAG: {etag}")
+        etag_key = f"{cache_key}:{config.cache.key.etag}"
+        response_key = f"{cache_key}:{config.cache.key.response}"
         async with self.redis.get() as conn:
             redis = aioredis.Redis(conn)
             tr = redis.multi_exec()
@@ -143,39 +144,41 @@ class SpotifyClient(AuthMixin, EmailMixin):
             await tr.execute(return_exceptions=False)
 
     async def _get_cache_header(self, cache_key):
-        etag_key = f'{cache_key}:{config.cache.key.etag}'
+        etag_key = f"{cache_key}:{config.cache.key.etag}"
         async with self.redis.get() as conn:
             redis = aioredis.Redis(conn)
             etag = await redis.get(etag_key, encoding=config.cache.encoding)
             if etag:
-                return {'If-None-Match': etag}
+                return {"If-None-Match": etag}
 
         return {}
 
     async def _get_request_args(self, payload, params, headers, etag_key):
         return {
-            'proxy': self.proxy,
-            'timeout': self.requests_timeout,
-            'headers': {
-                'Content-Type': 'application/json',
+            "proxy": self.proxy,
+            "timeout": self.requests_timeout,
+            "headers": {
+                "Content-Type": "application/json",
                 **(await self._get_cache_header(etag_key)),
                 **(headers or {}),
             },
-            'data': payload,
-            'params': params,
-            'client_id': self.client_id,
-            'client_secret': self.client_secret,
+            "data": payload,
+            "params": params,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
         }
 
-    async def _internal_call(self, method, url, payload, params, headers=None, retries=5):
+    async def _internal_call(
+        self, method, url, payload, params, headers=None, retries=5
+    ):
         await self.ensure_redis_pool()
         if payload and not isinstance(payload, (bytes, str)):
             payload = json.dumps(payload)
         params = {k: v for k, v in params.items() if v is not None}
         cache_key = self._get_cache_key(url, params, payload)
-        logger.debug(f'Cache key: {cache_key}')
+        logger.debug(f"Cache key: {cache_key}")
         request_args = await self._get_request_args(payload, params, headers, cache_key)
-        logger.debug(f'Request args: {json.dumps(request_args, indent=4)}')
+        logger.debug(f"Request args: {json.dumps(request_args, indent=4)}")
         try:
             req = await self.session._request(method, url, **request_args)
         except TokenUpdated:
@@ -187,26 +190,29 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 return await self._fetch_response_from_cache(
                     method, url, payload, params, headers, cache_key
                 )
+
             if resp.status == 202 and retries > 0:
                 logger.warning(
-                    f'Device is temporarily unavailable. Retrying in 5 seconds...'
+                    f"Device is temporarily unavailable. Retrying in 5 seconds..."
                 )
                 await asyncio.sleep(5)
-                return await self._internal_call(method, url, payload, params, headers, retries=retries - 1)
+                return await self._internal_call(
+                    method, url, payload, params, headers, retries=retries - 1
+                )
 
             try:
                 await self._check_response(resp)
             except SpotifyRateLimitException as exc:
                 logger.warning(
-                    f'Reached API rate limit. Retrying in {exc.retry_after} seconds...'
+                    f"Reached API rate limit. Retrying in {exc.retry_after} seconds..."
                 )
                 await asyncio.sleep(exc.retry_after)
                 return await self._internal_call(method, url, payload, params, headers)
 
             text = await resp.text()
-            if text and text != 'null':
+            if text and text != "null":
                 results = json.loads(text)
-                await self._cache_response(resp.headers.get('etag'), results, cache_key)
+                await self._cache_response(resp.headers.get("etag"), results, cache_key)
                 return SpotifyResult(results, _client=self)
 
     async def _api_call(
@@ -217,80 +223,80 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
         if args:
             kwargs.update(args)
-        if 'device_id' in kwargs:
-            kwargs['device_id'] = await self.get_device_id(kwargs['device_id'])
-        if not url.startswith('http'):
+        if "device_id" in kwargs:
+            kwargs["device_id"] = await self.get_device_id(kwargs["device_id"])
+        if not url.startswith("http"):
             url = API.PREFIX.value + url
         return await self._internal_call(method, url, payload, kwargs, headers)
 
     async def _get(self, url, args=None, payload=None, **kwargs):
-        return await self._api_call('GET', url, args, payload, **kwargs)
+        return await self._api_call("GET", url, args, payload, **kwargs)
 
     async def _post(self, url, args=None, payload=None, **kwargs):
-        return await self._api_call('POST', url, args, payload, **kwargs)
+        return await self._api_call("POST", url, args, payload, **kwargs)
 
     async def _delete(self, url, args=None, payload=None, **kwargs):
-        return await self._api_call('DELETE', url, args, payload, **kwargs)
+        return await self._api_call("DELETE", url, args, payload, **kwargs)
 
     async def _put(self, url, args=None, payload=None, **kwargs):
-        return await self._api_call('PUT', url, args, payload, **kwargs)
+        return await self._api_call("PUT", url, args, payload, **kwargs)
 
     async def previous(self, result):
-        ''' returns the previous result given a paged result
+        """ returns the previous result given a paged result
 
             Parameters:
                 - result - a previously returned paged result
-        '''
-        if result['previous']:
-            return await self._get(result['previous'])
+        """
+        if result["previous"]:
+            return await self._get(result["previous"])
 
         return None
 
     async def track(self, track_id):
-        ''' returns a single track given the track's ID, URI or URL
+        """ returns a single track given the track's ID, URI or URL
 
             Parameters:
                 - track_id - a spotify URI, URL or ID
-        '''
+        """
         _id = self._get_track_id(track_id)
         # pylint: disable=no-member
         return await self._get(API.TRACK.value.format(id=_id))
 
-    async def tracks(self, tracks, market='from_token'):
-        ''' returns a list of tracks given a list of track IDs, URIs, or URLs
+    async def tracks(self, tracks, market="from_token"):
+        """ returns a list of tracks given a list of track IDs, URIs, or URLs
 
             Parameters:
                 - tracks - a list of spotify URIs, URLs or IDs
                 - market - an ISO 3166-1 alpha-2 country code.
-        '''
+        """
         track_list = map(self._get_track_id, tracks)
         return await self._get(
-            API.TRACKS.value, ids=','.join(track_list), market=market
+            API.TRACKS.value, ids=",".join(track_list), market=market
         )
 
     async def artist(self, artist_id):
-        ''' returns a single artist given the artist's ID, URI or URL
+        """ returns a single artist given the artist's ID, URI or URL
 
             Parameters:
                 - artist_id - an artist ID, URI or URL
-        '''
+        """
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
         return await self._get(API.ARTIST.value.format(id=_id))
 
     async def artists(self, artists):
-        ''' returns a list of artists given the artist IDs, URIs, or URLs
+        """ returns a list of artists given the artist IDs, URIs, or URLs
 
             Parameters:
                 - artists - a list of  artist IDs, URIs or URLs
-        '''
+        """
         artist_list = map(self._get_artist_id, artists)
-        return await self._get(API.ARTISTS.value, ids=','.join(artist_list))
+        return await self._get(API.ARTISTS.value, ids=",".join(artist_list))
 
     async def artist_albums(
         self, artist_id, album_type=None, country=None, limit=20, offset=0
     ):
-        ''' Get Spotify catalog information about an artist's albums
+        """ Get Spotify catalog information about an artist's albums
 
             Parameters:
                 - artist_id - the artist ID, URI or URL
@@ -298,7 +304,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - country - limit the response to one particular country.
                 - limit  - the number of albums to return
                 - offset - the index of the first album to return
-        '''
+        """
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
         return await self._get(
@@ -309,14 +315,14 @@ class SpotifyClient(AuthMixin, EmailMixin):
             offset=offset,
         )
 
-    async def artist_top_tracks(self, artist_id, country='US'):
-        ''' Get Spotify catalog information about an artist's top 10 tracks
+    async def artist_top_tracks(self, artist_id, country="US"):
+        """ Get Spotify catalog information about an artist's top 10 tracks
             by country.
 
             Parameters:
                 - artist_id - the artist ID, URI or URL
                 - country - limit the response to one particular country.
-        '''
+        """
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
         return await self._get(
@@ -325,35 +331,35 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     @async_lru(maxsize=128)
     async def artist_related_artists(self, artist_id):
-        ''' Get Spotify catalog information about artists similar to an
+        """ Get Spotify catalog information about artists similar to an
             identified artist. Similarity is based on analysis of the
             Spotify community's listening history.
 
             Parameters:
                 - artist_id - the artist ID, URI or URL
-        '''
+        """
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
         return await self._get(API.ARTIST_RELATED_ARTISTS.value.format(id=_id))
 
     async def album(self, album_id):
-        ''' returns a single album given the album's ID, URIs or URL
+        """ returns a single album given the album's ID, URIs or URL
 
             Parameters:
                 - album_id - the album ID, URI or URL
-        '''
+        """
         _id = self._get_album_id(album_id)
         # pylint: disable=no-member
         return await self._get(API.ALBUM.value.format(id=_id))
 
     async def album_tracks(self, album_id, limit=50, offset=0):
-        ''' Get Spotify catalog information about an album's tracks
+        """ Get Spotify catalog information about an album's tracks
 
             Parameters:
                 - album_id - the album ID, URI or URL
                 - limit  - the number of items to return
                 - offset - the index of the first item to return
-        '''
+        """
         _id = self._get_album_id(album_id)
         # pylint: disable=no-member
         return await self._get(
@@ -361,16 +367,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     async def albums(self, albums):
-        ''' returns a list of albums given the album IDs, URIs, or URLs
+        """ returns a list of albums given the album IDs, URIs, or URLs
 
             Parameters:
                 - albums - a list of  album IDs, URIs or URLs
-        '''
+        """
         album_list = map(self._get_album_id, albums)
-        return await self._get(API.ALBUMS.value, ids=','.join(album_list))
+        return await self._get(API.ALBUMS.value, ids=",".join(album_list))
 
-    async def search(self, url, q, limit=10, offset=0, market='from_token'):
-        ''' searches for an item
+    async def search(self, url, q, limit=10, offset=0, market="from_token"):
+        """ searches for an item
 
             Parameters:
                 - q - the search query
@@ -379,25 +385,25 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - type - the type of item to return. One of 'artist', 'album',
                          'track' or 'playlist'
                 - market - An ISO 3166-1 alpha-2 country code or the string from_token.
-        '''
+        """
         return await self._get(url, q=q, limit=limit, offset=offset, market=market)
 
-    async def search_track(self, track, limit=10, offset=0, market='from_token'):
+    async def search_track(self, track, limit=10, offset=0, market="from_token"):
         return await self.search(
             API.SEARCH_TRACK.value, track, limit=limit, offset=offset, market=market
         )
 
-    async def search_album(self, album, limit=10, offset=0, market='from_token'):
+    async def search_album(self, album, limit=10, offset=0, market="from_token"):
         return await self.search(
             API.SEARCH_ALBUM.value, album, limit=limit, offset=offset, market=market
         )
 
-    async def search_artist(self, artist, limit=10, offset=0, market='from_token'):
+    async def search_artist(self, artist, limit=10, offset=0, market="from_token"):
         return await self.search(
             API.SEARCH_ARTIST.value, artist, limit=limit, offset=offset, market=market
         )
 
-    async def search_playlist(self, playlist, limit=10, offset=0, market='from_token'):
+    async def search_playlist(self, playlist, limit=10, offset=0, market="from_token"):
         return await self.search(
             API.SEARCH_PLAYLIST.value,
             playlist,
@@ -407,11 +413,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     async def profile(self, user):
-        ''' Gets basic profile information about a Spotify User
+        """ Gets basic profile information about a Spotify User
 
             Parameters:
                 - user - the id of the user
-        '''
+        """
         # pylint: disable=no-member
         return await self._get(API.USER.value.format(user_id=user))
 
@@ -424,25 +430,25 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return await self._get(API.MY_PLAYLISTS.value, limit=limit, offset=offset)
 
     async def user_playlists(self, user, limit=50, offset=0):
-        ''' Gets playlists of a user
+        """ Gets playlists of a user
 
             Parameters:
                 - user - the id of the usr
                 - limit  - the number of items to return
                 - offset - the index of the first item to return
-        '''
+        """
         # pylint: disable=no-member
         return await self._get(
             API.PLAYLISTS.value.format(user_id=user), limit=limit, offset=offset
         )
 
     async def user_playlist(self, user, playlist_id=None, fields=None):
-        ''' Gets playlist of a user
+        """ Gets playlist of a user
             Parameters:
                 - user - the id of the user
                 - playlist_id - the id of the playlist
                 - fields - which fields to return
-        '''
+        """
         if playlist_id is None:
             return await self._get("users/%s/starred" % (user), fields=fields)
 
@@ -459,9 +465,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
         fields=None,
         limit=100,
         offset=0,
-        market='from_token',
+        market="from_token",
     ):
-        ''' Get full details of the tracks of a playlist owned by a user.
+        """ Get full details of the tracks of a playlist owned by a user.
 
             Parameters:
                 - user - the id of the user
@@ -470,7 +476,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - limit - the maximum number of tracks to return
                 - offset - the index of the first track to return
                 - market - an ISO 3166-1 alpha-2 country code.
-        '''
+        """
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
         return await self._get(
@@ -481,32 +487,32 @@ class SpotifyClient(AuthMixin, EmailMixin):
             market=market,
         )
 
-    async def user_playlist_create(self, user, name, public=True, description=''):
-        ''' Creates a playlist for a user
+    async def user_playlist_create(self, user, name, public=True, description=""):
+        """ Creates a playlist for a user
 
             Parameters:
                 - user - the id of the user
                 - name - the name of the playlist
                 - public - is the created playlist public
                 - description - the description of the playlist
-        '''
-        data = {'name': name, 'public': public, 'description': description}
+        """
+        data = {"name": name, "public": public, "description": description}
         # pylint: disable=no-member
         return await self._post(API.PLAYLISTS.value.format(user_id=user), payload=data)
 
     async def user_playlist_upload_cover_image(self, user, playlist_id, image):
-        ''' Creates a playlist for a user
+        """ Creates a playlist for a user
 
             Parameters:
                 - user - the id of the user
                 - playlist_id - the id of the playlist
                 - image - base64 encoded image
-        '''
+        """
         # pylint: disable=no-member
         return await self._put(
             API.PLAYLIST_IMAGES.value.format(user_id=user, playlist_id=playlist_id),
             payload=image,
-            headers={'Content-Type': 'image/jpeg'},
+            headers={"Content-Type": "image/jpeg"},
         )
 
     async def user_playlist_change_details(
@@ -518,7 +524,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         collaborative=None,
         description=None,
     ):
-        ''' Changes a playlist's name and/or public/private state
+        """ Changes a playlist's name and/or public/private state
 
             Parameters:
                 - user - the id of the user
@@ -527,16 +533,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - public - optional is the playlist public
                 - collaborative - optional is the playlist collaborative
                 - description - the description of the playlist
-        '''
+        """
         data = {}
         if isinstance(name, str):
-            data['name'] = name
+            data["name"] = name
         if isinstance(public, bool):
-            data['public'] = public
+            data["public"] = public
         if isinstance(collaborative, bool):
-            data['collaborative'] = collaborative
+            data["collaborative"] = collaborative
         if isinstance(collaborative, str):
-            data['description'] = description
+            data["description"] = description
         # pylint: disable=no-member
         return await self._put(
             API.PLAYLIST.value.format(user_id=user, playlist_id=playlist_id),
@@ -544,25 +550,25 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     async def user_playlist_unfollow(self, user, playlist_id):
-        ''' Unfollows (deletes) a playlist for a user
+        """ Unfollows (deletes) a playlist for a user
 
             Parameters:
                 - user - the id of the user
                 - name - the name of the playlist
-        '''
+        """
         return await self._delete(
             "users/%s/playlists/%s/followers" % (user, playlist_id)
         )
 
     async def user_playlist_add_tracks(self, user, playlist_id, tracks, position=None):
-        ''' Adds tracks to a playlist
+        """ Adds tracks to a playlist
 
             Parameters:
                 - user - the id of the user
                 - playlist_id - the id of the playlist
                 - tracks - a list of track URIs, URLs or IDs
                 - position - the position to add the tracks
-        '''
+        """
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
         url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
@@ -586,13 +592,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return [(await result) for result in results]
 
     async def user_playlist_replace_tracks(self, user, playlist_id, tracks):
-        ''' Replace all tracks in a playlist
+        """ Replace all tracks in a playlist
 
             Parameters:
                 - user - the id of the user
                 - playlist_id - the id of the playlist
                 - tracks - the list of track ids to add to the playlist
-        '''
+        """
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
         url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
@@ -617,7 +623,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         range_length=1,
         snapshot_id=None,
     ):
-        ''' Reorder tracks in a playlist
+        """ Reorder tracks in a playlist
 
             Parameters:
                 - user - the id of the user
@@ -626,7 +632,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - range_length - optional the number of tracks to be reordered (default: 1)
                 - insert_before - the position where the tracks should be inserted
                 - snapshot_id - optional playlist's snapshot ID
-        '''
+        """
         _id = self._get_playlist_id(playlist_id)
         payload = {
             "range_start": range_start,
@@ -644,7 +650,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
     async def user_playlist_remove_all_occurrences_of_tracks(
         self, user, playlist_id, tracks, snapshot_id=None
     ):
-        ''' Removes all occurrences of the given tracks from the given playlist
+        """ Removes all occurrences of the given tracks from the given playlist
 
             Parameters:
                 - user - the id of the user
@@ -652,7 +658,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - tracks - the list of track ids to add to the playlist
                 - snapshot_id - optional id of the playlist snapshot
 
-        '''
+        """
         _id = self._get_playlist_id(playlist_id)
         track_uris = map(self._get_track_uri, tracks)
         payload = {"tracks": [{"uri": track} for track in track_uris]}
@@ -667,7 +673,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
     async def user_playlist_remove_specific_occurrences_of_tracks(
         self, user, playlist_id, tracks, snapshot_id=None
     ):
-        ''' Removes all occurrences of the given tracks from the given playlist
+        """ Removes all occurrences of the given tracks from the given playlist
 
             Parameters:
                 - user - the id of the user
@@ -680,7 +686,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                           { "uri":"1301WleyT98MSxVHPZCA6M", "positions":[7] }
                         ]
                 - snapshot_id - optional id of the playlist snapshot
-        '''
+        """
         _id = self._get_playlist_id(playlist_id)
         ftracks = []
         for tr in tracks:
@@ -697,14 +703,14 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     async def user_playlist_follow_playlist(self, playlist_owner_id, playlist_id):
-        '''
+        """
         Add the current authenticated user as a follower of a playlist.
 
         Parameters:
             - playlist_owner_id - the user id of the playlist owner
             - playlist_id - the id of the playlist
 
-        '''
+        """
         # pylint: disable=no-member
         return await self._put(
             API.PLAYLIST_FOLLOWERS.value.format(
@@ -715,7 +721,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
     async def user_playlist_is_following(
         self, playlist_owner_id, playlist_id, user_ids
     ):
-        '''
+        """
         Check to see if the given users are following the given playlist
 
         Parameters:
@@ -723,129 +729,129 @@ class SpotifyClient(AuthMixin, EmailMixin):
             - playlist_id - the id of the playlist
             - user_ids - the ids of the users that you want to check to see if they follow the playlist. Maximum: 5 ids.
 
-        '''
+        """
         # pylint: disable=no-member
         return await self._get(
             API.PLAYLIST_FOLLOWERS_CONTAINS.value.format(
                 user_id=playlist_owner_id, playlist_id=playlist_id
             ),
-            ids=','.join(user_ids),
+            ids=",".join(user_ids),
         )
 
     async def me(self):
-        ''' Get detailed profile information about the current user.
+        """ Get detailed profile information about the current user.
             An alias for the 'current_user' method.
-        '''
+        """
         return await self._get(API.ME.value)
 
     async def current_user(self):
-        ''' Get detailed profile information about the current user.
+        """ Get detailed profile information about the current user.
             An alias for the 'me' method.
-        '''
+        """
         return await self.me()
 
     async def current_user_saved_albums(self, limit=20, offset=0):
-        ''' Gets a list of the albums saved in the current authorized user's
+        """ Gets a list of the albums saved in the current authorized user's
             "Your Music" library
 
             Parameters:
                 - limit - the number of albums to return
                 - offset - the index of the first album to return
 
-        '''
+        """
         return await self._get(API.MY_ALBUMS.value, limit=limit, offset=offset)
 
     async def current_user_saved_tracks(self, limit=20, offset=0):
-        ''' Gets a list of the tracks saved in the current authorized user's
+        """ Gets a list of the tracks saved in the current authorized user's
             "Your Music" library
 
             Parameters:
                 - limit - the number of tracks to return
                 - offset - the index of the first track to return
 
-        '''
+        """
         return await self._get(API.MY_TRACKS.value, limit=limit, offset=offset)
 
     async def current_user_followed_artists(self, limit=20, after=None):
-        ''' Gets a list of the artists followed by the current authorized user
+        """ Gets a list of the artists followed by the current authorized user
 
             Parameters:
                 - limit - the number of tracks to return
                 - after - ghe last artist ID retrieved from the previous request
 
-        '''
+        """
         return await self._get(
-            API.MY_FOLLOWING.value, type='artist', limit=limit, after=after
+            API.MY_FOLLOWING.value, type="artist", limit=limit, after=after
         )
 
     async def user_follow_artists(self, ids=None):
-        ''' Follow one or more artists
+        """ Follow one or more artists
             Parameters:
                 - ids - a list of artist IDs
-        '''
+        """
         return await self._put(
-            API.MY_FOLLOWING.value, type='artist', ids=','.join(ids or [])
+            API.MY_FOLLOWING.value, type="artist", ids=",".join(ids or [])
         )
 
     async def user_follow_users(self, ids=None):
-        ''' Follow one or more users
+        """ Follow one or more users
             Parameters:
                 - ids - a list of user IDs
-        '''
+        """
         return await self._put(
-            API.MY_FOLLOWING.value, type='user', ids=','.join(ids or [])
+            API.MY_FOLLOWING.value, type="user", ids=",".join(ids or [])
         )
 
     async def current_user_saved_tracks_delete(self, tracks=None):
-        ''' Remove one or more tracks from the current user's
+        """ Remove one or more tracks from the current user's
             "Your Music" library.
 
             Parameters:
                 - tracks - a list of track URIs, URLs or IDs
-        '''
+        """
         track_list = []
         if tracks is not None:
             track_list = map(self._get_track_id, tracks)
-        return await self._delete(API.MY_TRACKS.value, ids=','.join(track_list))
+        return await self._delete(API.MY_TRACKS.value, ids=",".join(track_list))
 
     async def current_user_saved_tracks_contains(self, tracks=None):
-        ''' Check if one or more tracks is already saved in
+        """ Check if one or more tracks is already saved in
             the current Spotify user’s “Your Music” library.
 
             Parameters:
                 - tracks - a list of track URIs, URLs or IDs
-        '''
+        """
         track_list = []
         if tracks is not None:
             track_list = map(self._get_track_id, tracks)
-        return await self._get(API.MY_TRACKS_CONTAINS.value, ','.join(track_list))
+        return await self._get(API.MY_TRACKS_CONTAINS.value, ",".join(track_list))
 
     async def current_user_saved_tracks_add(self, tracks=None):
-        ''' Add one or more tracks to the current user's
+        """ Add one or more tracks to the current user's
             "Your Music" library.
 
             Parameters:
                 - tracks - a list of track URIs, URLs or IDs
-        '''
+        """
         track_list = []
         if tracks is not None:
             track_list = map(self._get_track_id, tracks)
-        return await self._put(API.MY_TRACKS.value, ids=','.join(track_list))
+        return await self._put(API.MY_TRACKS.value, ids=",".join(track_list))
 
     async def current_user_top_artists(
         self, limit=20, offset=0, time_range=TimeRange.MEDIUM_TERM
     ):
-        ''' Get the current user's top artists
+        """ Get the current user's top artists
 
             Parameters:
                 - limit - the number of entities to return
                 - offset - the index of the first entity to return
                 - time_range - Over what time frame are the affinities computed
                   Valid-values: short_term, medium_term, long_term
-        '''
+        """
         # pylint: disable=no-member
         return await self._get(
-            API.MY_TOP.value.format(type='artists'),
+            API.MY_TOP.value.format(type="artists"),
             time_range=TimeRange(time_range).value,
             limit=limit,
             offset=offset,
@@ -854,35 +860,35 @@ class SpotifyClient(AuthMixin, EmailMixin):
     async def current_user_top_tracks(
         self, limit=20, offset=0, time_range=TimeRange.MEDIUM_TERM
     ):
-        ''' Get the current user's top tracks
+        """ Get the current user's top tracks
 
             Parameters:
                 - limit - the number of entities to return
                 - offset - the index of the first entity to return
                 - time_range - Over what time frame are the affinities computed
                   Valid-values: short_term, medium_term, long_term
-        '''
+        """
         # pylint: disable=no-member
         return await self._get(
-            API.MY_TOP.value.format(type='tracks'),
+            API.MY_TOP.value.format(type="tracks"),
             time_range=TimeRange(time_range).value,
             limit=limit,
             offset=offset,
         )
 
     async def current_user_saved_albums_add(self, albums=None):
-        ''' Add one or more albums to the current user's
+        """ Add one or more albums to the current user's
             "Your Music" library.
             Parameters:
                 - albums - a list of album URIs, URLs or IDs
-        '''
+        """
         album_list = map(self._get_album_id, albums or [])
-        return await self._put(API.MY_ALBUMS.value, ids=','.join(album_list))
+        return await self._put(API.MY_ALBUMS.value, ids=",".join(album_list))
 
     async def featured_playlists(
         self, locale=None, country=None, timestamp=None, limit=20, offset=0
     ):
-        ''' Get a list of Spotify featured playlists
+        """ Get a list of Spotify featured playlists
 
             Parameters:
                 - locale - The desired language, consisting of a lowercase ISO
@@ -902,7 +908,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - offset - The index of the first item to return. Default: 0
                   (the first object). Use with limit to get the next set of
                   items.
-        '''
+        """
         return await self._get(
             API.FEATURED_PLAYLISTS.value,
             locale=locale,
@@ -913,7 +919,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     async def new_releases(self, country=None, limit=20, offset=0):
-        ''' Get a list of new album releases featured in Spotify
+        """ Get a list of new album releases featured in Spotify
 
             Parameters:
                 - country - An ISO 3166-1 alpha-2 country code.
@@ -924,13 +930,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - offset - The index of the first item to return. Default: 0
                   (the first object). Use with limit to get the next set of
                   items.
-        '''
+        """
         return await self._get(
             API.NEW_RELEASES.value, country=country, limit=limit, offset=offset
         )
 
     async def categories(self, country=None, locale=None, limit=20, offset=0):
-        ''' Get a list of new album releases featured in Spotify
+        """ Get a list of new album releases featured in Spotify
 
             Parameters:
                 - country - An ISO 3166-1 alpha-2 country code.
@@ -944,7 +950,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - offset - The index of the first item to return. Default: 0
                   (the first object). Use with limit to get the next set of
                   items.
-        '''
+        """
         return await self._get(
             API.CATEGORIES.value,
             country=country,
@@ -956,7 +962,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
     async def category_playlists(
         self, category_id=None, country=None, limit=20, offset=0
     ):
-        ''' Get a list of new album releases featured in Spotify
+        """ Get a list of new album releases featured in Spotify
 
             Parameters:
                 - category_id - The Spotify category ID for the category.
@@ -969,7 +975,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - offset - The index of the first item to return. Default: 0
                   (the first object). Use with limit to get the next set of
                   items.
-        '''
+        """
         # pylint: disable=no-member
         return await self._get(
             API.CATEGORY_PLAYLISTS.value.format(id=category_id),
@@ -984,10 +990,10 @@ class SpotifyClient(AuthMixin, EmailMixin):
         seed_genres=None,
         seed_tracks=None,
         limit=20,
-        country='from_token',
+        country="from_token",
         **kwargs,
     ):
-        ''' Get a list of recommended tracks for one to five seeds.
+        """ Get a list of recommended tracks for one to five seeds.
 
             Parameters:
                 - seed_artists - a list of artist IDs, URIs or URLs
@@ -1006,16 +1012,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - min/max/target_<attribute> - For the tuneable track attributes listed
                   in the documentation, these values provide filters and targeting on
                   results.
-        '''
+        """
         params = dict(limit=limit)
         if seed_artists:
-            params['seed_artists'] = ','.join(map(self._get_artist_id, seed_artists))
+            params["seed_artists"] = ",".join(map(self._get_artist_id, seed_artists))
         if seed_genres:
-            params['seed_genres'] = ','.join(seed_genres)
+            params["seed_genres"] = ",".join(seed_genres)
         if seed_tracks:
-            params['seed_tracks'] = ','.join(map(self._get_track_id, seed_tracks))
+            params["seed_tracks"] = ",".join(map(self._get_track_id, seed_tracks))
         if country:
-            params['market'] = country
+            params["market"] = country
         for attribute in list(AudioFeature):
             for prefix in ["min_", "max_", "target_"]:
                 param = prefix + attribute.value
@@ -1024,25 +1030,25 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return await self._get(API.RECOMMENDATIONS.value, **params)
 
     async def recommendation_genre_seeds(self):
-        ''' Get a list of genres available for the recommendations function.
-        '''
+        """ Get a list of genres available for the recommendations function.
+        """
         return await self._get(API.RECOMMENDATIONS_GENRES.value)
 
     async def audio_analysis(self, track=None):
-        ''' Get audio analysis for a track based upon its Spotify ID
+        """ Get audio analysis for a track based upon its Spotify ID
             Parameters:
                 - track - a track URI, URL or ID
-        '''
+        """
         _id = self._get_track_id(track)
         # pylint: disable=no-member
         return await self._get(API.AUDIO_ANALYSIS.value.format(id=_id))
 
     async def audio_features(self, track=None, tracks=None, with_cache=True):
-        ''' Get audio features for one or multiple tracks based upon their Spotify IDs
+        """ Get audio features for one or multiple tracks based upon their Spotify IDs
             Parameters:
                 - track - a track URI, URL or ID
                 - tracks - a list of track URIs, URLs or IDs, maximum: 100 ids
-        '''
+        """
         if track:
             _id = self._get_track_id(track)
             # pylint: disable=no-member
@@ -1057,7 +1063,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         batches = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
         audio_features = await asyncio.gather(
             *[
-                self._get(API.AUDIO_FEATURES_MULTIPLE.value, ids=','.join(t))
+                self._get(API.AUDIO_FEATURES_MULTIPLE.value, ids=",".join(t))
                 for t in batches
             ]
         )
@@ -1068,8 +1074,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return audio_features
 
     async def devices(self):
-        ''' Get a list of user's available devices.
-        '''
+        """ Get a list of user's available devices.
+        """
         return await self._get(API.DEVICES.value)
 
     @async_lru(maxsize=128)
@@ -1081,62 +1087,62 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return device.id
 
     async def get_device(self, device=None):
-        '''Get Spotify device based on name
+        """Get Spotify device based on name
 
         :param str, optional device: device name or ID
         :param str, optional field: device attribute to return
 
         str or dict: Spotify device
-        '''
+        """
         devices = (await self.devices()).devices
-        device_names = ', '.join([d.name for d in devices])
+        device_names = ", ".join([d.name for d in devices])
         device_name_or_id = device
         if not device_name_or_id:
-            device = first(devices, key=attrgetter('is_active'))
+            device = first(devices, key=attrgetter("is_active"))
             if not device:
                 raise ValueError(
-                    f'''
+                    f"""
         There's no active device.
-        Possible devices: {device_names}'''
+        Possible devices: {device_names}"""
                 )
 
         else:
             device = first(devices, key=lambda d: device_name_or_id in (d.name, d.id))
             if not device:
                 raise ValueError(
-                    f'''
+                    f"""
         Device {device_name_or_id} doesn't exist.
-        Possible devices: {device_names}'''
+        Possible devices: {device_names}"""
                 )
 
         return device
 
-    async def current_playback(self, market='from_token'):
-        ''' Get information about user's current playback.
+    async def current_playback(self, market="from_token"):
+        """ Get information about user's current playback.
 
             Parameters:
                 - market - an ISO 3166-1 alpha-2 country code.
-        '''
+        """
         return await self._get(API.PLAYER.value, market=market)
 
     async def current_user_recently_played(self, limit=50):
-        ''' Get the current user's recently played tracks
+        """ Get the current user's recently played tracks
 
             Parameters:
                 - limit - the number of entities to return
-        '''
+        """
         return await self._get(API.RECENTLY_PLAYED.value, limit=limit)
 
-    async def currently_playing(self, market='from_token'):
-        ''' Get user's currently playing track.
+    async def currently_playing(self, market="from_token"):
+        """ Get user's currently playing track.
 
             Parameters:
                 - market - an ISO 3166-1 alpha-2 country code.
-        '''
+        """
         return await self._get(API.CURRENTLY_PLAYING.value, market=market)
 
     async def transfer_playback(self, device, force_play=True):
-        ''' Transfer playback to another device.
+        """ Transfer playback to another device.
             Note that the API accepts a list of device ids, but only
             actually supports one.
 
@@ -1144,9 +1150,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - device - transfer playback to this device
                 - force_play - true: after transfer, play. false:
                                keep current state.
-        '''
+        """
         device_id = await self.get_device_id(device)
-        data = {'device_ids': [device_id], 'play': force_play}
+        data = {"device_ids": [device_id], "play": force_play}
         return await self._put(API.PLAYER.value, payload=data)
 
     async def start_playback(
@@ -1158,7 +1164,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         tracks=None,
         offset=None,
     ):
-        ''' Start or resume user's playback.
+        """ Start or resume user's playback.
 
             Parameters:
                 - device - device target for playback
@@ -1167,55 +1173,55 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - album - spotify album to play
                 - tracks - spotify tracks to play
                 - offset - offset into context by index or track
-        '''
+        """
         data = {}
         if playlist:
-            data['context_uri'] = self._get_playlist_uri(playlist)
+            data["context_uri"] = self._get_playlist_uri(playlist)
         elif album:
-            data['context_uri'] = self._get_album_uri(album)
+            data["context_uri"] = self._get_album_uri(album)
         elif artist:
-            data['context_uri'] = self._get_artist_uri(artist)
+            data["context_uri"] = self._get_artist_uri(artist)
         elif tracks:
-            data['uris'] = list(map(self._get_track_uri, tracks))
+            data["uris"] = list(map(self._get_track_uri, tracks))
         if isinstance(offset, int):
-            data['offset'] = dict(position=offset)
+            data["offset"] = dict(position=offset)
         elif isinstance(offset, str):
-            data['offset'] = dict(uri=offset)
+            data["offset"] = dict(uri=offset)
         return await self._put(API.PLAY.value, device_id=device, payload=data)
 
     async def pause_playback(self, device=None):
-        ''' Pause user's playback.
+        """ Pause user's playback.
 
             Parameters:
                 - device - device target for playback
-        '''
+        """
         return await self._put(API.PAUSE.value, device_id=device)
 
     async def next_track(self, device=None):
-        ''' Skip user's playback to next track.
+        """ Skip user's playback to next track.
 
             Parameters:
                 - device - device target for playback
-        '''
+        """
         return await self._post(API.NEXT.value, device_id=device)
 
     async def previous_track(self, device=None):
-        ''' Skip user's playback to previous track.
+        """ Skip user's playback to previous track.
 
             Parameters:
                 - device - device target for playback
-        '''
+        """
         return await self._post(API.PREVIOUS.value, device_id=device)
 
     async def seek_track(self, position_ms, device=None):
-        ''' Seek to position in current track.
+        """ Seek to position in current track.
 
             Parameters:
                 - position_ms - position in milliseconds to seek to
                 - device - device target for playback
-        '''
+        """
         if not isinstance(position_ms, int):
-            logger.warning('position_ms must be an integer')
+            logger.warning("position_ms must be an integer")
             return
 
         return await self._put(
@@ -1223,25 +1229,25 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     async def repeat(self, state, device=None):
-        ''' Set repeat mode for playback.
+        """ Set repeat mode for playback.
 
             Parameters:
                 - state - `track`, `context`, or `off`
                 - device - device target for playback
-        '''
-        if state not in ['track', 'context', 'off']:
-            logger.warning('Invalid state')
+        """
+        if state not in ["track", "context", "off"]:
+            logger.warning("Invalid state")
             return
 
         await self._put(API.REPEAT.value, state=state, device_id=device)
 
     async def volume(self, volume_percent: int = None, device: str = None):
-        ''' Get or set playback volume.
+        """ Get or set playback volume.
 
             Parameters:
                 - volume_percent - volume between 0 and 100
                 - device - device target for playback
-        '''
+        """
         device = await self.get_device(device)
         if volume_percent is None:
             return device.volume_percent
@@ -1252,14 +1258,14 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     async def shuffle(self, state, device=None):
-        ''' Toggle playback shuffling.
+        """ Toggle playback shuffling.
 
             Parameters:
                 - state - true or false
                 - device - device target for playback
-        '''
+        """
         if not isinstance(state, bool):
-            logger.warning('State must be a boolean')
+            logger.warning("State must be a boolean")
             return
 
         state = str(state).lower()
@@ -1268,23 +1274,23 @@ class SpotifyClient(AuthMixin, EmailMixin):
     @staticmethod
     def _get_id(_type, result):
         if isinstance(result, str):
-            fields = result.split(':')
+            fields = result.split(":")
             if len(fields) >= 3:
                 if _type != fields[-2]:
                     logger.warning(
-                        'Expected id of type %s but found type %s %s',
+                        "Expected id of type %s but found type %s %s",
                         _type,
                         fields[-2],
                         result,
                     )
                 return fields[-1]
 
-            fields = result.split('/')
+            fields = result.split("/")
             if len(fields) >= 3:
                 itype = fields[-2]
                 if _type != itype:
                     logger.warning(
-                        'Expected id of type %s but found type %s %s',
+                        "Expected id of type %s but found type %s %s",
                         _type,
                         itype,
                         result,
@@ -1295,20 +1301,20 @@ class SpotifyClient(AuthMixin, EmailMixin):
             return result.id
 
         elif isinstance(result, dict):
-            return result['id']
+            return result["id"]
 
         return result
 
-    _get_track_id = partialmethod(_get_id, 'track')
-    _get_artist_id = partialmethod(_get_id, 'artist')
-    _get_album_id = partialmethod(_get_id, 'album')
-    _get_playlist_id = partialmethod(_get_id, 'playlist')
+    _get_track_id = partialmethod(_get_id, "track")
+    _get_artist_id = partialmethod(_get_id, "artist")
+    _get_album_id = partialmethod(_get_id, "album")
+    _get_playlist_id = partialmethod(_get_id, "playlist")
 
     def _get_uri(self, _type, result):
-        if isinstance(result, str) and result.startswith('spotify:'):
+        if isinstance(result, str) and result.startswith("spotify:"):
             return result
 
-        return 'spotify:' + _type + ":" + self._get_id(_type, result)
+        return "spotify:" + _type + ":" + self._get_id(_type, result)
 
     def _get_playlist_uri(self, playlist, user=None):
         if isinstance(playlist, (str, bytes)) and PLAYLIST_URI_RE.match(playlist):
@@ -1318,14 +1324,14 @@ class SpotifyClient(AuthMixin, EmailMixin):
             return playlist.uri
 
         try:
-            if 'uri' in playlist:
-                return playlist['uri']
+            if "uri" in playlist:
+                return playlist["uri"]
 
         except:
             return f'spotify:user:{self._get_id("user", user)}:playlist:{self._get_id("playlist", playlist)}'
 
         return None
 
-    _get_track_uri = partialmethod(_get_uri, 'track')
-    _get_artist_uri = partialmethod(_get_uri, 'artist')
-    _get_album_uri = partialmethod(_get_uri, 'album')
+    _get_track_uri = partialmethod(_get_uri, "track")
+    _get_artist_uri = partialmethod(_get_uri, "artist")
+    _get_album_uri = partialmethod(_get_uri, "album")

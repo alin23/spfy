@@ -12,7 +12,7 @@ from ...constants import TimeRange
 
 
 class RecommenderMixin:
-    USER_LIST = ('particledetector', 'thesoundsofspotify')
+    USER_LIST = ("particledetector", "thesoundsofspotify")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -23,7 +23,7 @@ class RecommenderMixin:
             for user in self.USER_LIST:
                 user_playlists = await self.user_playlists(user)
                 async for playlist in user_playlists.iterall():
-                    logger.info(f'Got {playlist.name}')
+                    logger.info(f"Got {playlist.name}")
                     if playlist.id not in fetched_ids:
                         Playlist.from_dict(playlist)
                     fetched_ids.add(playlist.id)
@@ -83,8 +83,8 @@ class RecommenderMixin:
         audio_features = normalize_features(audio_features, track_ids)
         for feature, direction in features.items():
             audio_features[feature] *= direction
-        audio_features['total'] = audio_features.sum(axis=1)
-        return audio_features.sort_values('total').index.tolist()
+        audio_features["total"] = audio_features.sum(axis=1)
+        return audio_features.sort_values("total").index.tolist()
 
     async def fill_with_related_artists(self, artists, limit=5):
         tries = 5

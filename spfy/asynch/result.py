@@ -8,7 +8,7 @@ from . import limited_as_completed
 from .. import config
 from ..constants import API
 
-LOCAL_ATTRIBUTES = {'_client', '_next_result', '_next_result_available', '_playable'}
+LOCAL_ATTRIBUTES = {"_client", "_next_result", "_next_result_available", "_playable"}
 
 
 class Playable:
@@ -24,23 +24,23 @@ class Playable:
 
     def get_data(self, index=None):
         data = {}
-        if 'tracks' in self.result or 'audio_features' in self.result:
-            data['uris'] = list(map(self.client._get_track_uri, self.result))
+        if "tracks" in self.result or "audio_features" in self.result:
+            data["uris"] = list(map(self.client._get_track_uri, self.result))
             return data
 
         item = self.result[index] if index is not None else random.choice(self.result)
-        if 'playlists' in self.result:
-            data['context_uri'] = self.client._get_playlist_uri(item)
-        elif 'artists' in self.result:
-            data['context_uri'] = self.client._get_artist_uri(item)
-        elif 'albums' in self.result:
-            data['context_uri'] = self.client._get_album_uri(item)
-        elif 'items' in self.result:
-            data['context_uri'] = self.client._get_uri(item.type, item)
-        elif self.result.type and self.result.type in {'album', 'artist', 'playlist'}:
-            data['context_uri'] = self.client._get_uri(self.result.type, self.result)
-        elif item.type == 'track':
-            data['uris'] = list(map(self.client._get_track_uri, self.result))
+        if "playlists" in self.result:
+            data["context_uri"] = self.client._get_playlist_uri(item)
+        elif "artists" in self.result:
+            data["context_uri"] = self.client._get_artist_uri(item)
+        elif "albums" in self.result:
+            data["context_uri"] = self.client._get_album_uri(item)
+        elif "items" in self.result:
+            data["context_uri"] = self.client._get_uri(item.type, item)
+        elif self.result.type and self.result.type in {"album", "artist", "playlist"}:
+            data["context_uri"] = self.client._get_uri(self.result.type, self.result)
+        elif item.type == "track":
+            data["uris"] = list(map(self.client._get_track_uri, self.result))
         return data
 
 
@@ -76,7 +76,7 @@ class SpotifyResultIterator:
 
 class SpotifyResult(addict.Dict):
     ITER_KEYS = (
-        'items', 'artists', 'tracks', 'albums', 'audio_features', 'playlists', 'devices'
+        "items", "artists", "tracks", "albums", "audio_features", "playlists", "devices"
     )
 
     def __init__(self, *args, **kwargs):
@@ -87,8 +87,8 @@ class SpotifyResult(addict.Dict):
     def __iter__(self):
         for key in self.ITER_KEYS:
             if key in self:
-                if 'items' in self[key]:
-                    return iter(self[key]['items'])
+                if "items" in self[key]:
+                    return iter(self[key]["items"])
 
                 return iter(self[key])
 
@@ -98,8 +98,8 @@ class SpotifyResult(addict.Dict):
         if isinstance(item, int):
             for key in self.ITER_KEYS:
                 if key in self:
-                    if 'items' in self[key]:
-                        return iter(self[key]['items'][item])
+                    if "items" in self[key]:
+                        return iter(self[key]["items"][item])
 
                     return iter(self[key][item])
 
@@ -129,7 +129,7 @@ class SpotifyResult(addict.Dict):
 
     @cached_property
     def base_url(self):
-        return urlunparse([*urlparse(self.href)[:3], '', '', ''])
+        return urlunparse([*urlparse(self.href)[:3], "", "", ""])
 
     async def _get_with_params(self, params, url=None):
         return await self._client._get(url or self.base_url, **params)
@@ -138,14 +138,14 @@ class SpotifyResult(addict.Dict):
         return await self._client._put(url or self.base_url, **params)
 
     def get_next_params_list(self, limit=None):
-        if self['next'] and self['href']:
+        if self["next"] and self["href"]:
             max_limit = limit or 50
-            url = urlparse(self['href'])
+            url = urlparse(self["href"])
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
-            limit = int(params.pop('limit', 20))
-            offset = int(params.pop('offset', 0))
+            limit = int(params.pop("limit", 20))
+            offset = int(params.pop("offset", 0))
             return [
-                {**params, 'limit': max_limit, 'offset': off}
+                {**params, "limit": max_limit, "offset": off}
                 for off in range(offset + limit, self.total, max_limit)
             ]
 
@@ -159,8 +159,8 @@ class SpotifyResult(addict.Dict):
         if self._next_result:
             return self._next_result
 
-        if self['next']:
-            return await self._client._get(self['next'])
+        if self["next"]:
+            return await self._client._get(self["next"])
 
         return None
 

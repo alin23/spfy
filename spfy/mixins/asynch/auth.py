@@ -16,8 +16,8 @@ from ...constants import API, AuthFlow, AllScopes
 from ...exceptions import SpotifyCredentialsException
 from .aiohttp_oauthlib import OAuth2Session
 
-AUTH_HTML_FILE = root / 'html' / 'auth_message.html'
-CACHE_FILE = Path.home() / '.cache' / 'spfy' / '.web_cache'
+AUTH_HTML_FILE = root / "html" / "auth_message.html"
+CACHE_FILE = Path.home() / ".cache" / "spfy" / ".web_cache"
 web_app = aiohttp.web.Application()
 
 
@@ -25,7 +25,7 @@ def run_app():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     aiohttp.web.run_app(
-        web_app, host='0.0.0.0', port=config.auth.callback.port, handle_signals=False
+        web_app, host="0.0.0.0", port=config.auth.callback.port, handle_signals=False
     )
 
 
@@ -53,10 +53,10 @@ class AuthMixin:
         redirect_uri = (
             redirect_uri
             or config.app.redirect_uri
-            or f'http://{socket.gethostname()}.local'
+            or f"http://{socket.gethostname()}.local"
         )
         if config.auth.callback.enabled and config.auth.callback.port and redirect_uri:
-            redirect_uri += f':{config.auth.callback.port}'
+            redirect_uri += f":{config.auth.callback.port}"
         return redirect_uri
 
     @property
@@ -127,8 +127,8 @@ class AuthMixin:
                         user.token = token
                 if not user:
                     self.user_id = self.user_id or uuid.uuid4()
-                    user_details['user_id'] = self.user_id
-                    user_details['token'] = token
+                    user_details["user_id"] = self.user_id
+                    user_details["token"] = token
                     user = User.from_dict(user_details)
                 return session
 
@@ -168,15 +168,15 @@ class AuthMixin:
                     API.AUTHORIZE.value
                 )
                 if config.auth.send_auth_url_to_email:
-                    email = auth_params.get('email') or config.auth.email
+                    email = auth_params.get("email") or config.auth.email
                     self.send_auth_email(email, authorization_url)
                 else:
-                    print(f'Login here: {authorization_url}')
+                    print(f"Login here: {authorization_url}")
                 await self.wait_for_authorization()
 
     async def wait_for_authorization(self):
         if not config.auth.callback.enabled:
-            url = input('Paste the URL you are redirected to:')
+            url = input("Paste the URL you are redirected to:")
             self.session = await self.authenticate_user(auth_response=url)
         else:
             self.callback_reached.wait(config.auth.callback.timeout)
@@ -186,7 +186,7 @@ class AuthMixin:
     async def stop_callback():
         try:
             async with aiohttp.request(
-                'GET', f'http://localhost:{config.auth.callback.port}'
+                "GET", f"http://localhost:{config.auth.callback.port}"
             ) as resp:
                 await resp.read()
         except aiohttp.client_exceptions.ServerDisconnectedError:
@@ -199,8 +199,8 @@ class AuthMixin:
             if self.callback_reached.is_set():
                 raise GracefulExit
 
-            code = request.query['code']
-            state = request.query.get('code')
+            code = request.query["code"]
+            state = request.query.get("code")
             html = AUTH_HTML_FILE.read_text()  # pylint: disable=no-member
             try:
                 self.session = asyncio.run_coroutine_threadsafe(
@@ -208,17 +208,17 @@ class AuthMixin:
                 ).result(
                     config.auth.callback.timeout
                 )
-                html = html.replace('SPOTIFY_AUTH_MESSAGE', 'Successfully logged in!')
-                html = html.replace('BACKGROUND_COLOR', '#65D46E')
+                html = html.replace("SPOTIFY_AUTH_MESSAGE", "Successfully logged in!")
+                html = html.replace("BACKGROUND_COLOR", "#65D46E")
             except Exception as exc:
                 logger.exception(exc)
                 html = html.replace(
-                    'SPOTIFY_AUTH_MESSAGE', 'Could not get authorization token.'
+                    "SPOTIFY_AUTH_MESSAGE", "Could not get authorization token."
                 )
-                html = html.replace('BACKGROUND_COLOR', '#EC2E50')
+                html = html.replace("BACKGROUND_COLOR", "#EC2E50")
             finally:
                 self.callback_reached.set()
-            return aiohttp.web.Response(body=html, content_type='text/html')
+            return aiohttp.web.Response(body=html, content_type="text/html")
 
-        web_app.router.add_get('/', callback)
+        web_app.router.add_get("/", callback)
         threading.Thread(target=run_app, daemon=True).start()
