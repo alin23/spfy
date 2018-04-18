@@ -17,6 +17,9 @@ class TokenUpdated(Warning):
         self.token = token
 
 
+# pylint: disable=too-many-instance-attributes
+
+
 class OAuth2Session(aiohttp.ClientSession):
     """Versatile OAuth 2 extension to :class:`aiohttp.ClientSession`.
 
@@ -93,6 +96,15 @@ class OAuth2Session(aiohttp.ClientSession):
             "refresh_token_response": set(),
             "protected_request": set(),
         }
+
+    # pylint: disable=arguments-differ
+
+    def __del__(self, *args, **kwargs):
+        if not self.closed:
+            if self._connector_owner:
+                self._connector.close()
+            self._connector = None
+        super().__del__(*args, **kwargs)
 
     def new_state(self):
         """Generates a state string to be used in authorizations."""
