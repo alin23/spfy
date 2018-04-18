@@ -1,6 +1,5 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
-import atexit
 import asyncio
 from hashlib import sha1
 from datetime import datetime
@@ -86,7 +85,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 maxsize=config.redis.maxsize,
                 loop=self.loop,
             )
-            atexit.register(self.redis.close)
+
+    def __del__(self):
+        self.redis.close()
 
     @staticmethod
     def _get_cache_key(url, params, payload):
