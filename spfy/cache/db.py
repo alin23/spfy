@@ -170,6 +170,12 @@ class User(db.Entity, ImageMixin):
     disliked_cities = Set("City")
     top_expires_at = Optional(Json, volatile=True)
 
+    def to_dict(self, *args, **kwargs):  # pylint: disable=arguments-differ
+        _dict = super().to_dict(*args, **kwargs)
+        if "id" in _dict:
+            _dict["id"] = str(_dict["id"])
+        return _dict
+
     @classmethod
     async def from_dict_async(cls, user):
         if user.images:
