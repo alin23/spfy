@@ -87,7 +87,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
             )
 
     def __del__(self):
-        self.redis.close()
+        if self.redis:
+            self.redis.close()
 
     @staticmethod
     def _get_cache_key(url, params, payload):
