@@ -112,17 +112,20 @@ class PlayerMixin:
             volume_backend = SpotifyVolumeControl(self, device=device)
         return volume_backend
 
-    def change_volume(self, value=0, backend=None, device=None):
+    def change_volume(self, by=0, to=None, backend=None, device=None):
         volume_backend = self.backend(backend, device=device)
-        volume = volume_backend.volume + value
-        volume_backend.volume = volume
+        if to is not None:
+            volume = to
+        else:
+            volume = volume_backend.volume
+        volume_backend.volume = volume + by
         return volume
 
     def volume_up(self, backend=None):
-        return self.change_volume(value=+1, backend=backend)
+        return self.change_volume(by=+1, backend=backend)
 
     def volume_down(self, backend=None):
-        return self.change_volume(value=-1, backend=backend)
+        return self.change_volume(by=-1, backend=backend)
 
     def fade_up(self, **kwargs):
         self.fade(**{**config.volume.fade.up, **kwargs})
@@ -146,9 +149,9 @@ class PlayerMixin:
         volume_backend = self.backend(backend, device=device)
         if not isinstance(volume_backend, SpotifyVolumeControl):
             self.change_volume(
-                spotify_volume, backend=VolumeBackend.SPOTIFY, device=device
+                to=spotify_volume, backend=VolumeBackend.SPOTIFY, device=device
             )
-        self.change_volume(start, backend=backend, device=device)
+        self.change_volume(to=start, backend=backend, device=device)
         kwargs = dict(
             limit=int(limit),
             start=int(start),

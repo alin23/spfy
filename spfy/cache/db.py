@@ -158,7 +158,7 @@ class User(db.Entity, ImageMixin):
     token = Required(Json, volatile=True)
     api_calls = Required(int, default=0, volatile=True)
     created_at = Required(datetime, default=datetime.now)
-    last_usage_at = Required(datetime, default=datetime.now)
+    last_usage_at = Required(datetime, default=datetime.now, volatile=True)
     images = Set("Image", cascade_delete=True)
     top_artists = Set("Artist")
     disliked_artists = Set("Artist")

@@ -34,6 +34,12 @@ class SpotifyForbiddenException(SpotifyException):
         super().__init__(*args, **kwargs)
 
 
+class SpotifyDeviceUnavailableException(SpotifyException):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 class SpotifyCredentialsException(Exception):
 
     def __str__(self):

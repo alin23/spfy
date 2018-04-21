@@ -113,21 +113,27 @@ class PlayerMixin:
             volume_backend = SpotifyVolumeControlAsync(self, device=device)
         return volume_backend
 
-    async def change_volume(self, value=0, backend=None, device=None):
+    async def change_volume(self, by=0, to=None, backend=None, device=None):
         volume_backend = self.backend(backend, device=device)
         if isinstance(volume_backend, SpotifyVolumeControlAsync):
-            volume = await volume_backend.volume()
-            await volume_backend.set_volume(volume + value)
+            if to is not None:
+                volume = to
+            else:
+                volume = await volume_backend.volume()
+            await volume_backend.set_volume(volume + by)
         else:
-            volume = volume_backend.volume + value
-            volume_backend.volume = volume
+            if to is not None:
+                volume = to
+            else:
+                volume = volume_backend.volume
+            volume_backend.volume = volume + by
         return volume
 
     async def volume_up(self, backend=None):
-        return await self.change_volume(value=+1, backend=backend)
+        return await self.change_volume(by=+1, backend=backend)
 
     async def volume_down(self, backend=None):
-        return await self.change_volume(value=-1, backend=backend)
+        return await self.change_volume(by=-1, backend=backend)
 
     async def fade_up(self, **kwargs):
         await self.fade(**{**config.volume.fade.up, **kwargs})
@@ -152,9 +158,9 @@ class PlayerMixin:
         volume_backend = self.backend(backend, device=device)
         if not isinstance(volume_backend, SpotifyVolumeControlAsync):
             await self.change_volume(
-                spotify_volume, backend=VolumeBackend.SPOTIFY, device=device
+                to=spotify_volume, backend=VolumeBackend.SPOTIFY, device=device
             )
-        await self.change_volume(start, backend=backend, device=device)
+        await self.change_volume(to=start, backend=backend, device=device)
         kwargs = dict(
             limit=int(limit),
             start=int(start),

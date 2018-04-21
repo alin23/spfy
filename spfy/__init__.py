@@ -11,7 +11,7 @@ ENV = os.getenv(f"{APP_NAME.upper()}_ENV", "config")  # isort:skip
 
 import kick  # isort:skip
 
-kick.start(f"{APP_NAME.lower()}", config_variant=ENV)  # isort:skip
+kick.start(APP_NAME.lower(), config_variant=ENV)  # isort:skip
 
 from kick import config, logger  # isort:skip
 
