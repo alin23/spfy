@@ -1110,7 +1110,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             for prefix in ["min_", "max_", "target_"]:
                 param = prefix + attribute.value
                 if param in kwargs:
-                    params[param] = kwargs[param]
+                    params[param] = kwargs.pop(param)
         return await self._get(API.RECOMMENDATIONS.value, **params, **kwargs)
 
     async def recommendation_genre_seeds(self, **kwargs):
