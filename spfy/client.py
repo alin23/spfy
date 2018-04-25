@@ -52,12 +52,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         try:
             response.raise_for_status()
         except:
-            exception_params = {
-                "status_code": response.status_code,
-                "url": response.url,
-                "headers": response.headers,
-                "text": response.text,
-            }
+            exception_params = SpotifyClient.get_exception_params(response)
             if (
                 response.status_code == 429
                 or (response.status_code >= 500 and response.status_code < 600)
@@ -73,7 +68,18 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 raise SpotifyException(**exception_params)
 
-    def _internal_call(self, method, url, payload, params, headers=None, retries=0):
+    @staticmethod
+    def get_exception_params(response):
+        return {
+            "status_code": response.status_code,
+            "url": response.url,
+            "headers": response.headers,
+            "text": response.text,
+        }
+
+    def _internal_call(
+        self, method, url, payload, params, headers=None, retries=0, check_202=False
+    ):
         logger.debug(url)
         if not isinstance(payload, (bytes, str)):
             payload = json.dumps(payload)
@@ -93,7 +99,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if payload and not isinstance(payload, bytes):
             logger.debug(f"DATA: {payload}")
 
-        if r.status_code == 202:
+        if check_202 and r.status_code == 202:
             if retries > 0:
                 logger.warning(
                     f"Device is temporarily unavailable. Retrying in 5 seconds..."
@@ -103,7 +109,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
                     method, url, payload, params, headers, retries=retries - 1
                 )
 
-            raise SpotifyDeviceUnavailableException
+            exception_params = self.get_exception_params(r)
+            raise SpotifyDeviceUnavailableException(**exception_params)
 
         try:
             self._check_response(r)
@@ -128,13 +135,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
             raise SpotifyAuthException
 
         retries = kwargs.pop("retries", 0)
+        check_202 = kwargs.pop("check_202", False)
         if args:
             kwargs.update(args)
         if "device_id" in kwargs:
             kwargs["device_id"] = self.get_device_id(kwargs["device_id"])
         if not url.startswith("http"):
             url = API.PREFIX.value + url
-        return self._internal_call(method, url, payload, kwargs, headers, retries)
+        return self._internal_call(
+            method, url, payload, kwargs, headers, retries, check_202
+        )
 
     def _get(self, url, args=None, payload=None, **kwargs):
         return self._api_call("GET", url, args, payload, **kwargs)
@@ -1025,7 +1035,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def devices(self, **kwargs):
         """ Get a list of user's available devices.
         """
-        return self._get(API.DEVICES.value, **kwargs)
+        return self._get(API.DEVICES.value, check_202=True, **kwargs)
 
     @lru_cache(maxsize=128)
     def get_device_id(self, device=None):
@@ -1087,7 +1097,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             Parameters:
                 - market - an ISO 3166-1 alpha-2 country code.
         """
-        return self._get(API.CURRENTLY_PLAYING.value, market=market, **kwargs)
+        return self._get(
+            API.CURRENTLY_PLAYING.value, market=market, check_202=True, **kwargs
+        )
 
     def transfer_playback(self, device, force_play=True, **kwargs):
         """ Transfer playback to another device.
@@ -1101,7 +1113,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         """
         device_id = self.get_device_id(device)
         data = {"device_ids": [device_id], "play": force_play}
-        return self._put(API.PLAYER.value, payload=data, **kwargs)
+        return self._put(API.PLAYER.value, payload=data, check_202=True, **kwargs)
 
     def start_playback(
         self,
@@ -1136,7 +1148,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             data["offset"] = dict(position=offset)
         elif isinstance(offset, str):
             data["offset"] = dict(uri=offset)
-        return self._put(API.PLAY.value, device_id=device, payload=data, **kwargs)
+        return self._put(
+            API.PLAY.value, device_id=device, payload=data, check_202=True, **kwargs
+        )
 
     def pause_playback(self, device=None, **kwargs):
         """ Pause user's playback.
@@ -1144,7 +1158,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             Parameters:
                 - device - device target for playback
         """
-        return self._put(API.PAUSE.value, device_id=device, **kwargs)
+        return self._put(API.PAUSE.value, device_id=device, check_202=True, **kwargs)
 
     def next_track(self, device=None, **kwargs):
         """ Skip user's playback to next track.
@@ -1152,7 +1166,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             Parameters:
                 - device - device target for playback
         """
-        return self._post(API.NEXT.value, device_id=device, **kwargs)
+        return self._post(API.NEXT.value, device_id=device, check_202=True, **kwargs)
 
     def previous_track(self, device=None, **kwargs):
         """ Skip user's playback to previous track.
@@ -1160,7 +1174,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             Parameters:
                 - device - device target for playback
         """
-        return self._post(API.PREVIOUS.value, device_id=device, **kwargs)
+        return self._post(
+            API.PREVIOUS.value, device_id=device, check_202=True, **kwargs
+        )
 
     def seek_track(self, position_ms, device=None, **kwargs):
         """ Seek to position in current track.
@@ -1174,7 +1190,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
             return None
 
         return self._put(
-            API.SEEK.value, position_ms=position_ms, device_id=device, **kwargs
+            API.SEEK.value,
+            position_ms=position_ms,
+            device_id=device,
+            check_202=True,
+            **kwargs,
         )
 
     def repeat(self, state, device=None, **kwargs):
@@ -1188,7 +1208,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             logger.warning("Invalid state")
             return
 
-        self._put(API.REPEAT.value, state=state, device_id=device, **kwargs)
+        self._put(
+            API.REPEAT.value, state=state, device_id=device, check_202=True, **kwargs
+        )
 
     def volume(self, volume_percent: int = None, device: str = None, **kwargs):
         """ Get or set playback volume.
@@ -1206,6 +1228,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             API.VOLUME.value,
             volume_percent=volume_percent,
             device_id=device.id,
+            check_202=True,
             **kwargs,
         )
 
@@ -1221,7 +1244,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             return
 
         state = str(state).lower()
-        self._put(API.SHUFFLE.value, state=state, device_id=device, **kwargs)
+        self._put(
+            API.SHUFFLE.value, state=state, device_id=device, check_202=True, **kwargs
+        )
 
     @staticmethod
     def _get_id(_type, result):

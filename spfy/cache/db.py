@@ -534,7 +534,7 @@ class Playlist(db.Entity, ImageMixin):
     genre = Optional(Genre)
     country = Optional(Country)
     city = Optional(City)
-    date = Optional(date)
+    date = Optional(date, index=True)
     year = Optional(int)
     christmas = Optional(bool, index=True)
     meta = Optional(bool, index=True)
