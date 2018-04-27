@@ -42,7 +42,7 @@ REQUIRES = [
     'msgpack',
 ]
 try:
-    if os.uname().sysname == 'Linux':
+    if sys.platform == 'Linux':
         REQUIRES.append('pyalsaaudio')
 except:
     pass

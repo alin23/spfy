@@ -1,4 +1,4 @@
-import os
+import sys
 import random
 import asyncio
 from functools import partial
@@ -54,42 +54,42 @@ class PlayerMixin:
     def _applescript_volume_control(self):
         try:
             # pylint: disable=no-member
-            if os.uname().sysname != "Darwin":
+            if sys.platform != "darwin":
                 return None
+
+            return ApplescriptVolumeControl(self.speaker)
 
         except:
             return None
-
-        return ApplescriptVolumeControl(self.speaker)
 
     @cached_property
     def _linux_volume_control(self):
         try:
             # pylint: disable=no-member
-            if os.uname().sysname != "Linux":
+            if sys.platform != "linux":
                 return None
+
+            return LinuxVolumeControlAsync(
+                self,
+                self.alsa_mixer,
+                spotify_device=self.device,
+                alsa_device=self.alsa_device,
+            )
 
         except:
             return None
-
-        return LinuxVolumeControlAsync(
-            self,
-            self.alsa_mixer,
-            spotify_device=self.device,
-            alsa_device=self.alsa_device,
-        )
 
     @cached_property
     def _alsa_volume_control(self):
         try:
             # pylint: disable=no-member
-            if os.uname().sysname != "Linux":
+            if sys.platform != "linux":
                 return None
+
+            return AlsaVolumeControl(self.alsa_mixer, device=self.alsa_device)
 
         except:
             return None
-
-        return AlsaVolumeControl(self.alsa_mixer, device=self.alsa_device)
 
     @cached_property
     def _spotify_volume_control(self):
