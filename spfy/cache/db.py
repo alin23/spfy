@@ -2,6 +2,7 @@ import os
 import re
 import time
 import random
+import asyncio
 from io import BytesIO
 from enum import IntEnum
 from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
@@ -29,8 +30,9 @@ from pony.orm import (
 from pycountry import countries
 from colorthief import ColorThief
 from pony.orm.core import CacheIndexError
-from unsplash.errors import UnsplashError
 from psycopg2.extensions import register_adapter
+
+from unsplash.errors import UnsplashError
 
 from .. import Unsplash, config, logger
 from ..constants import TimeRange
@@ -374,6 +376,16 @@ class Image(db.Entity):
         image_file = BytesIO(resp.content)
         color = ColorThief(image_file).get_color(quality=1)
         return f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
+
+    async def download(self):
+        image = None
+        async with aiohttp.ClientSession() as client:
+            async with client.get(self.url) as resp:
+                _, image = await asyncio.gather(
+                    Unsplash.photo.download(self.unsplash_id, without_content=True),
+                    resp.read(),
+                )
+        return image
 
 
 class SpotifyUser(db.Entity):
