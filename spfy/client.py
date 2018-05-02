@@ -81,7 +81,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         self, method, url, payload, params, headers=None, retries=0, check_202=False
     ):
         logger.debug(url)
-        if not isinstance(payload, (bytes, str)):
+        if payload and not isinstance(payload, (bytes, str)):
             payload = json.dumps(payload)
         r = self.session.request(
             method,

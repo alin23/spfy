@@ -10,8 +10,11 @@ class SpotifyException(Exception):
         self.http_status_code = status_code
         self.headers = headers or {}
         if text and text != "null":
-            response = json.loads(text)
-            self.msg = f'{url}:\n {response["error"]["message"]}'
+            try:
+                response = json.loads(text)
+                self.msg = f'{url}:\n {response["error"]["message"]}'
+            except:
+                self.msg = f"{url}: error"
         else:
             self.msg = f"{url}: error"
 
