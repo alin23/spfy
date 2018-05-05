@@ -158,6 +158,7 @@ class User(db.Entity, ImageMixin):
     display_name = Optional(str)
     birthdate = Optional(date)
     token = Required(Json, volatile=True)
+    spotify_premium = Required(bool)
     api_calls = Required(int, default=0, volatile=True)
     created_at = Required(datetime, default=datetime.utcnow)
     last_usage_at = Required(datetime, default=datetime.utcnow, volatile=True)
@@ -205,6 +206,7 @@ class User(db.Entity, ImageMixin):
         )
         return cls(
             id=user.user_id,
+            spotify_premium=user.product == 'premium',
             spotify_user=spotify_user,
             username=user.id,
             email=user.email,
