@@ -206,7 +206,7 @@ class User(db.Entity, ImageMixin):
         )
         return cls(
             id=user.user_id,
-            spotify_premium=user.product == 'premium',
+            spotify_premium=user.product == "premium",
             spotify_user=spotify_user,
             username=user.id,
             email=user.email,
@@ -214,9 +214,9 @@ class User(db.Entity, ImageMixin):
             country=Country.from_str(code=user.country),
             images=images,
             display_name=user.display_name or "",
-            birthdate=datetime.strptime(
-                user.birthdate, "%Y-%m-%d"
-            ) if user.birthdate else None,
+            birthdate=datetime.strptime(user.birthdate, "%Y-%m-%d")
+            if user.birthdate
+            else None,
         )
 
     async def _fetch_artist(self, artist, client):
@@ -749,5 +749,10 @@ if config.database.connection.filename:
         config.database.connection.filename
     )
 db.bind(**config.database.connection)
-if config.database.generate_mapping or os.getenv("SPFY_GENERATE_MAPPING") == "true":
+
+GENERATE_MAPPING = os.getenv("SPFY_GENERATE_MAPPING")
+if (
+    config.database.generate_mapping
+    and (GENERATE_MAPPING is None or GENERATE_MAPPING == "true")
+):
     db.generate_mapping(create_tables=True)

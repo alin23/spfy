@@ -110,7 +110,7 @@ class SpotifyResult(addict.Dict):
         if isinstance(item, dict):
             return addict.Dict(item)
 
-        elif isinstance(item, (list, tuple)):
+        if isinstance(item, (list, tuple)):
             return type(item)(cls._hook(elem) for elem in item)
 
         return item

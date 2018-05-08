@@ -161,6 +161,7 @@ class RecommenderMixin:
     @db_session
     def dislike_artist(self, artist):
         if isinstance(artist, str):
+            # pylint: disable=consider-using-in
             artist = get(a for a in Artist if a.id == artist or a.name == artist)
         elif isinstance(artist, dict):
             artist = Artist.get(artist.id) or Artist.from_dict(artist)

@@ -4,7 +4,10 @@ import aiohttp
 from oauthlib.common import urldecode, generate_token
 
 from oauthlib.oauth2 import (  # isort:skip
-    TokenExpiredError, WebApplicationClient, InsecureTransportError, is_secure_transport
+    TokenExpiredError,
+    WebApplicationClient,
+    InsecureTransportError,
+    is_secure_transport,
 )
 
 log = logging.getLogger(__name__)
@@ -110,10 +113,10 @@ class OAuth2Session(aiohttp.ClientSession):
         """Generates a state string to be used in authorizations."""
         try:
             self._state = self.state()
-            log.debug(f"Generated new state {self._state}.")
+            log.debug("Generated new state %s.", self._state)
         except TypeError:
             self._state = self.state
-            log.debug(f"Re-using previously supplied state {self._state}.")
+            log.debug("Re-using previously supplied state %s.", self._state)
         return self._state
 
     @property
@@ -243,7 +246,8 @@ class OAuth2Session(aiohttp.ClientSession):
         if auth is None:
             if client_id:
                 log.debug(
-                    f'Encoding client_id "{client_id}" with client_secret as Basic auth credentials.'
+                    'Encoding client_id "%s" with client_secret as Basic auth credentials.',
+                    client_id,
                 )
                 client_secret = kwargs.get("client_secret", "")
                 client_secret = client_secret if client_secret is not None else ""
@@ -269,7 +273,7 @@ class OAuth2Session(aiohttp.ClientSession):
                 verify_ssl=verify_ssl,
                 proxy=proxy,
             )
-            log.debug(f"Prepared fetch token request body {body}")
+            log.debug("Prepared fetch token request body %s", body)
         elif method.upper() == "GET":
             # if method is not 'POST', switch body to querystring and GET
             req = self.get(
@@ -281,24 +285,25 @@ class OAuth2Session(aiohttp.ClientSession):
                 verify_ssl=verify_ssl,
                 proxy=proxy,
             )
-            log.debug(f"Prepared fetch token request querystring {body}")
+            log.debug("Prepared fetch token request querystring %s", body)
         else:
             raise ValueError("The method kwarg must be POST or GET.")
 
         async with req as resp:
             text = await resp.text()
-            log.debug(f"Request to fetch token completed with status {resp.status}.")
-            log.debug(f"Request headers were {resp.request_info.headers}")
-            log.debug(f"Response headers were {resp.headers} and content {text}.")
+            log.debug("Request to fetch token completed with status %s.", resp.status)
+            log.debug("Request headers were %s", resp.request_info.headers)
+            log.debug("Response headers were %s and content %s.", resp.headers, text)
             log.debug(
-                f'Invoking {len(self.compliance_hook["access_token_response"])} token response hooks.'
+                "Invoking %s token response hooks.",
+                len(self.compliance_hook["access_token_response"]),
             )
             for hook in self.compliance_hook["access_token_response"]:
-                log.debug(f"Invoking hook {hook}.")
+                log.debug("Invoking hook %s.", hook)
                 resp = hook(resp)
             self._client.parse_request_body_response(text, scope=self.scope)
             self.token = self._client.token
-            log.debug(f"Obtained token {self.token}.")
+            log.debug("Obtained token %s.", self.token)
         return self.token
 
     def token_from_fragment(self, authorization_response):
@@ -344,12 +349,14 @@ class OAuth2Session(aiohttp.ClientSession):
             raise InsecureTransportError()
 
         refresh_token = refresh_token or self.token.get("refresh_token")
-        log.debug(f"Adding auto refresh key word arguments {self.auto_refresh_kwargs}.")
+        log.debug(
+            "Adding auto refresh key word arguments %s.", self.auto_refresh_kwargs
+        )
         kwargs.update(self.auto_refresh_kwargs)
         body = self._client.prepare_refresh_body(
             body=body, refresh_token=refresh_token, scope=self.scope, **kwargs
         )
-        log.debug(f"Prepared refresh token request body {body}")
+        log.debug("Prepared refresh token request body %s", body)
         if headers is None:
             headers = {
                 "Accept": "application/json",
@@ -366,13 +373,14 @@ class OAuth2Session(aiohttp.ClientSession):
             proxy=proxy,
         ) as resp:
             text = await resp.text()
-            log.debug(f"Request to refresh token completed with status {resp.status}.")
-            log.debug(f"Response headers were {resp.headers} and content {text}.")
+            log.debug("Request to refresh token completed with status %s.", resp.status)
+            log.debug("Response headers were %s and content %s.", resp.headers, text)
             log.debug(
-                f'Invoking {len(self.compliance_hook["refresh_token_response"])} token response hooks.'
+                "Invoking %s token response hooks.",
+                len(self.compliance_hook["refresh_token_response"]),
             )
             for hook in self.compliance_hook["refresh_token_response"]:
-                log.debug(f"Invoking hook {hook}.")
+                log.debug("Invoking hook %s.", hook)
                 resp = hook(resp)
             self.token = self._client.parse_request_body_response(
                 text, scope=self.scope
@@ -405,9 +413,9 @@ class OAuth2Session(aiohttp.ClientSession):
                 len(self.compliance_hook["protected_request"]),
             )
             for hook in self.compliance_hook["protected_request"]:
-                log.debug(f"Invoking hook {hook}.")
+                log.debug("Invoking hook %s.", hook)
                 url, headers, data = hook(url, headers, data)
-            log.debug(f"Adding token {self.token} to request.")
+            log.debug("Adding token %s to request.", self.token)
             try:
                 url, headers, data = self._client.add_token(
                     url, http_method=method, body=data, headers=headers
@@ -416,13 +424,15 @@ class OAuth2Session(aiohttp.ClientSession):
             except TokenExpiredError:
                 if self.auto_refresh_url:
                     log.debug(
-                        f"Auto refresh is set, attempting to refresh at {self.auto_refresh_url}."
+                        "Auto refresh is set, attempting to refresh at %s.",
+                        self.auto_refresh_url,
                     )
                     # We mustn't pass auth twice.
                     auth = kwargs.pop("auth", None)
                     if client_id and client_secret and (auth is None):
                         log.debug(
-                            f'Encoding client_id "{client_id}" with client_secret as Basic auth credentials.'
+                            'Encoding client_id "%s" with client_secret as Basic auth credentials.',
+                            client_id,
                         )
                         auth = aiohttp.BasicAuth(client_id, client_secret)
                     token = await self.refresh_token(
@@ -430,7 +440,7 @@ class OAuth2Session(aiohttp.ClientSession):
                     )
                     if self.token_updater:
                         log.debug(
-                            f"Updating token to {token} using {self.token_updater}."
+                            "Updating token to %s using %s.", token, self.token_updater
                         )
                         self.token_updater(token)
                         url, headers, data = self._client.add_token(
@@ -442,9 +452,9 @@ class OAuth2Session(aiohttp.ClientSession):
                 else:
                     raise
 
-        log.debug(f"Requesting url {url} using method {method}.")
-        log.debug(f"Supplying headers {headers} and data {data}")
-        log.debug(f"Passing through key word arguments {kwargs}.")
+        log.debug("Requesting url %s using method %s.", url, method)
+        log.debug("Supplying headers %s and data %s", headers, data)
+        log.debug("Passing through key word arguments %s.", kwargs)
         return await super(OAuth2Session, self)._request(
             method, url, headers=headers, data=data, **kwargs
         )

@@ -159,6 +159,7 @@ class RecommenderMixin:
     async def dislike_artist(self, artist):
         with db_session:
             if isinstance(artist, str):
+                # pylint: disable=consider-using-in
                 artist = get(a for a in Artist if a.id == artist or a.name == artist)
             elif isinstance(artist, dict):
                 artist = Artist.get(artist.id) or (await Artist.from_dict_async(artist))
