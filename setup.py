@@ -70,7 +70,7 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
     install_requires=REQUIRES,
-    tests_require=['coverage', 'pytest', 'tox', 'pylint', 'mypy'],
+    tests_require=['coverage', 'pytest', 'tox'],
     packages=find_packages(),
     package_data={'spfy': ['config/*.toml', 'html/*.html']},
     data_files=[(str(CONFIGDIR), ['spfy/config/config.toml'])],
