@@ -1182,7 +1182,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         device = await self.get_device(device)
         return device.id
 
-    async def get_device(self, device=None):
+    async def get_device(self, device=None, only_active=True):
         """Get Spotify device based on name
 
         :param str, optional device: device name or ID
@@ -1194,14 +1194,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
         device_names = ", ".join([d.name for d in devices])
         device_name_or_id = device
         if not device_name_or_id:
-            device = first(devices, key=attrgetter("is_active"))
-            if not device:
-                raise ValueError(
-                    f"""
-        There's no active device.
-        Possible devices: {device_names}"""
-                )
-
+            if only_active:
+                device = first(devices, key=attrgetter("is_active"))
+                if not device:
+                    raise ValueError(
+                        f"""
+            There's no active device.
+            Possible devices: {device_names}"""
+                    )
+            else:
+                device = first(devices)
         else:
             device = first(devices, key=lambda d: device_name_or_id in (d.name, d.id))
             if not device:
