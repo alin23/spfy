@@ -13,6 +13,10 @@ except:
     pass
 
 
+def cap(volume, _min=1, _max=100):
+    return min(max(volume, _min), _max)
+
+
 class VolumeControl(abc.ABC):
 
     @abc.abstractmethod
@@ -89,7 +93,7 @@ class SpotifyVolumeControl(VolumeControl):
 
     @volume.setter
     def volume(self, val):
-        self.spotify.volume(min(max(val, 1), 100), device=self.device)
+        self.spotify.volume(cap(val), device=self.device)
 
 
 class SpotifyVolumeControlAsync(VolumeControl):
@@ -109,34 +113,56 @@ class SpotifyVolumeControlAsync(VolumeControl):
         else:
             await self.set_volume(1)
 
+    async def is_playing(self):
+        playback = await self.spotify.current_playback()
+        return playback and playback.is_playing
+
     async def should_stop_fading(self, device_volume, old_volume):
-        is_playing = (await self.spotify.current_playback()).is_playing
+        is_playing = await self.is_playing()
         logger.debug(f"Spotify playing: {is_playing}")
         return super().should_stop_fading(device_volume, old_volume) or not is_playing
 
     async def volume(self):  # pylint: disable=method-hidden
         device = await self.spotify.get_device(device=self.device)
-        return int(device.volume_percent or 0) + 1
+        return int(device.volume_percent or 0)
 
     async def set_volume(self, val):
-        await self.spotify.volume(min(max(val, 1), 100), device=self.device)
+        await self.spotify.volume(cap(val), device=self.device)
+
+    async def force_fade(self, limit, step, delay):
+
+        def fade_done(vol):
+            if step > 0:
+                return vol >= limit
+            return vol <= limit
+
+        device_volume = await self.volume()
+        while not fade_done(device_volume) and (await self.is_playing()):
+            next_volume = device_volume + step
+            logger.debug(f"Setting volume to {next_volume}")
+            await self.set_volume(next_volume)
+            await asyncio.sleep(delay)
+            device_volume = await self.volume()
 
     async def fade(
         self, limit=100, start=1, step=1, seconds=VOLUME_FADE_SECONDS, force=False
     ):
-        try:
-            await self.unmute()
-            delay = seconds / ((limit - start) / step)
+        limit = cap(limit)
+        delay = seconds / ((limit - start) / step)
+        await self.set_volume(start)
+
+        if force:
+            await self.force_fade(limit, step, delay)
+        else:
             device_volume = await self.volume()
-            await self.set_volume(start)
-            for next_volume in range(start + step, limit + 1, step):
+            for next_volume in range(start + step, limit + step, step):
                 await asyncio.sleep(delay)
                 device_volume = await self.volume()
                 old_volume = next_volume - step
                 should_stop_fading = await self.should_stop_fading(
                     device_volume, old_volume
                 )
-                if not force and should_stop_fading:
+                if should_stop_fading:
                     logger.debug(
                         f"""A stop fading condition was met:
                         Current volume: {device_volume}
@@ -146,8 +172,10 @@ class SpotifyVolumeControlAsync(VolumeControl):
 
                 logger.debug(f"Setting volume to {next_volume}")
                 await self.set_volume(next_volume)
-        except Exception as exc:
-            logger.exception(exc)
+
+        device_volume = await self.volume()
+        if device_volume <= 1:
+            await self.spotify.pause_playback()
 
 
 class AlsaVolumeControl(VolumeControl):

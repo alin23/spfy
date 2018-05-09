@@ -30,9 +30,8 @@ from pony.orm import (
 from pycountry import countries
 from colorthief import ColorThief
 from pony.orm.core import CacheIndexError
-from psycopg2.extensions import register_adapter
-
 from unsplash.errors import UnsplashError
+from psycopg2.extensions import register_adapter
 
 from .. import Unsplash, config, logger
 from ..constants import TimeRange
