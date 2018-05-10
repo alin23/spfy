@@ -1164,9 +1164,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
             ]
         )
         with db_session:
+            new_cached_tracks = select(a for a in AudioFeatures if a.id in tracks)[:]
+            new_cached_track_ids = {a.id for a in new_cached_tracks}
             audio_features = [
-                AudioFeatures.from_dict(t) for t in chain.from_iterable(audio_features)
-            ] + cached_tracks
+                AudioFeatures.from_dict(t)
+                for t in chain.from_iterable(audio_features)
+                if t["id"] not in new_cached_track_ids
+            ] + cached_tracks + new_cached_tracks
         return audio_features
 
     async def devices(self, **kwargs):
