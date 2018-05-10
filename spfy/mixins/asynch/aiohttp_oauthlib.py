@@ -2,9 +2,9 @@ import logging
 
 import aiohttp
 from oauthlib.common import urldecode, generate_token
+from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
 from oauthlib.oauth2 import (  # isort:skip
-    TokenExpiredError,
     WebApplicationClient,
     InsecureTransportError,
     is_secure_transport,

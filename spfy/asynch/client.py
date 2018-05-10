@@ -10,6 +10,7 @@ from itertools import chain
 import msgpack
 import aioredis
 from first import first
+from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
 import ujson as json
 
@@ -17,7 +18,14 @@ from .. import config, logger
 from ..cache import Playlist, AudioFeatures, select, async_lru, db_session
 from .result import SpotifyResult
 from ..mixins import EmailMixin
-from ..constants import API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature
+from ..constants import (
+    API,
+    DEVICE_ID_RE,
+    PLAYLIST_URI_RE,
+    AuthFlow,
+    TimeRange,
+    AudioFeature,
+)
 from ..exceptions import (
     SpotifyException,
     SpotifyAuthException,
@@ -188,10 +196,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
         logger.debug(f"Cache key: {cache_key}")
         request_args = await self._get_request_args(payload, params, headers, cache_key)
         logger.debug(f"Request args: {json.dumps(request_args, indent=4)}")
+
         try:
             req = await self.session._request(method, url, **request_args)
         except TokenUpdated:
             req = await self.session._request(method, url, **request_args)
+        except TokenExpiredError:
+            self.user.token = None
+            await self.authenticate(flow=AuthFlow.CLIENT_CREDENTIALS)
+            req = await self.session._request(method, url, **request_args)
+
         async with req as resp:
             if self.user_id:
                 self._increment_api_call_count()
