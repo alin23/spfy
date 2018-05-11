@@ -317,6 +317,7 @@ class User(db.Entity, ImageMixin):
                 email=cls.DEFAULT_EMAIL,
                 token={},
                 country=Country.from_str(code="US"),
+                spotify_premium=False,
             )
 
     @staticmethod
