@@ -104,9 +104,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
             loop = asyncio.get_event_loop()
             release_future = self.release_resources()
             loop.add_signal_handler(
-                signal.SIGINT, asyncio.ensure_future, release_future
-            )
-            loop.add_signal_handler(
                 signal.SIGTERM, asyncio.ensure_future, release_future
             )
 
