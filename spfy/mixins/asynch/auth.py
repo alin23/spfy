@@ -44,7 +44,6 @@ class AuthMixin:
         self.client_id = client_id or config.app.client_id
         self.client_secret = client_secret or config.app.client_secret
         self.redirect_uri = self._get_redirect_uri(redirect_uri)
-        self.session = None
         self.user_id = user_id
         self.callback_reached = threading.Event()
 

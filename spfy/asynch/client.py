@@ -1,5 +1,6 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
+import signal
 import asyncio
 from hashlib import sha1
 from datetime import datetime
@@ -50,6 +51,17 @@ class SpotifyClient(AuthMixin, EmailMixin):
         self.proxy = proxy
         self.requests_timeout = requests_timeout
         self.redis = None
+        self._session = None
+
+    @property
+    def session(self):
+        return self._session
+
+    @session.setter
+    def session(self, new_session):
+        if self._session:
+            asyncio.ensure_future(self._session.close())
+        self._session = new_session
 
     @db_session
     def _increment_api_call_count(self):
@@ -89,10 +101,24 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 maxsize=config.redis.maxsize,
                 loop=self.loop,
             )
+            loop = asyncio.get_event_loop()
+            release_future = self.release_resources()
+            loop.add_signal_handler(
+                signal.SIGINT, asyncio.ensure_future, release_future
+            )
+            loop.add_signal_handler(
+                signal.SIGTERM, asyncio.ensure_future, release_future
+            )
 
-    def __del__(self):
+    async def release_resources(self):
         if self.redis:
-            self.redis.close()
+            try:
+                self.redis.close()
+                await self.redis.wait_closed()
+            except:
+                pass
+        if self.session:
+            await self.session.close()
 
     @staticmethod
     def _get_cache_key(url, params, payload):

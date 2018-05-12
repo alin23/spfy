@@ -100,15 +100,6 @@ class OAuth2Session(aiohttp.ClientSession):
             "protected_request": set(),
         }
 
-    # pylint: disable=arguments-differ
-
-    def __del__(self, *args, **kwargs):
-        if not self.closed:
-            if self._connector_owner:
-                self._connector.close()
-            self._connector = None
-        super().__del__(*args, **kwargs)
-
     def new_state(self):
         """Generates a state string to be used in authorizations."""
         try:
