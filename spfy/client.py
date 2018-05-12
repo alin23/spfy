@@ -1065,7 +1065,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             Possible devices: {device_names}"""
                     )
             else:
-                device = first(devices)
+                device = first(devices, key=attrgetter("is_active")) or first(devices)
         else:
             device = first(devices, key=lambda d: device_name_or_id in (d.name, d.id))
             if not device:
