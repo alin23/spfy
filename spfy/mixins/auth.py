@@ -35,9 +35,10 @@ class AuthMixin:
         self.client_id = client_id or config.app.client_id
         self.client_secret = client_secret or config.app.client_secret
         self.redirect_uri = self._get_redirect_uri(redirect_uri)
-        self.session = None
         self.user_id = user_id
         self.callback_reached = threading.Event()
+        self.flow = None
+        self.session = None
 
     @staticmethod
     def _get_redirect_uri(redirect_uri):
@@ -81,6 +82,7 @@ class AuthMixin:
         auth_response=None,
         scope=AllScopes,
     ):
+        self.flow = AuthFlow.AUTHORIZATION_CODE
         session = self.session or self.get_session(
             self.client_id,
             redirect_uri=self.redirect_uri,
@@ -136,6 +138,7 @@ class AuthMixin:
 
     @db_session
     def authenticate_server(self):
+        self.flow = AuthFlow.CLIENT_CREDENTIALS
         default_user = User.default()
         self.user_id = default_user.id
         session = self.session or self.get_session(
@@ -156,10 +159,10 @@ class AuthMixin:
         if not (self.client_id and self.client_secret):
             raise SpotifyCredentialsException
 
-        flow = AuthFlow(flow)
-        if flow == AuthFlow.CLIENT_CREDENTIALS:
+        self.flow = AuthFlow(flow)
+        if self.flow == AuthFlow.CLIENT_CREDENTIALS:
             self.session = self.authenticate_server()
-        elif flow == AuthFlow.AUTHORIZATION_CODE:
+        elif self.flow == AuthFlow.AUTHORIZATION_CODE:
             self.session = self.authenticate_user(**auth_params)
             if not self.session.token:
                 if config.auth.callback.enabled:

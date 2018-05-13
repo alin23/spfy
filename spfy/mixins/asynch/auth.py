@@ -46,6 +46,18 @@ class AuthMixin:
         self.redirect_uri = self._get_redirect_uri(redirect_uri)
         self.user_id = user_id
         self.callback_reached = threading.Event()
+        self.flow = None
+        self._session = None
+
+    @property
+    def session(self):
+        return self._session
+
+    @session.setter
+    def session(self, new_session):
+        if self._session:
+            asyncio.ensure_future(self._session.close())
+        self._session = new_session
 
     @staticmethod
     def _get_redirect_uri(redirect_uri):
@@ -76,7 +88,8 @@ class AuthMixin:
         auth_response=None,
         scope=AllScopes,
     ):
-        session = self.session or OAuth2Session(
+        self.flow = AuthFlow.AUTHORIZATION_CODE
+        session = OAuth2Session(
             self.client_id,
             redirect_uri=self.redirect_uri,
             scope=scope,
@@ -135,11 +148,10 @@ class AuthMixin:
 
     @db_session
     async def authenticate_server(self):
+        self.flow = AuthFlow.CLIENT_CREDENTIALS
         default_user = User.default()
         self.user_id = default_user.id
-        session = self.session or OAuth2Session(
-            client=BackendApplicationClient(self.client_id)
-        )
+        session = OAuth2Session(client=BackendApplicationClient(self.client_id))
         session.token_updater = User.token_updater(default_user.id)
         if default_user.token:
             session.token = default_user.token
@@ -155,10 +167,10 @@ class AuthMixin:
         if not (self.client_id and self.client_secret):
             raise SpotifyCredentialsException
 
-        flow = AuthFlow(flow)
-        if flow == AuthFlow.CLIENT_CREDENTIALS:
+        self.flow = AuthFlow(flow)
+        if self.flow == AuthFlow.CLIENT_CREDENTIALS:
             self.session = await self.authenticate_server()
-        elif flow == AuthFlow.AUTHORIZATION_CODE:
+        elif self.flow == AuthFlow.AUTHORIZATION_CODE:
             self.session = await self.authenticate_user(**auth_params)
             if not self.session.token:
                 if config.auth.callback.enabled:

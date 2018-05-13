@@ -51,17 +51,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
         self.proxy = proxy
         self.requests_timeout = requests_timeout
         self.redis = None
-        self._session = None
-
-    @property
-    def session(self):
-        return self._session
-
-    @session.setter
-    def session(self, new_session):
-        if self._session:
-            asyncio.ensure_future(self._session.close())
-        self._session = new_session
 
     @db_session
     def _increment_api_call_count(self):
@@ -224,7 +213,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             req = await self.session._request(method, url, **request_args)
         except TokenUpdated:
             req = await self.session._request(method, url, **request_args)
-        except TokenExpiredError:
+        except TokenExpiredError as e:
+            if self.flow != AuthFlow.CLIENT_CREDENTIALS:
+                raise e
             self.user.token = None
             await self.authenticate(flow=AuthFlow.CLIENT_CREDENTIALS)
             req = await self.session._request(method, url, **request_args)
