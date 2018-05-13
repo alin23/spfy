@@ -55,7 +55,7 @@ class AuthMixin:
 
     @session.setter
     def session(self, new_session):
-        if self._session:
+        if self._session and new_session != self._session:
             asyncio.ensure_future(self._session.close())
         self._session = new_session
 
@@ -89,7 +89,7 @@ class AuthMixin:
         scope=AllScopes,
     ):
         self.flow = AuthFlow.AUTHORIZATION_CODE
-        session = OAuth2Session(
+        self.session = OAuth2Session(
             self.client_id,
             redirect_uri=self.redirect_uri,
             scope=scope,
@@ -99,9 +99,9 @@ class AuthMixin:
             if self.user_id:
                 user = User.get(id=self.user_id)
                 if user and user.token:
-                    session.token = user.token
-                    session.token_updater = User.token_updater(user.id)
-                    return session
+                    self.session.token = user.token
+                    self.session.token_updater = User.token_updater(user.id)
+                    return self.session
 
             if username or email:
                 if username:
@@ -110,12 +110,12 @@ class AuthMixin:
                     user = get(u for u in User if u.email == email)
                 if user:
                     self.user_id = user.id
-                    session.token = user.token
-                    session.token_updater = User.token_updater(user.id)
-                    return session
+                    self.session.token = user.token
+                    self.session.token_updater = User.token_updater(user.id)
+                    return self.session
 
             if code or auth_response:
-                token = await session.fetch_token(
+                token = await self.session.fetch_token(
                     token_url=API.TOKEN.value,
                     client_id=self.client_id,
                     client_secret=self.client_secret,
@@ -142,26 +142,26 @@ class AuthMixin:
                     user_details["user_id"] = self.user_id
                     user_details["token"] = token
                     user = User.from_dict(user_details)
-                return session
+                return self.session
 
-        return session
+        return self.session
 
     @db_session
     async def authenticate_server(self):
         self.flow = AuthFlow.CLIENT_CREDENTIALS
         default_user = User.default()
         self.user_id = default_user.id
-        session = OAuth2Session(client=BackendApplicationClient(self.client_id))
-        session.token_updater = User.token_updater(default_user.id)
+        self.session = OAuth2Session(client=BackendApplicationClient(self.client_id))
+        self.session.token_updater = User.token_updater(default_user.id)
         if default_user.token:
-            session.token = default_user.token
+            self.session.token = default_user.token
         else:
-            default_user.token = await session.fetch_token(
+            default_user.token = await self.session.fetch_token(
                 token_url=API.TOKEN.value,
                 client_id=self.client_id,
                 client_secret=self.client_secret,
             )
-        return session
+        return self.session
 
     async def authenticate(self, flow=config.auth.flow, **auth_params):
         if not (self.client_id and self.client_secret):
@@ -169,9 +169,9 @@ class AuthMixin:
 
         self.flow = AuthFlow(flow)
         if self.flow == AuthFlow.CLIENT_CREDENTIALS:
-            self.session = await self.authenticate_server()
+            await self.authenticate_server()
         elif self.flow == AuthFlow.AUTHORIZATION_CODE:
-            self.session = await self.authenticate_user(**auth_params)
+            await self.authenticate_user(**auth_params)
             if not self.session.token:
                 if config.auth.callback.enabled:
                     self.start_callback()
@@ -188,7 +188,7 @@ class AuthMixin:
     async def wait_for_authorization(self):
         if not config.auth.callback.enabled:
             url = input("Paste the URL you are redirected to:")
-            self.session = await self.authenticate_user(auth_response=url)
+            await self.authenticate_user(auth_response=url)
         else:
             self.callback_reached.wait(config.auth.callback.timeout)
             await self.stop_callback()
@@ -214,7 +214,7 @@ class AuthMixin:
             state = request.query.get("code")
             html = AUTH_HTML_FILE.read_text()  # pylint: disable=no-member
             try:
-                self.session = asyncio.run_coroutine_threadsafe(
+                asyncio.run_coroutine_threadsafe(
                     self.authenticate_user(code=code, state=state), loop=self.loop
                 ).result(
                     config.auth.callback.timeout
