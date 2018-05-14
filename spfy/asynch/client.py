@@ -86,6 +86,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if not self.redis:
             self.redis = await aioredis.create_pool(
                 config.redis.url,
+                db=config.redis.db or 0,
+                password=config.redis.password or None,
+                ssl=config.redis.ssl or False,
                 minsize=config.redis.minsize,
                 maxsize=config.redis.maxsize,
                 loop=self.loop,
