@@ -91,7 +91,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 ssl=config.redis.ssl or False,
                 minsize=config.redis.minsize,
                 maxsize=config.redis.maxsize,
-                loop=self.loop,
             )
             loop = asyncio.get_event_loop()
             release_future = self.release_resources()

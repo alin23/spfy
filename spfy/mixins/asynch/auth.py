@@ -21,8 +21,7 @@ CACHE_FILE = Path.home() / ".cache" / "spfy" / ".web_cache"
 web_app = aiohttp.web.Application()
 
 
-def run_app():
-    loop = asyncio.new_event_loop()
+def run_app(loop):
     asyncio.set_event_loop(loop)
     aiohttp.web.run_app(
         web_app, host="0.0.0.0", port=config.auth.callback.port, handle_signals=False
@@ -48,6 +47,7 @@ class AuthMixin:
         self.callback_reached = threading.Event()
         self.flow = None
         self._session = None
+        self.callback_loop = asyncio.new_event_loop()
 
     @property
     def session(self):
@@ -215,7 +215,8 @@ class AuthMixin:
             html = AUTH_HTML_FILE.read_text()  # pylint: disable=no-member
             try:
                 asyncio.run_coroutine_threadsafe(
-                    self.authenticate_user(code=code, state=state), loop=self.loop
+                    self.authenticate_user(code=code, state=state),
+                    loop=self.callback_loop,
                 ).result(
                     config.auth.callback.timeout
                 )
@@ -232,4 +233,6 @@ class AuthMixin:
             return aiohttp.web.Response(body=html, content_type="text/html")
 
         web_app.router.add_get("/", callback)
-        threading.Thread(target=run_app, daemon=True).start()
+        threading.Thread(
+            target=run_app, daemon=True, args=(self.callback_loop,)
+        ).start()
