@@ -15,7 +15,7 @@ class EmailMixin:
 
     @staticmethod
     def send_auth_email(email, auth_url):
-        logger.info(f"Login here to use Spotify API: {auth_url}")
+        logger.info("Login here to use Spotify API: %s", auth_url)
         mailer = Mailer(**config.email)
         # pylint: disable=no-member
         html_content = LOGIN_HTML.read_text().replace(

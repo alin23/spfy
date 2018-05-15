@@ -25,7 +25,7 @@ class RecommenderMixin:
             self.user_playlists("thesoundsofspotify").all(),
         )
         for playlist in results:
-            logger.info(f"Fetching {playlist.name}")
+            logger.info("Fetching %s", playlist.name)
             if playlist.id not in fetched_ids:
                 Playlist.from_dict(playlist)
             fetched_ids.add(playlist.id)

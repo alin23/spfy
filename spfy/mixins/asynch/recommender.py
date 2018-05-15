@@ -23,7 +23,7 @@ class RecommenderMixin:
             for user in self.USER_LIST:
                 user_playlists = await self.user_playlists(user)
                 async for playlist in user_playlists.iterall():
-                    logger.info(f"Got {playlist.name}")
+                    logger.info("Got %s", playlist.name)
                     if playlist.id not in fetched_ids:
                         Playlist.from_dict(playlist)
                     fetched_ids.add(playlist.id)

@@ -470,7 +470,9 @@ class Country(db.Entity, ImageMixin):
                     countries, key=lambda c: code.lower() in c.alpha_2.lower()
                 )
         if not iso_country:
-            logger.error(f"Could not find a country with name={name} and code={code}")
+            logger.error(
+                "Could not find a country with name=%s and code=%s", name, code
+            )
             return None
 
         return cls.get(name=iso_country.name) or cls(
@@ -635,7 +637,7 @@ class Playlist(db.Entity, ImageMixin):
                 break
 
         else:
-            logger.warning(f"No pattern matches the playlist: {playlist.name}")
+            logger.warning("No pattern matches the playlist: %s", playlist.name)
         return cls(**fields)
 
 

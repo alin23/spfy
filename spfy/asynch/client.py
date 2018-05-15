@@ -57,7 +57,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         try:
             user = self.user
         except Exception:
-            logger.warning(f"Tried to use an inexistent user: {self.user_id}")
+            logger.warning("Tried to use an inexistent user: %s", self.user_id)
         else:
             user.api_calls += 1
             user.last_usage_at = datetime.utcnow()
@@ -124,7 +124,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
     ):
         etag_key = f"{cache_key}:{config.cache.key.etag}"
         response_key = f"{cache_key}:{config.cache.key.response}"
-        logger.info(f"Cache hit: {etag_key}")
+        logger.info("Cache hit: %s", etag_key)
         async with self.redis.get() as conn:
             redis = aioredis.Redis(conn)
             response = await redis.get(response_key)
@@ -134,7 +134,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             except:
                 results = None
             if not results:
-                logger.error(f"Cached response is invalid: {etag_key}")
+                logger.error("Cached response is invalid: %s", etag_key)
                 tr.delete(etag_key)
                 tr.delete(response_key)
                 await tr.execute(return_exceptions=False)
@@ -149,7 +149,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if not etag:
             return
 
-        logger.debug(f"ETAG: {etag}")
+        logger.debug("ETAG: %s", etag)
         etag_key = f"{cache_key}:{config.cache.key.etag}"
         response_key = f"{cache_key}:{config.cache.key.response}"
         async with self.redis.get() as conn:
@@ -207,9 +207,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             payload = json.dumps(payload)
         params = {k: v for k, v in params.items() if v is not None}
         cache_key = self._get_cache_key(url, params, payload)
-        logger.debug(f"Cache key: {cache_key}")
+        logger.debug("Cache key: %s", cache_key)
         request_args = await self._get_request_args(payload, params, headers, cache_key)
-        logger.debug(f"Request args: {json.dumps(request_args, indent=4)}")
+        logger.debug("Request args: %s", json.dumps(request_args, indent=4))
 
         try:
             req = await self.session._request(method, url, **request_args)
@@ -233,7 +233,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             if check_202 and resp.status == 202:
                 if retries > 0:
                     logger.warning(
-                        f"Device is temporarily unavailable. Retrying in 5 seconds..."
+                        "Device is temporarily unavailable. Retrying in 5 seconds..."
                     )
                     await asyncio.sleep(5)
                     return await self._internal_call(
@@ -247,7 +247,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 await self._check_response(resp)
             except SpotifyRateLimitException as exc:
                 logger.warning(
-                    f"Reached API rate limit. Retrying in {exc.retry_after} seconds..."
+                    "Reached API rate limit. Retrying in %s seconds...", exc.retry_after
                 )
                 await asyncio.sleep(exc.retry_after)
                 return await self._internal_call(

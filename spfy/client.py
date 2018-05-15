@@ -42,7 +42,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         try:
             user = self.user
         except Exception:
-            logger.warning(f"Tried to use an inexistent user: {self.user_id}")
+            logger.warning("Tried to use an inexistent user: %s", self.user_id)
         else:
             user.api_calls += 1
             user.last_usage_at = datetime.utcnow()
@@ -95,14 +95,14 @@ class SpotifyClient(AuthMixin, EmailMixin):
             client_secret=self.client_secret,
         )
         logger.debug("HTTP Status Code: {r.status_code}")
-        logger.debug(f"{method}: {r.url}")
+        logger.debug("%s: %s", method, r.url)
         if payload and not isinstance(payload, bytes):
-            logger.debug(f"DATA: {payload}")
+            logger.debug("DATA: %s", payload)
 
         if check_202 and r.status_code == 202:
             if retries > 0:
                 logger.warning(
-                    f"Device is temporarily unavailable. Retrying in 5 seconds..."
+                    "Device is temporarily unavailable. Retrying in 5 seconds..."
                 )
                 sleep(5)
                 return self._internal_call(
@@ -116,7 +116,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             self._check_response(r)
         except SpotifyRateLimitException as exc:
             logger.warning(
-                f"Reached API rate limit. Retrying in {exc.retry_after} seconds..."
+                "Reached API rate limit. Retrying in %s seconds...", exc.retry_after
             )
             sleep(exc.retry_after)
             return self._internal_call(method, url, payload, params)
@@ -125,7 +125,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             self._increment_api_call_count()
         if r.text and r.text != "null":
             results = r.json()
-            logger.debug(f"RESP: {r.text}")
+            logger.debug("RESP: %s", r.text)
             return SpotifyResult(results, _client=self)
 
         return None
