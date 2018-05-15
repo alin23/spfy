@@ -8,10 +8,10 @@ APP_NAME = "SPFY"
 import os  # isort:skip
 
 ENV = os.getenv(f"{APP_NAME.upper()}_ENV", "config")  # isort:skip
-
+CONFIG_PATH = os.getenv(f"{APP_NAME.upper()}_CONFIG", None)  # isort:skip
 import kick  # isort:skip
 
-kick.start(APP_NAME.lower(), config_variant=ENV)  # isort:skip
+kick.start(APP_NAME.lower(), config_path=CONFIG_PATH, config_variant=ENV)  # isort:skip
 
 from kick import config, logger  # isort:skip
 
