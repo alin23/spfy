@@ -7,6 +7,7 @@ import kick
 from . import APP_NAME, config, logger
 from .client import SpotifyClient
 from .mixins import PlayerMixin, RecommenderMixin
+from .constants import AuthFlow
 
 
 class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
@@ -18,12 +19,17 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
         self.email = email or config.auth.email
         self.username = username or config.auth.username
 
-    def auth(self, email=config.auth.email, username=config.auth.username):
+    def auth(
+        self, email=config.auth.email, username=config.auth.username, server=False
+    ):
         if self.cli and not self.is_authenticated:
-            try:
-                self.authenticate(email=email, username=username)
-            except Exception as exc:
-                logger.exception(exc)
+            if server:
+                self.authenticate(flow=AuthFlow.CLIENT_CREDENTIALS)
+            else:
+                try:
+                    self.authenticate(email=email, username=username)
+                except Exception as exc:
+                    logger.exception(exc)
         return self
 
     def __dir__(self):

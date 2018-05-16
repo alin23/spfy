@@ -6,6 +6,7 @@ import kick
 
 from .. import APP_NAME, config, logger
 from .client import SpotifyClient
+from ..constants import AuthFlow
 from ..mixins.asynch import PlayerMixin, RecommenderMixin
 
 # pylint: disable=too-many-ancestors
@@ -26,12 +27,17 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
         names = [name for name in names if not name.startswith("_") and name != "user"]
         return names
 
-    async def auth(self, email=config.auth.email, username=config.auth.username):
+    async def auth(
+        self, email=config.auth.email, username=config.auth.username, server=False
+    ):
         if self.cli and not self.is_authenticated:
-            try:
-                await self.authenticate(email=email, username=username)
-            except Exception as exc:
-                logger.exception(exc)
+            if server:
+                await self.authenticate(flow=AuthFlow.CLIENT_CREDENTIALS)
+            else:
+                try:
+                    await self.authenticate(email=email, username=username)
+                except Exception as exc:
+                    logger.exception(exc)
         return self
 
     @staticmethod
