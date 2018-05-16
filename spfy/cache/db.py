@@ -459,9 +459,12 @@ class Country(db.Entity, ImageMixin):
                 try:
                     iso_country = countries.get(official_name=name)
                 except KeyError:
-                    iso_country = first(
-                        countries, key=lambda c: cls._name_match(c, name.lower())
-                    )
+                    try:
+                        iso_country = countries.get(common_name=name)
+                    except KeyError:
+                        iso_country = first(
+                            countries, key=lambda c: cls._name_match(c, name.lower())
+                        )
         elif code is not None:
             try:
                 iso_country = countries.get(alpha_2=code)
