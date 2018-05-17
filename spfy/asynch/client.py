@@ -40,7 +40,7 @@ from ..mixins.asynch.aiohttp_oauthlib import TokenUpdated
 
 class SpotifyClient(AuthMixin, EmailMixin):
 
-    def __init__(self, *args, proxy=None, requests_timeout=None, **kwargs):
+    def __init__(self, *args, proxy=None, requests_timeout=None, redis=None, **kwargs):
         """
         Create a Spotify API object.
 
@@ -50,7 +50,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         super().__init__(*args, **kwargs)
         self.proxy = proxy
         self.requests_timeout = requests_timeout
-        self.redis = None
+        self.redis = redis
 
     @db_session
     def _increment_api_call_count(self):
@@ -93,9 +93,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 maxsize=config.redis.maxsize,
             )
             loop = asyncio.get_event_loop()
-            release_future = self.release_resources()
             loop.add_signal_handler(
-                signal.SIGTERM, asyncio.ensure_future, release_future
+                signal.SIGTERM, lambda: asyncio.ensure_future(self.release_resources())
             )
 
     async def release_resources(self):
