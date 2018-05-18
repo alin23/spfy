@@ -52,7 +52,6 @@ class SpotifyResultIterator:
     def __init__(self, result, limit=None, ignore_exception=False):
         self.result = result
         self.limit = limit
-        self.result_iterator = iter(result)
         self.params_list = self.result.get_next_params_list(limit)
         self.requests = (
             self.result._get_with_params(params) for params in self.params_list
@@ -64,16 +63,17 @@ class SpotifyResultIterator:
         )
 
     def __aiter__(self):
-        return self
+        return self.iterate()
 
-    async def __anext__(self):
-        item = next(self.result_iterator, None)
-        if item is not None:
-            return item
+    async def iterate(self):
+        for item in self.result:
+            yield item
 
-        # pylint: disable=no-member
-        self.result_iterator = iter(await self.responses.__anext__())
-        return await self.__anext__()
+        async for responses in self.responses:
+            if responses is None:
+                continue
+            for response in responses:
+                yield response
 
 
 class SpotifyResult(addict.Dict):

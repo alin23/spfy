@@ -2,6 +2,7 @@
 # pylint: disable=too-many-lines,too-many-public-methods
 import signal
 import asyncio
+import logging
 from hashlib import sha1
 from datetime import datetime
 from operator import attrgetter
@@ -11,6 +12,14 @@ from itertools import chain
 import msgpack
 import aioredis
 from first import first
+from tenacity import (
+    retry,
+    after_log,
+    stop_after_attempt,
+    retry_if_exception_type,
+    wait_random_exponential,
+)
+from aiohttp.client_exceptions import ClientError
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
 import ujson as json
@@ -196,7 +205,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
         }
 
     # pylint: disable=too-many-locals
-
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_random_exponential(multiplier=1, max=10),
+        retry=retry_if_exception_type((ClientError, TokenUpdated)),
+        reraise=True,
+        after=after_log(logger, logging.INFO),
+    )
     async def _internal_call(
         self, method, url, payload, params, headers=None, retries=5, check_202=False
     ):
@@ -210,8 +225,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
         logger.debug("Request args: %s", json.dumps(request_args, indent=4))
 
         try:
-            req = await self.session._request(method, url, **request_args)
-        except TokenUpdated:
             req = await self.session._request(method, url, **request_args)
         except TokenExpiredError as e:
             if self.flow != AuthFlow.CLIENT_CREDENTIALS:
