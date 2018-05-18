@@ -40,6 +40,7 @@ REQUIRES = [
     'ujson',
     'aioredis',
     'msgpack',
+    'tenacity',
 ]
 try:
     import sys
