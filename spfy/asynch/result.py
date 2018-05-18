@@ -49,7 +49,7 @@ class Playable:
 
 class SpotifyResultIterator:
 
-    def __init__(self, result, limit=None):
+    def __init__(self, result, limit=None, ignore_exception=False):
         self.result = result
         self.limit = limit
         self.result_iterator = iter(result)
@@ -58,7 +58,9 @@ class SpotifyResultIterator:
             self.result._get_with_params(params) for params in self.params_list
         )
         self.responses = limited_as_completed(
-            self.requests, config.http.concurrent_connections
+            self.requests,
+            config.http.concurrent_connections,
+            ignore_exception=ignore_exception,
         )
 
     def __aiter__(self):
@@ -76,7 +78,13 @@ class SpotifyResultIterator:
 
 class SpotifyResult(addict.Dict):
     ITER_KEYS = (
-        "items", "artists", "tracks", "albums", "audio_features", "playlists", "devices"
+        "items",
+        "artists",
+        "tracks",
+        "albums",
+        "audio_features",
+        "playlists",
+        "devices",
     )
 
     def __init__(self, *args, **kwargs):
@@ -164,5 +172,7 @@ class SpotifyResult(addict.Dict):
 
         return None
 
-    def iterall(self, limit=None):
-        return SpotifyResultIterator(self, limit)
+    def iterall(self, limit=None, ignore_exception=False):
+        return SpotifyResultIterator(
+            self, limit=limit, ignore_exception=ignore_exception
+        )

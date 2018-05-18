@@ -49,13 +49,19 @@ class ImageMixin:
 
     def image(self, width=None, height=None):
         if width:
-            image = self.images.select().where(lambda i: i.width >= width).order_by(
-                Image.width
-            ).first()
+            image = (
+                self.images.select()
+                .where(lambda i: i.width >= width)
+                .order_by(Image.width)
+                .first()
+            )
         elif height:
-            image = self.images.select().where(lambda i: i.height >= height).order_by(
-                Image.height
-            ).first()
+            image = (
+                self.images.select()
+                .where(lambda i: i.height >= height)
+                .order_by(Image.height)
+                .first()
+            )
         else:
             image = self.images.select().order_by(desc(Image.width)).first()
         return image
@@ -88,9 +94,7 @@ class ImageMixin:
         else:
             photo = (
                 await Unsplash.photo.random(query="music", orientation="squarish")
-            )[
-                0
-            ]
+            )[0]
         if photo is None:
             return None
 
@@ -104,7 +108,10 @@ class ImageMixin:
         params = {self.__class__.__name__.lower(): self, "unsplash_id": photo.id}
         image_exists = False
         for url in (
-            photo.urls.full, photo.urls.regular, photo.urls.small, photo.urls.thumb
+            photo.urls.full,
+            photo.urls.regular,
+            photo.urls.small,
+            photo.urls.thumb,
         ):
             image = Image.get(url=url)
             if image:
@@ -199,9 +206,8 @@ class User(db.Entity, ImageMixin):
             for image in user.images:
                 image.color = color
         images = [Image.get(url=image.url) or Image(**image) for image in user.images]
-        spotify_user = (
-            SpotifyUser.get(id=user.id)
-            or SpotifyUser(id=user.id, name=user.get("display_name") or "")
+        spotify_user = SpotifyUser.get(id=user.id) or SpotifyUser(
+            id=user.id, name=user.get("display_name") or ""
         )
         return cls(
             id=user.user_id,
@@ -352,10 +358,14 @@ class Image(db.Entity):
     # pylint: disable=no-self-use
 
     def unsplash_url(self):
-        return f"https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral"
+        return (
+            f"https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral"
+        )
 
     def unsplash_user_url(self):
-        return f"https://unsplash.com/@{self.unsplash_user_username}?utm_source={config.unsplash.app_name}&utm_medium=referral"
+        return (
+            f"https://unsplash.com/@{self.unsplash_user_username}?utm_source={config.unsplash.app_name}&utm_medium=referral"
+        )
 
     def unsplash_credits(self):
         return {
@@ -613,11 +623,8 @@ class Playlist(db.Entity, ImageMixin):
     def from_dict(
         cls, playlist
     ):  # pylint: disable=too-many-return-statements,too-many-statements
-        owner = (
-            SpotifyUser.get(id=playlist.owner.id)
-            or SpotifyUser(
-                id=playlist.owner.id, name=playlist.owner.get("display_name") or ""
-            )
+        owner = SpotifyUser.get(id=playlist.owner.id) or SpotifyUser(
+            id=playlist.owner.id, name=playlist.owner.get("display_name") or ""
         )
         fields = {
             "id": playlist.id,
@@ -756,8 +763,7 @@ if config.database.connection.filename:
 db.bind(**config.database.connection)
 
 GENERATE_MAPPING = os.getenv("SPFY_GENERATE_MAPPING")
-if (
-    config.database.generate_mapping
-    and (GENERATE_MAPPING is None or GENERATE_MAPPING == "true")
+if config.database.generate_mapping and (
+    GENERATE_MAPPING is None or GENERATE_MAPPING == "true"
 ):
     db.generate_mapping(create_tables=True)

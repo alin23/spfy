@@ -122,7 +122,9 @@ class API(Enum):
     PLAYLIST = "/v1/users/{user_id}/playlists/{playlist_id}"
     PLAYLISTS = "/v1/users/{user_id}/playlists"
     PLAYLIST_FOLLOWERS = "/v1/users/{owner_id}/playlists/{playlist_id}/followers"
-    PLAYLIST_FOLLOWERS_CONTAINS = "/v1/users/{user_id}/playlists/{playlist_id}/followers/contains"
+    PLAYLIST_FOLLOWERS_CONTAINS = (
+        "/v1/users/{user_id}/playlists/{playlist_id}/followers/contains"
+    )
     PLAYLIST_IMAGES = "/v1/users/{user_id}/playlists/{playlist_id}/images"
     PLAYLIST_TRACKS = "/v1/users/{user_id}/playlists/{playlist_id}/tracks"
     SEARCH_ALBUM = "/v1/search?type=album"

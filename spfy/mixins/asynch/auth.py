@@ -124,11 +124,16 @@ class AuthMixin:
                     authorization_response=auth_response,
                 )
                 user_details = await self.current_user()
-                user = select(
-                    u
-                    for u in User
-                    if u.username == user_details.id or u.email == user_details.email
-                ).for_update().get()
+                user = (
+                    select(
+                        u
+                        for u in User
+                        if u.username == user_details.id
+                        or u.email == user_details.email
+                    )
+                    .for_update()
+                    .get()
+                )
                 if user:
                     user.token = token
                     if user.id != self.user_id:
@@ -217,9 +222,7 @@ class AuthMixin:
                 asyncio.run_coroutine_threadsafe(
                     self.authenticate_user(code=code, state=state),
                     loop=self.callback_loop,
-                ).result(
-                    config.auth.callback.timeout
-                )
+                ).result(config.auth.callback.timeout)
                 html = html.replace("SPOTIFY_AUTH_MESSAGE", "Successfully logged in!")
                 html = html.replace("BACKGROUND_COLOR", "#65D46E")
             except Exception as exc:

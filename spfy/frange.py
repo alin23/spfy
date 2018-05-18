@@ -2,7 +2,7 @@ import numpy as _np
 from cached_property import cached_property
 
 
-class frange():
+class frange:
     """
     Return an object can be used to generate a generator or an array
     of floats from start (inclusive) to stop (exclusive) by step.

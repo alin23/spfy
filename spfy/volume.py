@@ -243,9 +243,10 @@ class ApplescriptVolumeControl(VolumeControl):
         subprocess.call(f'/usr/local/bin/SwitchAudioSource -s "{device}"', shell=True)
 
     def should_stop_fading(self, device_volume, old_volume):
-        is_playing = self.osascript(
-            'tell application "Spotify" to get player state'
-        ) == "playing"
+        is_playing = (
+            self.osascript('tell application "Spotify" to get player state')
+            == "playing"
+        )
         logger.debug("Spotify playing: %s", is_playing)
         return super().should_stop_fading(device_volume, old_volume) or not is_playing
 
@@ -305,10 +306,9 @@ class LinuxVolumeControl(AlsaVolumeControl):
         )
 
     def should_stop_fading(self, device_volume, old_volume):
-        return (
-            super().should_stop_fading(device_volume, old_volume)
-            or self.spotify_should_stop_fading(device_volume, old_volume)
-        )
+        return super().should_stop_fading(
+            device_volume, old_volume
+        ) or self.spotify_should_stop_fading(device_volume, old_volume)
 
     def spotify_should_stop_fading(self, device_volume, old_volume):
         return self.spotify_volume_control.should_stop_fading(device_volume, old_volume)
@@ -325,10 +325,9 @@ class LinuxVolumeControlAsync(AlsaVolumeControl):
         )
 
     async def should_stop_fading(self, device_volume, old_volume):
-        return (
-            super().should_stop_fading(device_volume, old_volume)
-            or await self.spotify_should_stop_fading(device_volume, old_volume)
-        )
+        return super().should_stop_fading(
+            device_volume, old_volume
+        ) or await self.spotify_should_stop_fading(device_volume, old_volume)
 
     async def spotify_should_stop_fading(self, device_volume, old_volume):
         return await self.spotify_volume_control.should_stop_fading(

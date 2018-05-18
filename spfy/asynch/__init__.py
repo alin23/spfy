@@ -5,7 +5,7 @@ import asyncio
 from itertools import islice
 
 
-async def limited_as_completed(coros, limit):
+async def limited_as_completed(coros, limit, ignore_exception=False):
     """
     Run the coroutines (or futures) supplied in the
     iterable coros, ensuring that there are at most
@@ -18,7 +18,7 @@ async def limited_as_completed(coros, limit):
     """
     futures = [asyncio.ensure_future(c) for c in islice(coros, 0, limit)]
 
-    async def first_to_finish():
+    async def first_to_finish(ignore_exception=False):
         while True:
             await asyncio.sleep(0)
             for f in futures:
@@ -29,10 +29,17 @@ async def limited_as_completed(coros, limit):
                         futures.append(asyncio.ensure_future(newf))
                     except StopIteration:
                         pass
-                    return f.result()
+                    try:
+                        return f.result()
+                    except Exception as exc:
+                        if ignore_exception:
+                            logger.warning("Ignoring exception:")
+                            logger.exception(exc)
+                            return None
+                        raise exc
 
     while futures:
-        yield await first_to_finish()
+        yield await first_to_finish(ignore_exception=ignore_exception)
 
 
 from .client import SpotifyClient  # isort:skip

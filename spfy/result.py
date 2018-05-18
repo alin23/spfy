@@ -48,7 +48,13 @@ class Playable:
 
 class SpotifyResult(addict.Dict):
     ITER_KEYS = (
-        "items", "artists", "tracks", "albums", "audio_features", "playlists", "devices"
+        "items",
+        "artists",
+        "tracks",
+        "albums",
+        "audio_features",
+        "playlists",
+        "devices",
     )
 
     def __init__(self, *args, **kwargs):

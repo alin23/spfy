@@ -114,11 +114,15 @@ class AuthMixin:
                 authorization_response=auth_response,
             )
             user_details = self.current_user()
-            user = select(
-                u
-                for u in User
-                if u.username == user_details.id or u.email == user_details.email
-            ).for_update().get()
+            user = (
+                select(
+                    u
+                    for u in User
+                    if u.username == user_details.id or u.email == user_details.email
+                )
+                .for_update()
+                .get()
+            )
             if user:
                 user.token = token
                 if user.id != self.user_id:

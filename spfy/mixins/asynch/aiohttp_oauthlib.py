@@ -164,9 +164,16 @@ class OAuth2Session(aiohttp.ClientSession):
         :return: authorization_url, state
         """
         state = state or self.new_state()
-        return self._client.prepare_request_uri(
-            url, redirect_uri=self.redirect_uri, scope=self.scope, state=state, **kwargs
-        ), state
+        return (
+            self._client.prepare_request_uri(
+                url,
+                redirect_uri=self.redirect_uri,
+                scope=self.scope,
+                state=state,
+                **kwargs,
+            ),
+            state,
+        )
 
     #  pylint: disable=too-many-locals
 

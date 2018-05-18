@@ -47,7 +47,9 @@ class RecommenderMixin:
                 except CacheIndexError:
                     artist = Artist[artist.id]
                 self.user.top_artists.add(artist)
-        self.user.top_genres = self.user.top_artists.genres.distinct().keys() - self.user.disliked_genres
+        self.user.top_genres = (
+            self.user.top_artists.genres.distinct().keys() - self.user.disliked_genres
+        )
         if self.user.top_expires_at is None:
             self.user.top_expires_at = {}
         self.user.top_expires_at[TimeRange(time_range).value] = time.mktime(
@@ -122,10 +124,11 @@ class RecommenderMixin:
         Returns:
             list: List of tracks
         """
-        artists = self.top_artists(
-            time_range=time_range
-        ).select().without_distinct().random(
-            artist_limit
+        artists = (
+            self.top_artists(time_range=time_range)
+            .select()
+            .without_distinct()
+            .random(artist_limit)
         )
         if use_related:
             artists = self.fill_with_related_artists([a.id for a in artists])
@@ -137,10 +140,9 @@ class RecommenderMixin:
 
     @db_session
     def is_disliked_artist(self, artist):
-        return (
-            artist.id in set(self.user.disliked_artists.id.distinct().keys())
-            or bool(set(artist.genres or []) & set(self.user.disliked_genres))
-        )
+        return artist.id in set(
+            self.user.disliked_artists.id.distinct().keys()
+        ) or bool(set(artist.genres or []) & set(self.user.disliked_genres))
 
     @db_session
     def is_not_disliked_artist(self, artist):

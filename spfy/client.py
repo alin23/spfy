@@ -53,9 +53,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
             response.raise_for_status()
         except:
             exception_params = SpotifyClient.get_exception_params(response)
-            if (
-                response.status_code == 429
-                or (response.status_code >= 500 and response.status_code < 600)
+            if response.status_code == 429 or (
+                response.status_code >= 500 and response.status_code < 600
             ):
                 raise SpotifyRateLimitException(
                     retry_after=int(response.headers.get("Retry-After", 0)),
@@ -528,7 +527,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             )
 
         batches = [
-            {"uris": track_uris[i:i + 100]} for i in range(0, len(track_uris), 100)
+            {"uris": track_uris[i : i + 100]} for i in range(0, len(track_uris), 100)
         ]
         results = [
             self._post(
@@ -1021,7 +1020,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             with db_session:
                 cached_tracks = select(a for a in AudioFeatures if a.id in tracks)[:]
                 tracks = list(set(tracks) - {a.id for a in cached_tracks})
-        batches = [tracks[i:i + 100] for i in range(0, len(tracks), 100)]
+        batches = [tracks[i : i + 100] for i in range(0, len(tracks), 100)]
         audio_features = [
             self._get(API.AUDIO_FEATURES_MULTIPLE.value, ids=",".join(t), **kwargs)
             for t in batches
@@ -1300,7 +1299,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             return playlist.uri
 
         if user is not None:
-            return f'spotify:user:{self._get_id("user", user)}:playlist:{self._get_id("playlist", playlist)}'
+            return (
+                f'spotify:user:{self._get_id("user", user)}:playlist:{self._get_id("playlist", playlist)}'
+            )
 
         try:
             if "uri" in playlist:
