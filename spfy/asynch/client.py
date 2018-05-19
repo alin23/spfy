@@ -92,13 +92,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     async def ensure_redis_pool(self):
         if not self.redis:
-            self.redis = await aioredis.create_pool(
-                config.redis.url,
+            self.redis = await aioredis.create_redis_pool(
+                (config.redis.host or "localhost", config.redis.port or 6379),
                 db=config.redis.db or 0,
                 password=config.redis.password or None,
                 ssl=config.redis.ssl or False,
-                minsize=config.redis.minsize,
-                maxsize=config.redis.maxsize,
+                minsize=config.redis.minsize or 1,
+                maxsize=config.redis.maxsize or 10,
             )
             loop = asyncio.get_event_loop()
             loop.add_signal_handler(
@@ -132,25 +132,23 @@ class SpotifyClient(AuthMixin, EmailMixin):
         etag_key = f"{cache_key}:{config.cache.key.etag}"
         response_key = f"{cache_key}:{config.cache.key.response}"
         logger.info("Cache hit: %s", etag_key)
-        async with self.redis.get() as conn:
-            redis = aioredis.Redis(conn)
-            response = await redis.get(response_key)
-            tr = redis.multi_exec()
-            try:
-                results = msgpack.loads(response, encoding=config.cache.encoding)
-            except:
-                results = None
-            if not results:
-                logger.error("Cached response is invalid: %s", etag_key)
-                tr.delete(etag_key)
-                tr.delete(response_key)
-                await tr.execute(return_exceptions=False)
-                return await self._internal_call(method, url, payload, params, headers)
-
-            tr.expire(etag_key, config.cache.expire)
-            tr.expire(response_key, config.cache.expire)
+        response = await self.redis.get(response_key)
+        tr = self.redis.multi_exec()
+        try:
+            results = msgpack.loads(response, encoding=config.cache.encoding)
+        except:
+            results = None
+        if not results:
+            logger.error("Cached response is invalid: %s", etag_key)
+            tr.delete(etag_key)
+            tr.delete(response_key)
             await tr.execute(return_exceptions=False)
-            return SpotifyResult(results, _client=self)
+            return await self._internal_call(method, url, payload, params, headers)
+
+        tr.expire(etag_key, config.cache.expire)
+        tr.expire(response_key, config.cache.expire)
+        await tr.execute(return_exceptions=False)
+        return SpotifyResult(results, _client=self)
 
     async def _cache_response(self, etag, results, cache_key):
         if not etag:
@@ -159,24 +157,20 @@ class SpotifyClient(AuthMixin, EmailMixin):
         logger.debug("ETAG: %s", etag)
         etag_key = f"{cache_key}:{config.cache.key.etag}"
         response_key = f"{cache_key}:{config.cache.key.response}"
-        async with self.redis.get() as conn:
-            redis = aioredis.Redis(conn)
-            tr = redis.multi_exec()
-            tr.setex(etag_key, config.cache.expire, etag)
-            tr.setex(
-                response_key,
-                config.cache.expire,
-                msgpack.dumps(results, encoding=config.cache.encoding),
-            )
-            await tr.execute(return_exceptions=False)
+        tr = self.redis.multi_exec()
+        tr.setex(etag_key, config.cache.expire, etag)
+        tr.setex(
+            response_key,
+            config.cache.expire,
+            msgpack.dumps(results, encoding=config.cache.encoding),
+        )
+        await tr.execute(return_exceptions=False)
 
     async def _get_cache_header(self, cache_key):
         etag_key = f"{cache_key}:{config.cache.key.etag}"
-        async with self.redis.get() as conn:
-            redis = aioredis.Redis(conn)
-            etag = await redis.get(etag_key, encoding=config.cache.encoding)
-            if etag:
-                return {"If-None-Match": etag}
+        etag = await self.redis.get(etag_key, encoding=config.cache.encoding)
+        if etag:
+            return {"If-None-Match": etag}
 
         return {}
 

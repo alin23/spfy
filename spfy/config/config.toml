@@ -64,8 +64,9 @@ client_secret = ""
 redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
 
 [redis]
-url = "redis://localhost"
-minsize = 5
+host = "localhost"
+port = 6379
+minsize = 1
 maxsize = 10
 
 [cache]
