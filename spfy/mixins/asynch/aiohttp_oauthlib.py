@@ -1,4 +1,5 @@
 import logging
+from inspect import isawaitable
 
 import aiohttp
 from oauthlib.common import urldecode, generate_token
@@ -440,7 +441,9 @@ class OAuth2Session(aiohttp.ClientSession):
                         log.debug(
                             "Updating token to %s using %s.", token, self.token_updater
                         )
-                        self.token_updater(token)
+                        res = self.token_updater(token)
+                        if isawaitable(res):
+                            await res
                         url, headers, data = self._client.add_token(
                             url, http_method=method, body=data, headers=headers
                         )

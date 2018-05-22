@@ -17,6 +17,7 @@ with open('README.md', 'rb') as f:
     readme = f.read().decode('utf-8')
 REQUIRES = [
     'addict',
+    'async_generator',
     'backoff',
     'colorthief',
     'fire',

@@ -3,15 +3,18 @@ import socket
 import asyncio
 import threading
 from pathlib import Path
+from datetime import datetime
 
+import addict
 import aiohttp
 import aiohttp.web
-from pony.orm import get
+from first import first
+from pony.orm import get, select, db_session
 from oauthlib.oauth2 import BackendApplicationClient
 from aiohttp.web_runner import GracefulExit
 
 from ... import root, config, logger
-from ...cache import User, select, db_session
+from ...cache import SQL, User, Image, Country, async_db_session
 from ...constants import API, AuthFlow, AllScopes
 from ...exceptions import SpotifyCredentialsException
 from .aiohttp_oauthlib import OAuth2Session
@@ -70,6 +73,31 @@ class AuthMixin:
             redirect_uri += f":{config.auth.callback.port}"
         return redirect_uri
 
+    async def fetch_user(self, conn=None, op="OR", **fields):
+        if not (self.user_id or fields):
+            return None
+
+        await self.ensure_db_pool()
+        async with async_db_session(self.dbpool, conn) as dbconn:
+            user = None
+            fields = {f: v for f, v in fields.items() if f}
+
+            if self.user_id and not fields:
+                user_stmt = await dbconn.prepare(SQL.user)
+                user = await user_stmt.fetchrow(self.user_id)
+            else:
+                condition = f" {op} ".join(
+                    f"{field} = ${i + 1}" for i, field in enumerate(fields.keys())
+                )
+                user = await dbconn.fetchrow(
+                    f"SELECT * FROM users WHERE {condition}", *fields.values()
+                )
+
+            if not user:
+                return None
+
+        return addict.Dict(dict(user))
+
     @property
     @db_session
     def user(self):
@@ -78,6 +106,107 @@ class AuthMixin:
     @property
     def is_authenticated(self):
         return bool(self.session and self.session.authorized)
+
+    async def update_user_token(self, token):
+        async with async_db_session(self.dbpool) as conn:
+            conn.execute(SQL.update_user_token, token, self.user_id)
+
+    # pylint: disable=too-many-locals
+    async def authenticate_user_pg(
+        self,
+        username=None,
+        email=None,
+        code=None,
+        state=None,
+        auth_response=None,
+        scope=AllScopes,
+    ):
+        self.flow = AuthFlow.AUTHORIZATION_CODE
+        self.session = OAuth2Session(
+            self.client_id,
+            redirect_uri=self.redirect_uri,
+            scope=scope,
+            auto_refresh_url=API.TOKEN.value,
+        )
+        await self.ensure_db_pool()
+        async with async_db_session(self.dbpool) as conn:
+            if self.user_id:
+                user = await self.fetch_user(conn=conn)
+                if user and user.token:
+                    self.session.token = user.token
+                    self.session.token_updater = self.update_user_token
+                    return user
+
+            if username or email:
+                user = await self.fetch_user(conn=conn, username=username, email=email)
+                if user:
+                    self.user_id = user.id
+                    self.session.token = user.token
+                    self.session.token_updater = self.update_user_token
+                    return user
+
+            if code or auth_response:
+                token = await self.session.fetch_token(
+                    token_url=API.TOKEN.value,
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                    code=code,
+                    state=state,
+                    authorization_response=auth_response,
+                )
+                self.session.token_updater = self.update_user_token
+
+                user_details = await self.current_user()
+                if user_details.birthdate:
+                    birthdate = datetime.strptime(user_details.birthdate, "%Y-%m-%d")
+                else:
+                    birthdate = None
+
+                iso_country = Country.get_iso_country(code=user_details.country)
+                if not iso_country:
+                    country_name = country_code = user_details.country
+                else:
+                    country_name = iso_country.name
+                    country_code = iso_country.alpha_2
+
+                upsert_user_stmt = await conn.prepare(SQL.upsert_user)
+                user = await upsert_user_stmt.fetchrow(
+                    self.user_id or uuid.uuid4(),
+                    user_details.email or "",
+                    user_details.id or "",
+                    user_details.country or "",
+                    user_details.display_name or "",
+                    birthdate,
+                    token,
+                    user_details.product == "premium",
+                    country_code,
+                    country_name,
+                )
+                user = addict.Dict(dict(user))
+                self.user_id = user.id
+
+                if user_details.images:
+                    last_image = first(reversed(user_details.images))
+                    try:
+                        color = await Image.grab_color_async(last_image.url)
+                    except:
+                        color = "#000000"
+
+                    await conn.executemany(
+                        """INSERT INTO images (
+                                url, height, width, color, "user", unsplash_id,
+                                unsplash_user_fullname, unsplash_user_username
+                            ) VALUES ($1, $2, $3, $4, $5, '', '', '')
+                            ON CONFLICT DO NOTHING""",
+                        [
+                            (i.url, i.height or None, i.width or None, color, user.id)
+                            for i in user_details.images
+                            if i.url
+                        ],
+                    )
+                return user
+
+        return None
 
     async def authenticate_user(
         self,

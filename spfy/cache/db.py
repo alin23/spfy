@@ -9,6 +9,7 @@ from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
 from datetime import date, datetime
 from collections import OrderedDict
 
+import addict
 import aiohttp
 import requests
 import psycopg2.extras
@@ -30,6 +31,7 @@ from pony.orm import (
 from pycountry import countries
 from colorthief import ColorThief
 from pony.orm.core import CacheIndexError
+from async_generator import asynccontextmanager
 from unsplash.errors import UnsplashError
 from psycopg2.extensions import register_adapter
 
@@ -43,6 +45,50 @@ if os.getenv("SQL_DEBUG"):
 
     logging.getLogger("pony.orm.sql").setLevel(logging.DEBUG)
 db = Database()
+
+
+@asynccontextmanager
+async def async_db_session(dbpool, conn=None):
+    connection = conn or await dbpool.acquire()
+    try:
+        async with connection.transaction():
+            yield connection
+    finally:
+        if not conn:
+            await dbpool.release(connection)
+
+
+SQL = addict.Dict(
+    {
+        "user": "SELECT * FROM users WHERE id = $1",
+        "user_by_email": "SELECT * FROM users WHERE email = $1",
+        "user_by_username": "SELECT * FROM users WHERE username = $1",
+        "update_user_token": "UPDATE users SET token = $1 WHERE id = $2",
+        "upsert_user": """
+            WITH spotify_user_id AS (
+                INSERT INTO spotify_users AS su ("id", "name", "user")
+                VALUES ($3, $5, $1)
+                ON CONFLICT DO NOTHING
+                RETURNING id
+            ), country_code AS (
+                INSERT INTO countries AS c ("code", "name")
+                VALUES ($9, $10)
+                ON CONFLICT DO NOTHING
+                RETURNING code
+            )
+                INSERT INTO users AS u (
+                    id, email, username, country,
+                    display_name, birthdate, token, spotify_premium,
+                    api_calls, created_at, last_usage_at
+                ) VALUES (
+                    $1, $2, $3, $4,
+                    $5, $6, $7, $8,
+                    0, now(), now()
+                ) ON CONFLICT (username) DO UPDATE SET token = EXCLUDED.token
+                RETURNING *
+        """,
+    }
+)
 
 
 class ImageMixin:
@@ -456,7 +502,7 @@ class Country(db.Entity, ImageMixin):
             return False
 
     @classmethod
-    def from_str(cls, name=None, code=None):
+    def get_iso_country(cls, name=None, code=None):
         iso_country = None
         if name == "UK":
             iso_country = countries.get(alpha_2="GB")
@@ -486,6 +532,13 @@ class Country(db.Entity, ImageMixin):
             logger.error(
                 "Could not find a country with name=%s and code=%s", name, code
             )
+            return None
+        return iso_country
+
+    @classmethod
+    def from_str(cls, name=None, code=None):
+        iso_country = cls.get_iso_country(name=name, code=code)
+        if not iso_country:
             return None
 
         return cls.get(name=iso_country.name) or cls(

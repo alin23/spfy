@@ -9,6 +9,7 @@ from operator import attrgetter
 from functools import partialmethod
 from itertools import chain
 
+import asyncpg
 import msgpack
 import aioredis
 from first import first
@@ -47,9 +48,26 @@ from ..mixins.asynch import AuthMixin
 from ..mixins.asynch.aiohttp_oauthlib import TokenUpdated
 
 
+async def init_db_connection(conn):
+    await conn.set_type_codec(
+        "json", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
+    )
+    await conn.set_type_codec(
+        "jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
+    )
+
+
 class SpotifyClient(AuthMixin, EmailMixin):
 
-    def __init__(self, *args, proxy=None, requests_timeout=None, redis=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        proxy=None,
+        requests_timeout=None,
+        redis=None,
+        dbpool=None,
+        **kwargs,
+    ):
         """
         Create a Spotify API object.
 
@@ -60,6 +78,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         self.proxy = proxy
         self.requests_timeout = requests_timeout
         self.redis = redis
+        self.dbpool = dbpool
 
     @db_session
     def _increment_api_call_count(self):
@@ -90,6 +109,15 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 raise SpotifyException(**exception_params)
 
+    async def ensure_db_pool(self):
+        if not self.dbpool and config.database.provider == "postgres":
+            db_config = {
+                k: v for k, v in config.database.connection.items() if k != "provider"
+            }
+            self.dbpool = await asyncpg.create_pool(
+                **db_config, init=init_db_connection
+            )
+
     async def ensure_redis_pool(self):
         if not self.redis:
             self.redis = await aioredis.create_redis_pool(
@@ -106,6 +134,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
             )
 
     async def release_resources(self):
+        if self.dbpool:
+            await self.dbpool.close()
         if self.redis:
             try:
                 self.redis.close()
@@ -207,7 +237,15 @@ class SpotifyClient(AuthMixin, EmailMixin):
         after=after_log(logger, logging.INFO),
     )
     async def _internal_call(
-        self, method, url, payload, params, headers=None, retries=5, check_202=False
+        self,
+        method,
+        url,
+        payload,
+        params,
+        headers=None,
+        retries=5,
+        check_202=False,
+        increment_api_calls=False,
     ):
         await self.ensure_redis_pool()
         if payload and not isinstance(payload, (bytes, str)):
@@ -228,7 +266,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             req = await self.session._request(method, url, **request_args)
 
         async with req as resp:
-            if self.user_id:
+            if self.user_id and increment_api_calls:
                 self._increment_api_call_count()
             if resp.status == 304:
                 return await self._fetch_response_from_cache(
@@ -1172,7 +1210,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         # pylint: disable=no-member
         return await self._get(API.AUDIO_ANALYSIS.value.format(id=_id), **kwargs)
 
-    async def audio_features(self, track=None, tracks=None, with_cache=True, **kwargs):
+    async def audio_features(self, track=None, tracks=None, with_cache=False, **kwargs):
         """ Get audio features for one or multiple tracks based upon their Spotify IDs
             Parameters:
                 - track - a track URI, URL or ID
@@ -1185,12 +1223,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 API.AUDIO_FEATURES_SINGLE.value.format(id=_id), **kwargs
             )
 
-        tracks = list(map(self._get_track_id, tracks or []))
+        tracks = [self._get_track_id(t) for t in tracks or []]
         cached_tracks = []
         if with_cache:
             with db_session:
                 cached_tracks = select(a for a in AudioFeatures if a.id in tracks)[:]
                 tracks = list(set(tracks) - {a.id for a in cached_tracks})
+
         batches = [tracks[i : i + 100] for i in range(0, len(tracks), 100)]
         audio_features = await asyncio.gather(
             *[
@@ -1198,18 +1237,24 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 for t in batches
             ]
         )
-        with db_session:
-            new_cached_tracks = select(a for a in AudioFeatures if a.id in tracks)[:]
-            new_cached_track_ids = {a.id for a in new_cached_tracks}
-            audio_features = (
-                [
-                    AudioFeatures.from_dict(t)
-                    for t in chain.from_iterable(audio_features)
-                    if t["id"] not in new_cached_track_ids
+
+        if not with_cache:
+            audio_features = list(chain.from_iterable(audio_features))
+        else:
+            with db_session:
+                new_cached_tracks = select(a for a in AudioFeatures if a.id in tracks)[
+                    :
                 ]
-                + cached_tracks
-                + new_cached_tracks
-            )
+                new_cached_track_ids = {a.id for a in new_cached_tracks}
+                audio_features = (
+                    [
+                        AudioFeatures.from_dict(t)
+                        for t in chain.from_iterable(audio_features)
+                        if t["id"] not in new_cached_track_ids
+                    ]
+                    + cached_tracks
+                    + new_cached_tracks
+                )
         return audio_features
 
     async def devices(self, **kwargs):
