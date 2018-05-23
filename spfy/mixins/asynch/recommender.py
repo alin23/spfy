@@ -1,13 +1,14 @@
 import time
 import random
 from datetime import date, timedelta
+from itertools import chain
 
-from pony.orm import get
+from pony.orm import get, select, db_session
 from pony.orm.core import CacheIndexError
 
 from ... import logger
 from ...util import normalize_features
-from ...cache import Genre, Artist, Playlist, select, db_session
+from ...cache import SQL, Genre, Artist, Playlist
 from ...constants import TimeRange
 
 
@@ -69,6 +70,44 @@ class RecommenderMixin:
             return Playlist.get(
                 genre=genre, popularity=Playlist.Popularity(popularity).value
             )
+
+    async def top_artists_pg(
+        self, time_range=TimeRange.SHORT_TERM, ignore=None, limit=None
+    ):
+        async with self.async_db_session() as conn:
+            dislikes_stmt = await conn.prepare(SQL.user_artist_genre_dislikes)
+            dislikes = await dislikes_stmt.fetch(self.user_id)
+            disliked_artists = {row[0][:-3] for row in dislikes if row[0][-2:] == "AR"}
+            disliked_genres = {row[0][:-3] for row in dislikes if row[0][-2:] == "GE"}
+            top_artists = await self.current_user_top_artists(
+                limit=50, time_range=time_range
+            )
+            ignore = set(ignore or [])
+            top_artists = [
+                artist
+                for artist in top_artists
+                if not self.is_disliked_artist(
+                    artist, disliked_artists, disliked_genres
+                )
+                and artist.id not in ignore
+            ]
+            if limit:
+                top_artists = random.sample(top_artists, limit)
+
+            return top_artists
+
+    async def top_genres_pg(
+        self, time_range=TimeRange.SHORT_TERM, ignore=None, limit=None
+    ):
+        artists = await self.top_artists_pg(time_range=time_range)
+        genres = set(chain.from_iterable(artist.genres for artist in artists))
+
+        if ignore:
+            genres -= set(ignore)
+        if limit:
+            genres = random.sample(genres, limit)
+
+        return list(genres)
 
     async def top_artists(self, time_range=TimeRange.SHORT_TERM):
         with db_session:
@@ -139,7 +178,11 @@ class RecommenderMixin:
                 tracks = await self.order_by(features_order, tracks)
             return tracks
 
-    def is_disliked_artist(self, artist):
+    def is_disliked_artist(self, artist, disliked_artists=None, disliked_genres=None):
+        if disliked_artists is not None and disliked_genres is not None:
+            return artist.id in disliked_artists or bool(
+                set(artist.genres or []) & disliked_genres
+            )
         with db_session:
             return artist.id in set(
                 self.user.disliked_artists.id.distinct().keys()

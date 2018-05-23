@@ -8,13 +8,12 @@ from datetime import datetime
 import addict
 import aiohttp
 import aiohttp.web
-from first import first
 from pony.orm import get, select, db_session
 from oauthlib.oauth2 import BackendApplicationClient
 from aiohttp.web_runner import GracefulExit
 
 from ... import root, config, logger
-from ...cache import SQL, User, Image, Country, async_db_session
+from ...cache import SQL, User, Country
 from ...constants import API, AuthFlow, AllScopes
 from ...exceptions import SpotifyCredentialsException
 from .aiohttp_oauthlib import OAuth2Session
@@ -77,8 +76,7 @@ class AuthMixin:
         if not (self.user_id or fields):
             return None
 
-        await self.ensure_db_pool()
-        async with async_db_session(self.dbpool, conn) as dbconn:
+        async with self.async_db_session(conn) as dbconn:
             user = None
             fields = {f: v for f, v in fields.items() if f}
 
@@ -108,7 +106,7 @@ class AuthMixin:
         return bool(self.session and self.session.authorized)
 
     async def update_user_token(self, token):
-        async with async_db_session(self.dbpool) as conn:
+        async with self.async_db_session() as conn:
             conn.execute(SQL.update_user_token, token, self.user_id)
 
     # pylint: disable=too-many-locals
@@ -128,8 +126,7 @@ class AuthMixin:
             scope=scope,
             auto_refresh_url=API.TOKEN.value,
         )
-        await self.ensure_db_pool()
-        async with async_db_session(self.dbpool) as conn:
+        async with self.async_db_session() as conn:
             if self.user_id:
                 user = await self.fetch_user(conn=conn)
                 if user and user.token:
@@ -186,20 +183,14 @@ class AuthMixin:
                 self.user_id = user.id
 
                 if user_details.images:
-                    last_image = first(reversed(user_details.images))
-                    try:
-                        color = await Image.grab_color_async(last_image.url)
-                    except:
-                        color = "#000000"
-
                     await conn.executemany(
                         """INSERT INTO images (
-                                url, height, width, color, "user", unsplash_id,
+                                url, height, width, "user", unsplash_id,
                                 unsplash_user_fullname, unsplash_user_username
-                            ) VALUES ($1, $2, $3, $4, $5, '', '', '')
+                            ) VALUES ($1, $2, $3, '', $4, '', '', '')
                             ON CONFLICT DO NOTHING""",
                         [
-                            (i.url, i.height or None, i.width or None, color, user.id)
+                            (i.url, i.height or None, i.width or None, user.id)
                             for i in user_details.images
                             if i.url
                         ],

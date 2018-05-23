@@ -20,6 +20,7 @@ from tenacity import (
     retry_if_exception_type,
     wait_random_exponential,
 )
+from async_generator import asynccontextmanager
 from aiohttp.client_exceptions import ClientError
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
@@ -109,8 +110,19 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 raise SpotifyException(**exception_params)
 
+    @asynccontextmanager
+    async def async_db_session(self, conn=None):
+        await self.ensure_db_pool()
+        connection = conn or await self.dbpool.acquire()
+        try:
+            async with connection.transaction():
+                yield connection
+        finally:
+            if not conn:
+                await self.dbpool.release(connection)
+
     async def ensure_db_pool(self):
-        if not self.dbpool and config.database.provider == "postgres":
+        if not self.dbpool and config.database.connection.provider == "postgres":
             db_config = {
                 k: v for k, v in config.database.connection.items() if k != "provider"
             }

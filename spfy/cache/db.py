@@ -31,7 +31,6 @@ from pony.orm import (
 from pycountry import countries
 from colorthief import ColorThief
 from pony.orm.core import CacheIndexError
-from async_generator import asynccontextmanager
 from unsplash.errors import UnsplashError
 from psycopg2.extensions import register_adapter
 
@@ -45,17 +44,6 @@ if os.getenv("SQL_DEBUG"):
 
     logging.getLogger("pony.orm.sql").setLevel(logging.DEBUG)
 db = Database()
-
-
-@asynccontextmanager
-async def async_db_session(dbpool, conn=None):
-    connection = conn or await dbpool.acquire()
-    try:
-        async with connection.transaction():
-            yield connection
-    finally:
-        if not conn:
-            await dbpool.release(connection)
 
 
 SQL = addict.Dict(
@@ -87,11 +75,54 @@ SQL = addict.Dict(
                 ) ON CONFLICT (username) DO UPDATE SET token = EXCLUDED.token
                 RETURNING *
         """,
+        "user_artist_genre_dislikes": """
+           SELECT artist || '|AR' FROM artist_haters ah WHERE ah."user" = $1
+           UNION
+           SELECT genre || '|GE' FROM genre_haters gh WHERE gh."user" = $1
+        """,
+        "user_dislikes": """
+           SELECT artist || '|AR' FROM artist_haters ah WHERE ah."user" = $1
+           UNION
+           SELECT genre || '|GE' FROM genre_haters gh WHERE gh."user" = $1
+           UNION
+           SELECT country || '|CO' FROM country_haters coh WHERE coh."user" = $1
+           UNION
+           SELECT city || '|CI' FROM city_haters cih WHERE cih."user" = $1
+        """,
     }
 )
 
 
+def create_condition(op="AND", firstsub=1, **fields):
+    condition = f" {op} ".join(
+        f"{field} = ${i + firstsub}" for i, field in enumerate(fields.keys())
+    )
+    return condition
+
+
 class ImageMixin:
+
+    @classmethod
+    async def image_pg(cls, conn, width=None, height=None, **fields):
+        condition = create_condition(firstsub=2, **fields)
+        if width:
+            image = await conn.fetchrow(
+                f"SELECT * FROM images WHERE width >= $1 AND {condition} ORDER BY width LIMIT 1",
+                width,
+                *fields.values(),
+            )
+        elif height:
+            image = await conn.fetchrow(
+                f"SELECT * FROM images WHERE height >= $1 AND {condition} ORDER BY height LIMIT 1",
+                height,
+                *fields.values(),
+            )
+        else:
+            image = await conn.fetchrow(
+                f"SELECT * FROM images WHERE {condition} ORDER BY width DESC LIMIT 1",
+                *fields.values(),
+            )
+        return image
 
     def image(self, width=None, height=None):
         if width:
@@ -112,18 +143,104 @@ class ImageMixin:
             image = self.images.select().order_by(desc(Image.width)).first()
         return image
 
+    @classmethod
+    def get_image_queries_pg(cls, key):
+        words = key.split()
+        stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
+        queries = [*words, key, *sum(stems, [])]
+        return [f"{query} music" for query in queries]
+
     def get_image_queries(self):
         words = self.name.split()
         stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
         queries = [*words, self.name, *sum(stems, [])]
         return [f"{query} music" for query in queries]
 
-    async def fetch_unsplash_image(self, width=None, height=None):
-        image = self.image(width, height)
+    # pylint: disable=too-many-locals
+    @classmethod
+    async def fetch_unsplash_image_pg(
+        cls, conn, width=None, height=None, image_key=None, **fields
+    ):
+        image = await cls.image_pg(width=width, height=height, **fields)
         if image:
             return image
 
-        queries = self.get_image_queries()
+        key = image_key or " ".join(str(v) for v in fields.values())
+        queries = cls.get_image_queries_pg(key)
+
+        photo = await cls.get_unsplash_photo(queries)
+        if photo is None:
+            return None
+
+        ratio = photo.height / photo.width
+        params = {
+            "color": photo.color,
+            "unsplash_id": photo.id,
+            "unsplash_user_fullname": photo.user.name,
+            "unsplash_user_username": photo.user.username,
+            **fields,
+        }
+        image_values = [
+            {
+                **params,
+                "url": photo.urls.full,
+                "width": photo.width,
+                "height": photo.height,
+            },
+            {
+                **params,
+                "url": photo.urls.regular,
+                "width": Image.REGULAR,
+                "height": int(round(ratio * Image.REGULAR)),
+            },
+            {
+                **params,
+                "url": photo.urls.small,
+                "width": Image.SMALL,
+                "height": int(round(ratio * Image.SMALL)),
+            },
+            {
+                **params,
+                "url": photo.urls.thumb,
+                "width": Image.THUMB,
+                "height": int(round(ratio * Image.THUMB)),
+            },
+        ]
+        image_values = [
+            OrderedDict(sorted(d.items(), key=lambda t: t[0])) for d in image_values
+        ]
+
+        columns = ", ".join(image_values[0].keys())
+        values = ",\n".join(f"({', '.join(im.values())})" for im in image_values)
+        updated_fields = ", ".join(f"{col} = {val}" for col, val in fields.items())
+        images = conn.fetch(
+            f"""INSERT INTO images AS im ({columns})
+            VALUES {values}
+            ON CONFLICT (url) DO UPDATE SET {updated_fields}
+            RETURNING *
+            """
+        )
+
+        if not images:
+            return None
+        return cls.get_optimal_image(images, width=width, height=height)
+
+    @staticmethod
+    def get_optimal_image(images, width=None, height=None):
+        if width:
+            return first(
+                images, key=lambda i: (i.get("width") or 0) >= width, default=images[0]
+            )
+        if height:
+            return first(
+                images,
+                key=lambda i: (i.get("height") or 0) >= height,
+                default=images[0],
+            )
+        return images[0]
+
+    @staticmethod
+    async def get_unsplash_photo(queries):
         photo = None
         for query in queries:
             try:
@@ -141,6 +258,15 @@ class ImageMixin:
             photo = (
                 await Unsplash.photo.random(query="music", orientation="squarish")
             )[0]
+        return photo
+
+    async def fetch_unsplash_image(self, width=None, height=None):
+        image = self.image(width, height)
+        if image:
+            return image
+
+        queries = self.get_image_queries()
+        photo = await self.get_unsplash_photo(queries)
         if photo is None:
             return None
 
