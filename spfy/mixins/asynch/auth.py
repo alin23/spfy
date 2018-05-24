@@ -192,7 +192,7 @@ class AuthMixin:
                         """INSERT INTO images (
                                 url, height, width, "user", unsplash_id,
                                 unsplash_user_fullname, unsplash_user_username
-                            ) VALUES ($1, $2, $3, '', $4, '', '', '')
+                            ) VALUES ($1, $2, $3, $4, '', '', '')
                             ON CONFLICT DO NOTHING""",
                         [
                             (i.url, i.height or None, i.width or None, user.id)
