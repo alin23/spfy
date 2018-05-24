@@ -39,6 +39,7 @@ class AuthMixin:
         client_secret=None,
         redirect_uri=None,
         user_id=None,
+        username=None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -46,6 +47,7 @@ class AuthMixin:
         self.client_secret = client_secret or config.app.client_secret
         self.redirect_uri = self._get_redirect_uri(redirect_uri)
         self.user_id = user_id
+        self.username = username
         self.callback_reached = threading.Event()
         self.flow = None
         self._session = None
@@ -107,7 +109,7 @@ class AuthMixin:
 
     async def update_user_token(self, token):
         async with self.async_db_session() as conn:
-            conn.execute(SQL.update_user_token, token, self.user_id)
+            await conn.execute(SQL.update_user_token, token, self.user_id)
 
     # pylint: disable=too-many-locals
     async def authenticate_user_pg(
@@ -118,6 +120,7 @@ class AuthMixin:
         state=None,
         auth_response=None,
         scope=AllScopes,
+        conn=None,
     ):
         self.flow = AuthFlow.AUTHORIZATION_CODE
         self.session = OAuth2Session(
@@ -126,7 +129,7 @@ class AuthMixin:
             scope=scope,
             auto_refresh_url=API.TOKEN.value,
         )
-        async with self.async_db_session() as conn:
+        async with self.async_db_session(conn=conn) as conn:
             if self.user_id:
                 user = await self.fetch_user(conn=conn)
                 if user and user.token:
@@ -138,6 +141,7 @@ class AuthMixin:
                 user = await self.fetch_user(conn=conn, username=username, email=email)
                 if user:
                     self.user_id = user.id
+                    self.username = user.username
                     self.session.token = user.token
                     self.session.token_updater = self.update_user_token
                     return user
@@ -181,6 +185,7 @@ class AuthMixin:
                 )
                 user = addict.Dict(dict(user))
                 self.user_id = user.id
+                self.username = user.username
 
                 if user_details.images:
                     await conn.executemany(
@@ -230,6 +235,7 @@ class AuthMixin:
                     user = get(u for u in User if u.email == email)
                 if user:
                     self.user_id = user.id
+                    self.username = user.username
                     self.session.token = user.token
                     self.session.token_updater = User.token_updater(user.id)
                     return self.session
@@ -258,6 +264,7 @@ class AuthMixin:
                     user.token = token
                     if user.id != self.user_id:
                         self.user_id = user.id
+                        self.username = user.username
                 elif self.user_id:
                     user = User.get_for_update(id=self.user_id)
                     if user:
@@ -267,6 +274,7 @@ class AuthMixin:
                     user_details["user_id"] = self.user_id
                     user_details["token"] = token
                     user = User.from_dict(user_details)
+                    self.username = user.username
                 return self.session
 
         return self.session
@@ -276,6 +284,7 @@ class AuthMixin:
         self.flow = AuthFlow.CLIENT_CREDENTIALS
         default_user = User.default()
         self.user_id = default_user.id
+        self.username = default_user.username
         self.session = OAuth2Session(client=BackendApplicationClient(self.client_id))
         self.session.token_updater = User.token_updater(default_user.id)
         if default_user.token:

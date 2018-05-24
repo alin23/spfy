@@ -29,6 +29,7 @@ class AuthMixin:
         client_secret=None,
         redirect_uri=None,
         user_id=None,
+        username=None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -36,6 +37,7 @@ class AuthMixin:
         self.client_secret = client_secret or config.app.client_secret
         self.redirect_uri = self._get_redirect_uri(redirect_uri)
         self.user_id = user_id
+        self.username = username
         self.callback_reached = threading.Event()
         self.flow = None
         self.session = None
@@ -100,6 +102,7 @@ class AuthMixin:
             user = get(u for u in User if u.username == username or u.email == email)
             if user:
                 self.user_id = user.id
+                self.username = user.username
                 session.token = user.token
                 session.token_updater = User.token_updater(user.id)
                 return session
@@ -127,6 +130,7 @@ class AuthMixin:
                 user.token = token
                 if user.id != self.user_id:
                     self.user_id = user.id
+                    self.username = user.username
             elif self.user_id:
                 user = User.get_for_update(id=self.user_id)
                 if user:
@@ -136,6 +140,7 @@ class AuthMixin:
                 user_details["user_id"] = self.user_id
                 user_details["token"] = token
                 user = User.from_dict(user_details)
+                self.username = user.username
             return session
 
         return session
@@ -145,6 +150,7 @@ class AuthMixin:
         self.flow = AuthFlow.CLIENT_CREDENTIALS
         default_user = User.default()
         self.user_id = default_user.id
+        self.username = default_user.username
         session = self.session or self.get_session(
             client=BackendApplicationClient(self.client_id)
         )

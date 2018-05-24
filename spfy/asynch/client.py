@@ -394,8 +394,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
             Parameters:
                 - artists - a list of  artist IDs, URIs or URLs
         """
-        artist_list = map(self._get_artist_id, artists)
-        return await self._get(API.ARTISTS.value, ids=",".join(artist_list), **kwargs)
+        artist_list = [self._get_artist_id(a) for a in artists]
+        batches = [artist_list[i : i + 50] for i in range(0, len(artist_list), 50)]
+        artist_lists = await asyncio.gather(
+            *[self._get(API.ARTISTS.value, ids=",".join(a), **kwargs) for a in batches]
+        )
+
+        return list(chain.from_iterable(artist_lists))
 
     async def artist_albums(
         self, artist_id, album_type=None, country=None, limit=20, offset=0, **kwargs

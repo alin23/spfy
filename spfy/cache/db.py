@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 import os
 import re
 import time
@@ -88,6 +89,24 @@ SQL = addict.Dict(
            SELECT country || '|CO' FROM country_haters coh WHERE coh."user" = $1
            UNION
            SELECT city || '|CI' FROM city_haters cih WHERE cih."user" = $1
+        """,
+        "like": """
+            DELETE FROM {0}_haters
+            WHERE "user" = $1 and {0} = $2
+        """,
+        "dislike_artist": """
+            WITH artist_id AS (
+                INSERT INTO artists AS a (id, name, followers, popularity)
+                VALUES ($2, $3, $4, $5)
+                ON CONFLICT DO NOTHING
+                RETURNING a.id
+            )
+                INSERT INTO {0}_haters ("user", {0})
+                VALUES ($1, $2)
+        """,
+        "dislike": """
+            INSERT INTO {0}_haters ("user", {0})
+            VALUES ($1, $2)
         """,
     }
 )
@@ -213,7 +232,7 @@ class ImageMixin:
         columns = ", ".join(image_values[0].keys())
         values = ",\n".join(f"({', '.join(im.values())})" for im in image_values)
         updated_fields = ", ".join(f"{col} = {val}" for col, val in fields.items())
-        images = conn.fetch(
+        images = await conn.fetch(
             f"""INSERT INTO images AS im ({columns})
             VALUES {values}
             ON CONFLICT (url) DO UPDATE SET {updated_fields}
@@ -475,6 +494,27 @@ class User(db.Entity, ImageMixin):
                 self.top_cities.add(city)
                 self.disliked_cities.remove(city)
 
+    @classmethod
+    async def like_pg(cls, conn, user_id, **kwargs):
+        for key, value in kwargs.items():
+            await conn.execute(SQL.like.format(key), user_id, value)
+
+    @classmethod
+    async def dislike_pg(cls, conn, spotify, **kwargs):
+        artist = kwargs.pop("artist", None)
+        if artist:
+            artist = await spotify.artist(artist)
+            await conn.execute(
+                SQL.dislike_artist.format("artist"),
+                spotify.user_id,
+                artist.id,
+                artist.name,
+                artist.followers.total or 0,
+                artist.popularity or 0,
+            )
+        for key, value in kwargs.items():
+            await conn.execute(SQL.dislike.format(key), spotify.user_id, value)
+
     def top_expired(self, time_range):
         time_range = TimeRange(time_range).value
         return (
@@ -561,6 +601,20 @@ class Image(db.Entity):
         color = ColorThief(image_file).get_color(quality=1)
         return f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
 
+    @classmethod
+    async def download_pg(cls, conn, url):
+        unsplash_id = await conn.fetchval(
+            "SELECT unsplash_id FROM images WHERE url = $1", url
+        )
+        image = None
+        async with aiohttp.ClientSession() as client:
+            async with client.get(url) as resp:
+                _, image = await asyncio.gather(
+                    Unsplash.photo.download(unsplash_id, without_content=True),
+                    resp.read(),
+                )
+        return image
+
     async def download(self):
         image = None
         async with aiohttp.ClientSession() as client:
@@ -630,7 +684,14 @@ class Country(db.Entity, ImageMixin):
     @classmethod
     def get_iso_country(cls, name=None, code=None):
         iso_country = None
-        if name == "UK":
+        if code is not None:
+            try:
+                iso_country = countries.get(alpha_2=code)
+            except KeyError:
+                iso_country = first(
+                    countries, key=lambda c: code.lower() in c.alpha_2.lower()
+                )
+        elif name == "UK":
             iso_country = countries.get(alpha_2="GB")
         elif name == "USA":
             iso_country = countries.get(alpha_2="US")
@@ -647,13 +708,6 @@ class Country(db.Entity, ImageMixin):
                         iso_country = first(
                             countries, key=lambda c: cls._name_match(c, name.lower())
                         )
-        elif code is not None:
-            try:
-                iso_country = countries.get(alpha_2=code)
-            except KeyError:
-                iso_country = first(
-                    countries, key=lambda c: code.lower() in c.alpha_2.lower()
-                )
         if not iso_country:
             logger.error(
                 "Could not find a country with name=%s and code=%s", name, code
