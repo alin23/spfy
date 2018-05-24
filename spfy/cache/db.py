@@ -569,21 +569,24 @@ class Image(db.Entity):
 
     # pylint: disable=no-self-use
 
-    def unsplash_url(self):
+    @classmethod
+    def unsplash_url(cls):
         return (
             f"https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral"
         )
 
-    def unsplash_user_url(self):
+    @classmethod
+    def unsplash_user_url(cls, username):
         return (
-            f"https://unsplash.com/@{self.unsplash_user_username}?utm_source={config.unsplash.app_name}&utm_medium=referral"
+            f"https://unsplash.com/@{username}?utm_source={config.unsplash.app_name}&utm_medium=referral"
         )
 
-    def unsplash_credits(self):
+    @classmethod
+    def unsplash_credits(cls, user_fullname, username):
         return {
-            "user_name": self.unsplash_user_fullname,
-            "user_url": self.unsplash_user_url(),
-            "site_url": self.unsplash_url(),
+            "user_name": user_fullname,
+            "user_url": cls.unsplash_user_url(username),
+            "site_url": cls.unsplash_url(),
         }
 
     @staticmethod
