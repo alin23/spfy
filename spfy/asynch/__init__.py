@@ -5,7 +5,22 @@ import asyncio
 from itertools import islice
 
 
-async def limited_as_completed(coros, limit, ignore_exception=False):
+class LimitedAsCompletedError(Exception):
+
+    def __init__(self, *args, original_exc=None, remaining_futures=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.original_exc = original_exc
+        self.remaining_futures = remaining_futures
+
+
+def should_ignore_exception(exc, ignore_exceptions):
+    return ignore_exceptions is True or (
+        isinstance(ignore_exceptions, (tuple, Exception))
+        and isinstance(exc, ignore_exceptions)
+    )
+
+
+async def limited_as_completed(coros, limit, ignore_exceptions=False):
     """
     Run the coroutines (or futures) supplied in the
     iterable coros, ensuring that there are at most
@@ -18,7 +33,7 @@ async def limited_as_completed(coros, limit, ignore_exception=False):
     """
     futures = [asyncio.ensure_future(c) for c in islice(coros, 0, limit)]
 
-    async def first_to_finish(ignore_exception=False):
+    async def first_to_finish(ignore_exceptions=False):
         while True:
             await asyncio.sleep(0)
             for f in futures:
@@ -32,14 +47,16 @@ async def limited_as_completed(coros, limit, ignore_exception=False):
                     try:
                         return f.result()
                     except Exception as exc:
-                        if ignore_exception:
+                        if should_ignore_exception(exc, ignore_exceptions):
                             logger.warning("Ignoring exception:")
                             logger.exception(exc)
                             return None
-                        raise exc
+                        raise LimitedAsCompletedError(
+                            *exc.args, original_exc=exc, remaining_futures=futures
+                        )
 
     while futures:
-        yield await first_to_finish(ignore_exception=ignore_exception)
+        yield await first_to_finish(ignore_exceptions=ignore_exceptions)
 
 
 from .client import SpotifyClient  # isort:skip

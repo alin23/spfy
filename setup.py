@@ -33,7 +33,7 @@ REQUIRES = [
     'kick',
     'cachecontrol',
     'lockfile',
-    'python-unsplash-async',
+    'python-unsplash-async>=1.0.3',
     'aiohttp',
     'psycopg2-binary',
     'pycountry',

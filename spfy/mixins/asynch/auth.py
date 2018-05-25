@@ -13,7 +13,8 @@ from oauthlib.oauth2 import BackendApplicationClient
 from aiohttp.web_runner import GracefulExit
 
 from ... import root, config, logger
-from ...cache import SQL, User, Country
+from ...sql import SQL
+from ...cache import User, Country
 from ...constants import API, AuthFlow, AllScopes
 from ...exceptions import SpotifyCredentialsException
 from .aiohttp_oauthlib import OAuth2Session
@@ -163,7 +164,7 @@ class AuthMixin:
                 else:
                     birthdate = None
 
-                iso_country = Country.get_iso_country(code=user_details.country)
+                iso_country = Country.get_iso_country(user_details.country)
                 if not iso_country:
                     country_name = country_code = user_details.country
                 else:
@@ -203,6 +204,42 @@ class AuthMixin:
                 return user
 
         return None
+
+    async def authenticate_server_pg(self, conn=None):
+        async with self.async_db_session(conn=conn) as conn:
+            self.flow = AuthFlow.CLIENT_CREDENTIALS
+
+            USA = Country.get_iso_country("US")
+            upsert_user_stmt = await conn.prepare(SQL.upsert_user)
+            default_user = await upsert_user_stmt.fetchrow(
+                User.DEFAULT_USERID,
+                User.DEFAULT_EMAIL,
+                User.DEFAULT_USERNAME,
+                USA.alpha_2,
+                User.DEFAULT_USERNAME,
+                None,
+                {},
+                False,
+                USA.alpha_2,
+                USA.name,
+            )
+            default_user = addict.Dict(dict(default_user))
+
+            self.user_id = default_user.id
+            self.username = default_user.username
+            self.session = OAuth2Session(
+                client=BackendApplicationClient(self.client_id)
+            )
+            self.session.token_updater = self.update_user_token
+            if default_user.token:
+                self.session.token = default_user.token
+            else:
+                default_user.token = await self.session.fetch_token(
+                    token_url=API.TOKEN.value,
+                    client_id=self.client_id,
+                    client_secret=self.client_secret,
+                )
+            return self.session
 
     async def authenticate_user(
         self,
