@@ -314,7 +314,7 @@ class RecommenderMixin:
                 and artist.id not in ignore
             ]
             if limit:
-                top_artists = random.sample(top_artists, limit)
+                top_artists = random.sample(top_artists, min(limit, len(top_artists)))
 
             return top_artists
 
@@ -327,7 +327,7 @@ class RecommenderMixin:
         if ignore:
             genres -= set(ignore)
         if limit:
-            genres = random.sample(genres, limit)
+            genres = random.sample(genres, min(limit, len(genres)))
 
         return list(genres)
 
