@@ -124,7 +124,7 @@ class ImageMixin:
 
     @classmethod
     async def get_image_fields(cls, image_key=None, **fields):
-        logger.debug("Getting image for key=%s %s", image_key, fields)
+        logger.info("Getting image for key=%s %s", image_key, fields)
 
         key = image_key or " ".join(str(v) for v in fields.values())
         queries = cls.get_image_queries_pg(key)

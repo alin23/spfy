@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import fire
 import kick
-from pony.orm import db_session
 
 from .. import APP_NAME, config, logger
 from .client import SpotifyClient
@@ -59,8 +58,7 @@ def main():
         Spotify.cli = True
         Spotify.loop = asyncio.get_event_loop()
         spotify = Spotify()
-        with db_session:
-            fire.Fire(spotify)
+        fire.Fire(spotify)
     except KeyboardInterrupt:
         print("Quitting")
     finally:
