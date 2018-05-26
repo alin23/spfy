@@ -113,8 +113,8 @@ class ImageMixin:
     def get_image_queries_pg(cls, key):
         words = key.split()
         stems = [[w[:i] for i in range(len(w), 2, -1)] for w in words]
-        queries = [*words, key, *sum(stems, [])]
-        return [f"{query} music" for query in queries]
+        queries = [key, *words, *sum(stems, [])]
+        return queries + [f"{query} music" for query in queries]
 
     def get_image_queries(self):
         words = self.name.split()
