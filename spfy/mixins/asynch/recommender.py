@@ -10,7 +10,7 @@ from collections import defaultdict
 from pony.orm import get, select, db_session
 from pony.orm.core import CacheIndexError
 
-from unsplash.errors import UnsplashError
+from unsplash.errors import UnsplashError, UnsplashConnectionError
 
 from ... import logger
 from ...sql import SQL
@@ -150,7 +150,9 @@ class RecommenderMixin:
 
             try:
                 async for resp in limited_as_completed(
-                    reqs_iterator, concurrency_limit, ignore_exceptions=UnsplashError
+                    reqs_iterator,
+                    concurrency_limit,
+                    ignore_exceptions=(UnsplashError, UnsplashConnectionError),
                 ):
                     if not resp:
                         continue

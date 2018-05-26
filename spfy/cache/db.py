@@ -34,6 +34,8 @@ from colorthief import ColorThief
 from pony.orm.core import CacheIndexError
 from psycopg2.extensions import register_adapter
 
+from unsplash.errors import UnsplashError, UnsplashConnectionError
+
 from .. import Unsplash, config, logger
 from ..sql import SQL, SQL_DEFAULT
 from ..constants import TimeRange
@@ -227,16 +229,24 @@ class ImageMixin:
     async def get_unsplash_photo(queries):
         photo = None
         for query in queries:
-            photos = await Unsplash.photo.random(query=query, orientation="squarish")
+            try:
+                photos = await Unsplash.photo.random(
+                    query=query, orientation="squarish"
+                )
+            except (UnsplashError, UnsplashConnectionError):
+                continue
 
             if photos:
                 photo = photos[0]
                 break
 
         else:
-            photo = (
-                await Unsplash.photo.random(query="music", orientation="squarish")
-            )[0]
+            try:
+                photo = (
+                    await Unsplash.photo.random(query="music", orientation="squarish")
+                )[0]
+            except (UnsplashError, UnsplashConnectionError):
+                photo = None
         return photo
 
     async def fetch_unsplash_image(self, width=None, height=None):
