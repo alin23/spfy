@@ -195,16 +195,12 @@ class ImageMixin:
             """,
             *updated_fields.values(),
         )
-        return images
+        return [dict(i) for i in images]
 
     @classmethod
     async def fetch_unsplash_image_pg(
         cls, conn, width=None, height=None, image_key=None, **fields
     ):
-        image = await cls.image_pg(conn, width=width, height=height, **fields)
-        if image:
-            return image
-
         image_fields, updated_fields = await cls.get_image_fields(image_key, **fields)
         images = await cls.upsert_unsplash_image(conn, image_fields, **updated_fields)
 
@@ -214,6 +210,7 @@ class ImageMixin:
 
     @staticmethod
     def get_optimal_image(images, width=None, height=None):
+        images = sorted(images, key=lambda i: i.get("width" or 0))
         if width:
             return first(
                 images, key=lambda i: (i.get("width") or 0) >= width, default=images[0]
