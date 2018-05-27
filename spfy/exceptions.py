@@ -60,3 +60,7 @@ class SpotifyAuthException(Exception):
         return """
         You need to authenticate before making any request.
         """
+
+
+class NoDatabaseConnection(Exception):
+    pass

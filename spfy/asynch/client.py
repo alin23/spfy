@@ -1,5 +1,6 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
+import random
 import signal
 import asyncio
 import logging
@@ -40,6 +41,7 @@ from ..constants import (
 )
 from ..exceptions import (
     SpotifyException,
+    NoDatabaseConnection,
     SpotifyAuthException,
     SpotifyForbiddenException,
     SpotifyRateLimitException,
@@ -66,7 +68,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         proxy=None,
         requests_timeout=None,
         redis=None,
-        dbpool=None,
+        dbpools=None,
         **kwargs,
     ):
         """
@@ -79,7 +81,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         self.proxy = proxy
         self.requests_timeout = requests_timeout
         self.redis = redis
-        self.dbpool = dbpool
+        self.dbpools = dbpools
 
     @db_session
     def _increment_api_call_count(self):
@@ -113,22 +115,33 @@ class SpotifyClient(AuthMixin, EmailMixin):
     @asynccontextmanager
     async def async_db_session(self, conn=None):
         await self.ensure_db_pool()
-        connection = conn or await self.dbpool.acquire()
-        try:
-            async with connection.transaction():
-                yield connection
-        finally:
-            if not conn:
-                await self.dbpool.release(connection)
+        if conn:
+            async with conn.transaction():
+                yield conn
+        else:
+            for dbpool in random.sample(self.dbpools, len(self.dbpools)):
+                try:
+                    conn = await dbpool.acquire(timeout=1.5)
+                except asyncio.TimeoutError:
+                    continue
+
+                try:
+                    async with conn.transaction():
+                        yield conn
+                        break
+                finally:
+                    await dbpool.release(conn)
+            else:
+                raise NoDatabaseConnection
 
     async def ensure_db_pool(self):
-        if not self.dbpool and config.database.connection.provider == "postgres":
+        if not self.dbpools and config.database.connection.provider == "postgres":
             db_config = {
                 k: v for k, v in config.database.connection.items() if k != "provider"
             }
-            self.dbpool = await asyncpg.create_pool(
-                **db_config, init=init_db_connection
-            )
+            self.dbpools = [
+                await asyncpg.create_pool(**db_config, init=init_db_connection)
+            ]
 
     async def ensure_redis_pool(self):
         if not self.redis:
@@ -146,8 +159,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             )
 
     async def release_resources(self):
-        if self.dbpool:
-            await self.dbpool.close()
+        if self.dbpools:
+            await asyncio.gather(*[dbpool.close() for dbpool in self.dbpools])
+
         if self.redis:
             try:
                 self.redis.close()

@@ -348,7 +348,9 @@ class RecommenderMixin:
     async def order_by(self, features, tracks):
         audio_features = await self.audio_features(tracks=tracks)
         track_ids = [a.id for a in audio_features]
-        audio_features = [a.to_dict(list(features.keys())) for a in audio_features]
+        audio_features = [
+            {feature: a[feature] for feature in features.keys()} for a in audio_features
+        ]
         audio_features = normalize_features(audio_features, track_ids)
         for feature, direction in features.items():
             audio_features[feature] *= direction
