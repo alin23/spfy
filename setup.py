@@ -30,7 +30,7 @@ REQUIRES = [
     'mailer',
     'pony',
     'cached_property',
-    'kick',
+    'kick>=0.3.3',
     'cachecontrol',
     'lockfile',
     'python-unsplash-async>=1.0.4',
