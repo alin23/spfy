@@ -68,7 +68,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
         proxy=None,
         requests_timeout=None,
         redis=None,
-        dbpools=None,
+        dbpool=None,
+        readonly_dbpools=None,
         **kwargs,
     ):
         """
@@ -81,7 +82,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
         self.proxy = proxy
         self.requests_timeout = requests_timeout
         self.redis = redis
-        self.dbpools = dbpools
+        self.dbpool = dbpool
+        self.readonly_dbpools = readonly_dbpools or []
 
     @db_session
     def _increment_api_call_count(self):
@@ -113,13 +115,19 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 raise SpotifyException(**exception_params)
 
     @asynccontextmanager
-    async def async_db_session(self, conn=None):
+    async def async_db_session(self, conn=None, readonly=False):
         await self.ensure_db_pool()
+
         if conn:
             async with conn.transaction():
                 yield conn
         else:
-            for dbpool in random.sample(self.dbpools, len(self.dbpools)):
+            if readonly:
+                pools = [self.dbpool, *self.readonly_dbpools]
+            else:
+                pools = [self.dbpool]
+
+            for dbpool in random.sample(pools, len(pools)):
                 try:
                     conn = await dbpool.acquire(timeout=1.5)
                 except asyncio.TimeoutError:
@@ -135,12 +143,17 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 raise NoDatabaseConnection
 
     async def ensure_db_pool(self):
-        if not self.dbpools and config.database.connection.provider == "postgres":
+        if not self.dbpool and config.database.connection.provider == "postgres":
             db_config = {
                 k: v for k, v in config.database.connection.items() if k != "provider"
             }
-            self.dbpools = [
+            self.dbpool = await asyncpg.create_pool(
+                **db_config, init=init_db_connection
+            )
+        if not self.readonly_dbpools and config.database.replica:
+            self.readonly_dbpools = [
                 await asyncpg.create_pool(**db_config, init=init_db_connection)
+                for db_config in config.database.replica
             ]
 
     async def ensure_redis_pool(self):
