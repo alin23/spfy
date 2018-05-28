@@ -1,4 +1,5 @@
 from typing import Dict, List
+from itertools import chain, repeat
 
 import pandas as pd
 
@@ -36,3 +37,8 @@ def normalize_features(
     if AudioFeature.POPULARITY.value in data:
         data.popularity /= MAX_POPULARITY
     return data
+
+
+def ncycles(iterable, n):
+    "Returns the sequence elements n times"
+    return chain.from_iterable(repeat(tuple(iterable), n))

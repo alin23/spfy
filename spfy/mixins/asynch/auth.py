@@ -79,23 +79,24 @@ class AuthMixin:
         if not (self.user_id or fields):
             return None
 
-        async with self.async_db_session(conn, readonly=True) as dbconn:
-            user = None
-            fields = {f: v for f, v in fields.items() if f}
+        user = None
+        fields = {f: v for f, v in fields.items() if f}
 
-            if self.user_id and not fields:
+        if self.user_id and not fields:
+            async with self.async_db_session(conn, readonly=True) as dbconn:
                 user_stmt = await dbconn.prepare(SQL.user)
                 user = await user_stmt.fetchrow(self.user_id)
-            else:
-                condition = f" {op} ".join(
-                    f"{field} = ${i + 1}" for i, field in enumerate(fields.keys())
-                )
+        else:
+            condition = f" {op} ".join(
+                f"{field} = ${i + 1}" for i, field in enumerate(fields.keys())
+            )
+            async with self.async_db_session(conn, readonly=True) as dbconn:
                 user = await dbconn.fetchrow(
                     f"SELECT * FROM users WHERE {condition}", *fields.values()
                 )
 
-            if not user:
-                return None
+        if not user:
+            return None
 
         return addict.Dict(dict(user))
 
@@ -201,7 +202,7 @@ class AuthMixin:
                             if i.url
                         ],
                     )
-                return user
+            return user
 
         return None
 
@@ -223,23 +224,21 @@ class AuthMixin:
                 USA.alpha_2,
                 USA.name,
             )
-            default_user = addict.Dict(dict(default_user))
+        default_user = addict.Dict(dict(default_user))
 
-            self.user_id = default_user.id
-            self.username = default_user.username
-            self.session = OAuth2Session(
-                client=BackendApplicationClient(self.client_id)
+        self.user_id = default_user.id
+        self.username = default_user.username
+        self.session = OAuth2Session(client=BackendApplicationClient(self.client_id))
+        self.session.token_updater = self.update_user_token
+        if default_user.token:
+            self.session.token = default_user.token
+        else:
+            default_user.token = await self.session.fetch_token(
+                token_url=API.TOKEN.value,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
             )
-            self.session.token_updater = self.update_user_token
-            if default_user.token:
-                self.session.token = default_user.token
-            else:
-                default_user.token = await self.session.fetch_token(
-                    token_url=API.TOKEN.value,
-                    client_id=self.client_id,
-                    client_secret=self.client_secret,
-                )
-            return self.session
+        return self.session
 
     async def authenticate_user(
         self,

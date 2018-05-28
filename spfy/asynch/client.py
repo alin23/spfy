@@ -28,6 +28,7 @@ from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 import ujson as json
 
 from .. import config, logger
+from ..util import ncycles
 from ..cache import Playlist, AudioFeatures, select, async_lru, db_session
 from .result import SpotifyResult
 from ..mixins import EmailMixin
@@ -127,17 +128,21 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 pools = [self.dbpool]
 
-            for dbpool in random.sample(pools, len(pools)):
+            max_cycles = int(60 / (config.database.acquire_timeout * len(pools)))
+            for dbpool in ncycles(random.sample(pools, len(pools)), max_cycles):
                 try:
                     conn = await dbpool.acquire(timeout=config.database.acquire_timeout)
                 except asyncio.TimeoutError:
                     continue
+                else:
+                    logger.debug("Acquired conn %s", conn)
 
                 try:
                     async with conn.transaction():
                         yield conn
                         break
                 finally:
+                    logger.debug("Releasing conn %s", conn)
                     await dbpool.release(conn)
             else:
                 raise NoDatabaseConnection
