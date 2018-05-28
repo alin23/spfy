@@ -129,7 +129,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
             for dbpool in random.sample(pools, len(pools)):
                 try:
-                    conn = await dbpool.acquire(timeout=1.5)
+                    conn = await dbpool.acquire(timeout=config.database.acquire_timeout)
                 except asyncio.TimeoutError:
                     continue
 

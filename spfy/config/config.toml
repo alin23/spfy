@@ -11,6 +11,7 @@ retries = 3
 
 [database]
 generate_mapping = true
+acquire_timeout = 1.0
 
 [database.connection]
 provider = "sqlite"
