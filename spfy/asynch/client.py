@@ -150,11 +150,23 @@ class SpotifyClient(AuthMixin, EmailMixin):
             self.dbpool = await asyncpg.create_pool(
                 **db_config, init=init_db_connection
             )
+            logger.info(
+                "Created DB Pool with min=%d max=%s",
+                self.dbpool._minsize,
+                self.dbpool._maxsize,
+            )
+
         if not self.readonly_dbpools and config.database.replica:
             self.readonly_dbpools = [
                 await asyncpg.create_pool(**db_config, init=init_db_connection)
                 for db_config in config.database.replica
             ]
+            for pool in self.readonly_dbpools:
+                logger.info(
+                    "Created Read-Only DB Pool with min=%d max=%s",
+                    pool._minsize,
+                    pool._maxsize,
+                )
 
     async def ensure_redis_pool(self):
         if not self.redis:
