@@ -79,7 +79,7 @@ class AuthMixin:
         if not (self.user_id or fields):
             return None
 
-        async with self.async_db_session(conn) as dbconn:
+        async with self.async_db_session(conn, readonly=True) as dbconn:
             user = None
             fields = {f: v for f, v in fields.items() if f}
 
@@ -130,47 +130,47 @@ class AuthMixin:
             scope=scope,
             auto_refresh_url=API.TOKEN.value,
         )
-        async with self.async_db_session(conn=conn) as conn:
-            if self.user_id:
-                user = await self.fetch_user(conn=conn)
-                if user and user.token:
-                    self.session.token = user.token
-                    self.session.token_updater = self.update_user_token
-                    return user
-
-            if username or email:
-                user = await self.fetch_user(conn=conn, username=username, email=email)
-                if user:
-                    self.user_id = user.id
-                    self.username = user.username
-                    self.session.token = user.token
-                    self.session.token_updater = self.update_user_token
-                    return user
-
-            if code or auth_response:
-                token = await self.session.fetch_token(
-                    token_url=API.TOKEN.value,
-                    client_id=self.client_id,
-                    client_secret=self.client_secret,
-                    code=code,
-                    state=state,
-                    authorization_response=auth_response,
-                )
+        if self.user_id:
+            user = await self.fetch_user()
+            if user and user.token:
+                self.session.token = user.token
                 self.session.token_updater = self.update_user_token
+                return user
 
-                user_details = await self.current_user()
-                if user_details.birthdate:
-                    birthdate = datetime.strptime(user_details.birthdate, "%Y-%m-%d")
-                else:
-                    birthdate = None
+        if username or email:
+            user = await self.fetch_user(username=username, email=email)
+            if user:
+                self.user_id = user.id
+                self.username = user.username
+                self.session.token = user.token
+                self.session.token_updater = self.update_user_token
+                return user
 
-                iso_country = Country.get_iso_country(user_details.country)
-                if not iso_country:
-                    country_name = country_code = user_details.country
-                else:
-                    country_name = iso_country.name
-                    country_code = iso_country.alpha_2
+        if code or auth_response:
+            token = await self.session.fetch_token(
+                token_url=API.TOKEN.value,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+                code=code,
+                state=state,
+                authorization_response=auth_response,
+            )
+            self.session.token_updater = self.update_user_token
 
+            user_details = await self.current_user()
+            if user_details.birthdate:
+                birthdate = datetime.strptime(user_details.birthdate, "%Y-%m-%d")
+            else:
+                birthdate = None
+
+            iso_country = Country.get_iso_country(user_details.country)
+            if not iso_country:
+                country_name = country_code = user_details.country
+            else:
+                country_name = iso_country.name
+                country_code = iso_country.alpha_2
+
+            async with self.async_db_session(conn=conn) as conn:
                 upsert_user_stmt = await conn.prepare(SQL.upsert_user)
                 user = await upsert_user_stmt.fetchrow(
                     self.user_id or uuid.uuid4(),
