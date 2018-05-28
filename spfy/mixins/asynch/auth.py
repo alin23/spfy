@@ -79,7 +79,7 @@ class AuthMixin:
         if not (self.user_id or fields):
             return None
 
-        async with self.async_db_session(conn) as dbconn:
+        async with self.async_db_session(conn, readonly=True) as dbconn:
             user = None
             fields = {f: v for f, v in fields.items() if f}
 

@@ -298,27 +298,28 @@ class RecommenderMixin:
     async def top_artists_pg(
         self, time_range=TimeRange.SHORT_TERM, ignore=None, limit=None, conn=None
     ):
-        async with self.async_db_session(conn=conn) as conn:
+        async with self.async_db_session(conn=conn, readonly=True) as conn:
             dislikes_stmt = await conn.prepare(SQL.user_artist_genre_dislikes)
             dislikes = await dislikes_stmt.fetch(self.user_id)
-            disliked_artists = {row[0][:-3] for row in dislikes if row[0][-2:] == "AR"}
-            disliked_genres = {row[0][:-3] for row in dislikes if row[0][-2:] == "GE"}
-            top_artists = await self.current_user_top_artists(
-                limit=50, time_range=time_range
-            )
-            ignore = set(ignore or [])
-            top_artists = [
-                artist
-                for artist in top_artists
-                if not self.is_disliked_artist(
-                    artist, disliked_artists, disliked_genres
-                )
-                and artist.id not in ignore
-            ]
-            if limit:
-                top_artists = random.sample(top_artists, min(limit, len(top_artists)))
 
-            return top_artists
+        disliked_artists = {row[0][:-3] for row in dislikes if row[0][-2:] == "AR"}
+        disliked_genres = {row[0][:-3] for row in dislikes if row[0][-2:] == "GE"}
+        top_artists = await self.current_user_top_artists(
+            limit=50, time_range=time_range
+        )
+        ignore = set(ignore or [])
+        top_artists = [
+            artist
+            for artist in top_artists
+            if not self.is_disliked_artist(
+                artist, disliked_artists, disliked_genres
+            )
+            and artist.id not in ignore
+        ]
+        if limit:
+            top_artists = random.sample(top_artists, min(limit, len(top_artists)))
+
+        return top_artists
 
     async def top_genres_pg(
         self, time_range=TimeRange.SHORT_TERM, ignore=None, limit=None, conn=None
