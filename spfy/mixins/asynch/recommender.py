@@ -311,9 +311,7 @@ class RecommenderMixin:
         top_artists = [
             artist
             for artist in top_artists
-            if not self.is_disliked_artist(
-                artist, disliked_artists, disliked_genres
-            )
+            if not self.is_disliked_artist(artist, disliked_artists, disliked_genres)
             and artist.id not in ignore
         ]
         if limit:
