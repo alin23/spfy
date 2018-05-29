@@ -1,6 +1,5 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
-import random
 import signal
 import asyncio
 import logging
@@ -28,7 +27,7 @@ from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 import ujson as json
 
 from .. import config, logger
-from ..util import ncycles
+from ..util import function_trace
 from ..cache import Playlist, AudioFeatures, select, async_lru, db_session
 from .result import SpotifyResult
 from ..mixins import EmailMixin
@@ -128,24 +127,41 @@ class SpotifyClient(AuthMixin, EmailMixin):
             else:
                 pools = [self.dbpool]
 
-            max_cycles = int(60 / (config.database.acquire_timeout * len(pools)))
-            for dbpool in ncycles(random.sample(pools, len(pools)), max_cycles):
-                try:
-                    conn = await dbpool.acquire(timeout=config.database.acquire_timeout)
-                except asyncio.TimeoutError:
-                    continue
-                else:
-                    logger.debug("Acquired conn %s", conn)
+            done, pending = await asyncio.wait(
+                [pool.acquire(timeout=60) for pool in pools],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
 
-                try:
-                    async with conn.transaction():
-                        yield conn
-                        break
-                finally:
-                    logger.debug("Releasing conn %s", conn)
-                    await dbpool.release(conn)
-            else:
+            acquired_connections = sum(not t.exception() for t in done)
+            logger.debug(
+                "%s\n\tAcquired connections: %d", function_trace(), acquired_connections
+            )
+            if not acquired_connections:
                 raise NoDatabaseConnection
+
+            conn_task = first(done, lambda t: not t.exception())
+
+            unused_tasks = done - {conn_task}
+            if unused_tasks:
+
+                async def release(task):
+                    if task.exception():
+                        logger.debug(task.exception())
+                        return
+                    conn = task.result()
+                    await conn._holder._pool.release(conn)
+
+                await asyncio.gather(*[release(task) for task in unused_tasks])
+
+            try:
+                conn = conn_task.result()
+                async with conn.transaction():
+                    yield conn
+            finally:
+                logger.debug("%s\n\tReleasing conn %s", function_trace(), conn)
+                await conn._holder._pool.release(conn)
 
     async def ensure_db_pool(self):
         if not self.dbpool and config.database.connection.provider == "postgres":

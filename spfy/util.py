@@ -1,3 +1,4 @@
+import inspect
 from typing import Dict, List
 from itertools import chain, repeat
 
@@ -42,3 +43,7 @@ def normalize_features(
 def ncycles(iterable, n):
     "Returns the sequence elements n times"
     return chain.from_iterable(repeat(tuple(iterable), n))
+
+
+def function_trace():
+    return " -> ".join(f.function for f in reversed(inspect.stack()[1:]))
