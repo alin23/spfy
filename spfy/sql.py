@@ -89,7 +89,7 @@ SQL = addict.Dict(
 SQL_DEFAULT = addict.Dict(
     {
         "uuid4": "gen_random_uuid()" if POSTGRES else None,
-        "now": "now()" if POSTGRES else None,
+        "now": "(now() at time zone 'utc')" if POSTGRES else None,
         "bool_false": "FALSE" if POSTGRES else "0",
         "bool_true": "TRUE" if POSTGRES else "1",
     }
