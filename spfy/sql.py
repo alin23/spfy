@@ -59,10 +59,12 @@ SQL = addict.Dict(
             )
                 INSERT INTO {0}_haters ("user", {0})
                 VALUES ($1, $2)
+                ON CONFLICT DO NOTHING
         """,
         "dislike": """
             INSERT INTO {0}_haters ("user", {0})
             VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
         """,
         "upsert_genre": """
             INSERT INTO genres (name) VALUES $1
