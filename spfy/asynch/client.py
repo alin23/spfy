@@ -433,10 +433,17 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 - tracks - a list of spotify URIs, URLs or IDs
                 - market - an ISO 3166-1 alpha-2 country code.
         """
-        track_list = map(self._get_track_id, tracks)
-        return await self._get(
-            API.TRACKS.value, ids=",".join(track_list), market=market, **kwargs
+        track_list = [self._get_track_id(t) for t in tracks]
+
+        batches = [track_list[i : i + 50] for i in range(0, len(track_list), 50)]
+        track_lists = await asyncio.gather(
+            *[
+                self._get(API.TRACKS.value, ids=",".join(t), market=market, **kwargs)
+                for t in batches
+            ]
         )
+
+        return list(chain.from_iterable(track_lists))
 
     async def artist(self, artist_id, **kwargs):
         """ returns a single artist given the artist's ID, URI or URL

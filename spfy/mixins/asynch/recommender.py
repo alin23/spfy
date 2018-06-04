@@ -345,10 +345,23 @@ class RecommenderMixin:
             return self.user.top_genres
 
     async def order_by(self, features, tracks):
-        audio_features = await self.audio_features(tracks=tracks)
-        track_ids = [a.id for a in audio_features]
+        if tracks and isinstance(tracks[0], str):
+            tracks = list(set(tracks))
+
+        audio_features, tracks = await asyncio.gather(
+            self.audio_features(tracks=tracks), self.tracks(tracks=tracks)
+        )
+
+        audio_features_by_id = {a.id: a.to_dict() for a in audio_features if a}
+        for track in tracks:
+            track_features = audio_features_by_id.get(track.id)
+            if track_features and track_features.get("popularity") is None:
+                track_features["popularity"] = track.popularity or 0
+
+        track_ids = list(audio_features_by_id.keys())
         audio_features = [
-            {feature: a[feature] for feature in features.keys()} for a in audio_features
+            {feature: a.get(feature) or 0 for feature in features.keys()}
+            for a in audio_features_by_id.values()
         ]
         audio_features = normalize_features(audio_features, track_ids)
         for feature, direction in features.items():
