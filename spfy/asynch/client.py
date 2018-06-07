@@ -169,7 +169,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 k: v for k, v in config.database.connection.items() if k != "provider"
             }
             self.dbpool = await asyncpg.create_pool(
-                **db_config, init=init_db_connection
+                **db_config, **(config.database.pool or {}), init=init_db_connection
             )
             logger.info(
                 "Created DB Pool with min=%d max=%s",
