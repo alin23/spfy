@@ -295,15 +295,27 @@ class RecommenderMixin:
                 genre=genre, popularity=Playlist.Popularity(popularity).value
             )
 
-    async def top_artists_pg(
-        self, time_range=TimeRange.SHORT_TERM, ignore=None, limit=None, conn=None
-    ):
+    async def get_dislikes_for_filtering(self, conn=None):
         async with self.async_db_session(conn=conn, readonly=True) as conn:
             dislikes_stmt = await conn.prepare(SQL.user_artist_genre_dislikes)
             dislikes = await dislikes_stmt.fetch(self.user_id)
 
         disliked_artists = {row[0][:-3] for row in dislikes if row[0][-2:] == "AR"}
         disliked_genres = {row[0][:-3] for row in dislikes if row[0][-2:] == "GE"}
+        return disliked_artists, disliked_genres
+
+    async def top_artists_pg(
+        self,
+        time_range=TimeRange.SHORT_TERM,
+        ignore=None,
+        limit=None,
+        conn=None,
+        dislikes=None,
+    ):
+
+        disliked_artists, disliked_genres = (
+            dislikes or await self.get_dislikes_for_filtering(conn)
+        )
         top_artists = await self.current_user_top_artists(
             limit=50, time_range=time_range
         )
@@ -320,9 +332,16 @@ class RecommenderMixin:
         return top_artists
 
     async def top_genres_pg(
-        self, time_range=TimeRange.SHORT_TERM, ignore=None, limit=None, conn=None
+        self,
+        time_range=TimeRange.SHORT_TERM,
+        ignore=None,
+        limit=None,
+        conn=None,
+        dislikes=None,
     ):
-        artists = await self.top_artists_pg(time_range=time_range, conn=conn)
+        artists = await self.top_artists_pg(
+            time_range=time_range, conn=conn, dislikes=dislikes
+        )
         genres = set(chain.from_iterable(artist.genres for artist in artists))
 
         if ignore:
