@@ -67,6 +67,7 @@ class SpotifyResultIterator:
         for item in self.result:
             yield item
 
+        # pylint: disable=not-an-iterable
         async for responses in self.responses:
             if responses is None:
                 continue
