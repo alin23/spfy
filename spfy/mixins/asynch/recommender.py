@@ -1,23 +1,22 @@
-import time
-import random
 import asyncio
-from typing import Iterator
+import random
+import time
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from functools import partial
 from itertools import chain
-from collections import defaultdict
+from typing import Iterator
 
-from pony.orm import get, select, db_session
+from pony.orm import db_session, get, select
 from pony.orm.core import CacheIndexError
-
-from unsplash.errors import UnsplashError, UnsplashConnectionError
+from unsplash.errors import UnsplashConnectionError, UnsplashError
 
 from ... import logger
+from ...asynch import LimitedAsCompletedError, limited_as_completed
+from ...cache import Artist, City, Country, Genre, ImageMixin, Playlist, format_param
+from ...constants import TimeRange
 from ...sql import SQL
 from ...util import normalize_features
-from ...cache import City, Genre, Artist, Country, Playlist, ImageMixin, format_param
-from ...asynch import LimitedAsCompletedError, limited_as_completed
-from ...constants import TimeRange
 
 
 class RecommenderMixin:

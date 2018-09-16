@@ -8,7 +8,6 @@ def async_lru(maxsize=100):
     cache = OrderedDict()
 
     def decorator(fn):
-
         @functools.wraps(fn)
         async def memoizer(*args, **kwargs):
             key = str((args, kwargs))

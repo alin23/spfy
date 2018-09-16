@@ -3,15 +3,16 @@ import fire
 import kick
 
 from .. import APP_NAME, config, logger
-from .client import SpotifyClient
 from ..constants import AuthFlow
 from ..mixins.asynch import PlayerMixin, RecommenderMixin
+from .client import SpotifyClient
 
 # pylint: disable=too-many-ancestors
 
 
 class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
     """Spotify high-level wrapper."""
+
     cli = False
     loop = None
 

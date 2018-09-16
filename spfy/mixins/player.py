@@ -1,24 +1,23 @@
-import sys
 import random
+import sys
 import threading
 from collections import OrderedDict
 
-from first import first
 from cached_property import cached_property
+from first import first
 
 from .. import config
 from ..cache import Playlist, db_session
+from ..constants import ItemType, TimeRange, VolumeBackend
 from ..volume import (
     AlsaVolumeControl,
+    ApplescriptVolumeControl,
     LinuxVolumeControl,
     SpotifyVolumeControl,
-    ApplescriptVolumeControl,
 )
-from ..constants import ItemType, TimeRange, VolumeBackend
 
 
 class PlayerMixin:
-
     def __init__(
         self,
         *args,

@@ -1,19 +1,19 @@
-import uuid
 import socket
 import threading
+import uuid
 from pathlib import Path
 from wsgiref.simple_server import make_server
 
 import hug
-from pony.orm import get
 from cachecontrol import CacheControlAdapter
-from oauthlib.oauth2 import BackendApplicationClient
-from requests_oauthlib import OAuth2Session
 from cachecontrol.caches.file_cache import FileCache
+from oauthlib.oauth2 import BackendApplicationClient
+from pony.orm import get
+from requests_oauthlib import OAuth2Session
 
-from .. import root, config, logger
-from ..cache import User, select, db_session
-from ..constants import API, AuthFlow, AllScopes
+from .. import config, logger, root
+from ..cache import User, db_session, select
+from ..constants import API, AllScopes, AuthFlow
 from ..exceptions import SpotifyCredentialsException
 
 AUTH_HTML_FILE = root / "html" / "auth_message.html"
@@ -21,7 +21,6 @@ CACHE_FILE = Path.home() / ".cache" / "spfy" / ".web_cache"
 
 
 class AuthMixin:
-
     def __init__(
         self,
         *args,

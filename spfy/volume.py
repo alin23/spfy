@@ -18,7 +18,6 @@ def cap(volume, _min=1, _max=100):
 
 
 class VolumeControl(abc.ABC):
-
     @abc.abstractmethod
     def unmute(self):
         pass
@@ -68,7 +67,6 @@ class VolumeControl(abc.ABC):
 
 
 class SpotifyVolumeControl(VolumeControl):
-
     def __init__(self, client, device=None):
         self.spotify = client
         self.device = device
@@ -99,7 +97,6 @@ class SpotifyVolumeControl(VolumeControl):
 
 
 class SpotifyVolumeControlAsync(VolumeControl):
-
     def __init__(self, client, device=None):
         self.spotify = client
         self.device = device
@@ -132,7 +129,6 @@ class SpotifyVolumeControlAsync(VolumeControl):
         await self.spotify.volume(cap(val), device=self.device)
 
     async def force_fade(self, limit, step, delay):
-
         def fade_done(vol):
             if step > 0:
                 return vol >= limit
@@ -183,7 +179,6 @@ class SpotifyVolumeControlAsync(VolumeControl):
 
 
 class AlsaVolumeControl(VolumeControl):
-
     def __init__(self, mixer_name, device=None):
         if isinstance(device, str):
             kwargs = dict(device=device)
@@ -217,7 +212,6 @@ class AlsaVolumeControl(VolumeControl):
 
 
 class ApplescriptVolumeControl(VolumeControl):
-
     def __init__(self, device=None):
         self.device = device
         self.old_volume = None
@@ -296,7 +290,6 @@ class ApplescriptVolumeControl(VolumeControl):
 
 
 class LinuxVolumeControl(AlsaVolumeControl):
-
     def __init__(
         self, spotify_client, alsa_mixer_name, spotify_device=None, alsa_device=None
     ):
@@ -315,7 +308,6 @@ class LinuxVolumeControl(AlsaVolumeControl):
 
 
 class LinuxVolumeControlAsync(AlsaVolumeControl):
-
     def __init__(
         self, spotify_client, alsa_mixer_name, spotify_device=None, alsa_device=None
     ):

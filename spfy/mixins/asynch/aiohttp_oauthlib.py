@@ -2,7 +2,7 @@ import logging
 from inspect import isawaitable
 
 import aiohttp
-from oauthlib.common import urldecode, generate_token
+from oauthlib.common import generate_token, urldecode
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 
 from oauthlib.oauth2 import (  # isort:skip
@@ -15,7 +15,6 @@ log = logging.getLogger(__name__)
 
 
 class TokenUpdated(Warning):
-
     def __init__(self, token):
         super(TokenUpdated, self).__init__()
         self.token = token

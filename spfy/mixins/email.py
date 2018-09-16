@@ -1,6 +1,6 @@
 from mailer import Mailer, Message
 
-from .. import root, config, logger
+from .. import config, logger, root
 
 LOGIN_HTML = root / "html" / "login.html"
 
@@ -9,7 +9,6 @@ LOGIN_HTML = root / "html" / "login.html"
 
 
 class EmailMixin:
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

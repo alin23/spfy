@@ -1,22 +1,22 @@
-import uuid
-import socket
 import asyncio
+import socket
 import threading
-from pathlib import Path
+import uuid
 from datetime import datetime
+from pathlib import Path
 
 import addict
 import aiohttp
 import aiohttp.web
-from pony.orm import get, select, db_session
-from oauthlib.oauth2 import BackendApplicationClient
 from aiohttp.web_runner import GracefulExit
+from oauthlib.oauth2 import BackendApplicationClient
+from pony.orm import db_session, get, select
 
-from ... import root, config, logger
-from ...sql import SQL
-from ...cache import User, Country
-from ...constants import API, AuthFlow, AllScopes
+from ... import config, logger, root
+from ...cache import Country, User
+from ...constants import API, AllScopes, AuthFlow
 from ...exceptions import SpotifyCredentialsException
+from ...sql import SQL
 from .aiohttp_oauthlib import OAuth2Session
 
 AUTH_HTML_FILE = root / "html" / "auth_message.html"
@@ -32,7 +32,6 @@ def run_app(loop):
 
 
 class AuthMixin:
-
     def __init__(
         self,
         *args,

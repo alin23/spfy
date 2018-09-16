@@ -1,31 +1,29 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
-from time import sleep
 from datetime import datetime
-from operator import attrgetter
 from functools import lru_cache, partialmethod
 from itertools import chain
-
-from first import first
+from operator import attrgetter
+from time import sleep
 
 import ujson as json
+from first import first
 
 from . import logger
-from .cache import Playlist, AudioFeatures, db, select, db_session
-from .mixins import AuthMixin, EmailMixin
-from .result import SpotifyResult
-from .constants import API, DEVICE_ID_RE, PLAYLIST_URI_RE, TimeRange, AudioFeature
+from .cache import AudioFeatures, Playlist, db, db_session, select
+from .constants import API, DEVICE_ID_RE, PLAYLIST_URI_RE, AudioFeature, TimeRange
 from .exceptions import (
-    SpotifyException,
     SpotifyAuthException,
+    SpotifyDeviceUnavailableException,
+    SpotifyException,
     SpotifyForbiddenException,
     SpotifyRateLimitException,
-    SpotifyDeviceUnavailableException,
 )
+from .mixins import AuthMixin, EmailMixin
+from .result import SpotifyResult
 
 
 class SpotifyClient(AuthMixin, EmailMixin):
-
     def __init__(self, *args, proxies=None, requests_timeout=None, **kwargs):
         """
         Create a Spotify API object.
@@ -1299,9 +1297,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             return playlist.uri
 
         if user is not None:
-            return (
-                f'spotify:user:{self._get_id("user", user)}:playlist:{self._get_id("playlist", playlist)}'
-            )
+            return f'spotify:user:{self._get_id("user", user)}:playlist:{self._get_id("playlist", playlist)}'
 
         try:
             if "uri" in playlist:

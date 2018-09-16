@@ -1,54 +1,53 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
-import signal
 import asyncio
 import logging
-from hashlib import sha1
+import signal
 from datetime import datetime
-from operator import attrgetter
 from functools import partialmethod
+from hashlib import sha1
 from itertools import chain
+from operator import attrgetter
 
+import aioredis
 import asyncpg
 import msgpack
-import aioredis
+import ujson as json
+from aiohttp.client_exceptions import ClientError
+from async_generator import asynccontextmanager
 from first import first
+from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 from tenacity import (
-    retry,
     after_log,
-    stop_after_attempt,
+    retry,
     retry_if_exception_type,
+    stop_after_attempt,
     wait_random_exponential,
 )
-from async_generator import asynccontextmanager
-from aiohttp.client_exceptions import ClientError
-from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
-
-import ujson as json
 
 from .. import config, logger
-from ..util import function_trace
-from ..cache import Playlist, AudioFeatures, select, async_lru, db_session
-from .result import SpotifyResult
-from ..mixins import EmailMixin
+from ..cache import AudioFeatures, Playlist, async_lru, db_session, select
 from ..constants import (
     API,
     DEVICE_ID_RE,
     PLAYLIST_URI_RE,
+    AudioFeature,
     AuthFlow,
     TimeRange,
-    AudioFeature,
 )
 from ..exceptions import (
-    SpotifyException,
     NoDatabaseConnection,
     SpotifyAuthException,
+    SpotifyDeviceUnavailableException,
+    SpotifyException,
     SpotifyForbiddenException,
     SpotifyRateLimitException,
-    SpotifyDeviceUnavailableException,
 )
+from ..mixins import EmailMixin
 from ..mixins.asynch import AuthMixin
 from ..mixins.asynch.aiohttp_oauthlib import TokenUpdated
+from ..util import function_trace
+from .result import SpotifyResult
 
 
 async def init_db_connection(conn):
@@ -61,7 +60,6 @@ async def init_db_connection(conn):
 
 
 class SpotifyClient(AuthMixin, EmailMixin):
-
     def __init__(
         self,
         *args,
@@ -1617,9 +1615,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             return playlist.uri
 
         if user is not None:
-            return (
-                f'spotify:user:{self._get_id("user", user)}:playlist:{self._get_id("playlist", playlist)}'
-            )
+            return f'spotify:user:{self._get_id("user", user)}:playlist:{self._get_id("playlist", playlist)}'
 
         try:
             if "uri" in playlist:

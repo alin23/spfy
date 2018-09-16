@@ -1,5 +1,5 @@
-import time
 import random
+import time
 from datetime import date, timedelta
 from itertools import chain
 
@@ -7,13 +7,12 @@ from pony.orm import get
 from pony.orm.core import CacheIndexError
 
 from .. import logger
-from ..util import normalize_features
-from ..cache import Genre, Artist, Playlist, select, db_session
+from ..cache import Artist, Genre, Playlist, db_session, select
 from ..constants import TimeRange
+from ..util import normalize_features
 
 
 class RecommenderMixin:
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

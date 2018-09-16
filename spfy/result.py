@@ -1,8 +1,8 @@
 import random
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from itertools import chain
 from urllib.parse import parse_qs, urlparse, urlunparse
-from concurrent.futures import ThreadPoolExecutor
 
 import addict
 from cached_property import cached_property
@@ -14,7 +14,6 @@ LOCAL_ATTRIBUTES = {"_client", "_next_result", "_next_result_available", "_playa
 
 
 class Playable:
-
     def __init__(self, result):
         self.result = result
         self.client = self.result._client

@@ -6,7 +6,6 @@ from itertools import islice
 
 
 class LimitedAsCompletedError(Exception):
-
     def __init__(self, *args, original_exc=None, remaining_futures=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.original_exc = original_exc

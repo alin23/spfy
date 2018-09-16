@@ -12,7 +12,6 @@ LOCAL_ATTRIBUTES = {"_client", "_next_result", "_next_result_available", "_playa
 
 
 class Playable:
-
     def __init__(self, result):
         self.result = result
         self.client = self.result._client
@@ -48,7 +47,6 @@ class Playable:
 
 
 class SpotifyResultIterator:
-
     def __init__(self, result, limit=None, ignore_exceptions=False):
         self.result = result
         self.limit = limit

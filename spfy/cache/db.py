@@ -1,44 +1,43 @@
 # pylint: disable=too-many-lines
-import os
-import re
-import time
-import random
-import string
 import asyncio
-from io import BytesIO
-from enum import IntEnum
-from uuid import UUID, NAMESPACE_URL, uuid4, uuid5
-from datetime import date, datetime
+import os
+import random
+import re
+import string
+import time
 from collections import OrderedDict
+from datetime import date, datetime
+from enum import IntEnum
+from io import BytesIO
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import aiohttp
-import requests
 import psycopg2.extras
+import requests
+from colorthief import ColorThief
 from first import first
 from pony.orm import (
-    Set,
-    Json,
     Database,
-    Optional,
-    Required,
-    PrimaryKey,
+    Json,
     ObjectNotFound,
-    desc,
-    select,
-    ormtypes,
-    sql_debug,
+    Optional,
+    PrimaryKey,
+    Required,
+    Set,
     db_session,
+    desc,
+    ormtypes,
+    select,
+    sql_debug,
 )
-from pycountry import countries
-from colorthief import ColorThief
 from pony.orm.core import CacheIndexError
 from psycopg2.extensions import register_adapter
-
-from unsplash.errors import UnsplashError, UnsplashConnectionError
+from pycountry import countries
+from unsplash.errors import UnsplashConnectionError, UnsplashError
 
 from .. import Unsplash, config, logger
-from ..sql import SQL, SQL_DEFAULT
 from ..constants import TimeRange
+from ..sql import SQL, SQL_DEFAULT
 
 DIGITS_PATTERN = re.compile(r"[0-9]")
 register_adapter(ormtypes.TrackedDict, psycopg2.extras.Json)
@@ -69,7 +68,6 @@ def format_param(param):
 
 
 class ImageMixin:
-
     @classmethod
     async def image_pg(cls, conn, width=None, height=None, **fields):
         condition = create_condition(firstsub=2, **fields)
@@ -516,7 +514,6 @@ class User(db.Entity, ImageMixin):
 
     @staticmethod
     def token_updater(_id):
-
         @db_session
         def update(token):
             User[_id].token = token
@@ -547,15 +544,11 @@ class Image(db.Entity):
 
     @classmethod
     def unsplash_url(cls):
-        return (
-            f"https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral"
-        )
+        return f"https://unsplash.com/?utm_source={config.unsplash.app_name}&utm_medium=referral"
 
     @classmethod
     def unsplash_user_url(cls, username):
-        return (
-            f"https://unsplash.com/@{username}?utm_source={config.unsplash.app_name}&utm_medium=referral"
-        )
+        return f"https://unsplash.com/@{username}?utm_source={config.unsplash.app_name}&utm_medium=referral"
 
     @classmethod
     def unsplash_credits(cls, user_fullname, username):

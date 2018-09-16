@@ -2,7 +2,6 @@ import ujson as json
 
 
 class SpotifyException(Exception):
-
     def __init__(
         self, *args, status_code=None, headers=None, text=None, url=None, **kwargs
     ):  # pylint: disable=unused-argument
@@ -25,26 +24,22 @@ class SpotifyException(Exception):
 
 
 class SpotifyRateLimitException(SpotifyException):
-
     def __init__(self, *args, retry_after=0, **kwargs):
         super().__init__(*args, **kwargs)
         self.retry_after = retry_after
 
 
 class SpotifyForbiddenException(SpotifyException):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
 class SpotifyDeviceUnavailableException(SpotifyException):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
 class SpotifyCredentialsException(Exception):
-
     def __str__(self):
         return """
         You need to set your Spotify API credentials in ~/.config/spfy/config.toml
@@ -55,7 +50,6 @@ class SpotifyCredentialsException(Exception):
 
 
 class SpotifyAuthException(Exception):
-
     def __str__(self):
         return """
         You need to authenticate before making any request.

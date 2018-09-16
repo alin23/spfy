@@ -5,12 +5,13 @@ from pony.orm import db_session
 
 from . import APP_NAME, config, logger
 from .client import SpotifyClient
-from .mixins import PlayerMixin, RecommenderMixin
 from .constants import AuthFlow
+from .mixins import PlayerMixin, RecommenderMixin
 
 
 class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
     """Spotify high-level wrapper."""
+
     cli = False
 
     def __init__(self, *args, email=None, username=None, **kwargs):
