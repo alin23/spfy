@@ -203,8 +203,10 @@ class SpotifyClient(AuthMixin, EmailMixin):
             )
 
     async def release_resources(self):
-        if self.dbpools:
-            await asyncio.gather(*[dbpool.close() for dbpool in self.dbpools])
+        if self.dbpool:
+            await self.dbpool.close()
+        if self.readonly_dbpools:
+            await asyncio.gather(*[dbpool.close() for dbpool in self.readonly_dbpools])
 
         if self.redis:
             try:
