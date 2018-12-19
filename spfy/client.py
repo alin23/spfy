@@ -1034,7 +1034,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
         """
         return self._get(API.DEVICES.value, check_202=True, **kwargs)
 
-    @lru_cache(maxsize=128)
     def get_device_id(self, device=None):
         if isinstance(device, (str, bytes)) and DEVICE_ID_RE.match(device):
             return device
