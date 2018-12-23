@@ -11,7 +11,14 @@ from first import first
 
 from . import logger
 from .cache import AudioFeatures, Playlist, db, db_session, select
-from .constants import API, DEVICE_ID_RE, PLAYLIST_URI_RE, AudioFeature, TimeRange
+from .constants import (
+    API,
+    DEVICE_ID_RE,
+    MANELISTI,
+    PLAYLIST_URI_RE,
+    AudioFeature,
+    TimeRange,
+)
 from .exceptions import (
     SpotifyAuthException,
     SpotifyDeviceUnavailableException,
@@ -942,6 +949,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
             **kwargs,
         )
 
+    # pylint: disable=too-many-locals
     def recommendations(
         self,
         seed_artists=None,
@@ -949,6 +957,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         seed_tracks=None,
         limit=20,
         country="from_token",
+        filter_manele=True,
         **kwargs,
     ):
         """ Get a list of recommended tracks for one to five seeds.
@@ -985,6 +994,22 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 param = prefix + attribute.value
                 if param in kwargs:
                     params[param] = kwargs.pop(param)
+
+        if not filter_manele:
+            return self._get(API.RECOMMENDATIONS.value, **params, **kwargs)
+
+        for _ in range(5):
+            result = self._get(API.RECOMMENDATIONS.value, **params, **kwargs)
+            tracks = [
+                t
+                for t in result.tracks
+                if not any(
+                    "manele" in (a.genres or []) or a.id in MANELISTI for a in t.artists
+                )
+            ]
+            if tracks:
+                result.tracks = tracks
+                return result
         return self._get(API.RECOMMENDATIONS.value, **params, **kwargs)
 
     def recommendation_genre_seeds(self, **kwargs):
