@@ -39,6 +39,7 @@ class RecommenderMixin:
         country_values = ",\n".join(
             f"({format_param(country.alpha_2)}, {format_param(country.name)})"
             for country in countries
+            if country
         )
         return conn.execute(
             f"""INSERT INTO countries (code, name)
@@ -63,6 +64,8 @@ class RecommenderMixin:
         playlist_items = defaultdict(list)
         for p in playlist_dicts:
             if p.get("country"):
+                if not iso_countries.get(p["country"]):
+                    continue
                 p["country"] = iso_countries[p["country"]].alpha_2
             playlist_items[tuple(p.keys())].append(p.values())
 
@@ -104,7 +107,7 @@ class RecommenderMixin:
                     "SELECT DISTINCT country FROM images WHERE country IS NOT NULL"
                 )
             }
-            country_dict = {c.alpha_2: c.name for c in countries.values()}
+            country_dict = {c.alpha_2: c.name for c in countries.values() if c}
             new_countries = country_dict.keys() - image_countries
             image_requests += [
                 partial(
