@@ -142,8 +142,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
         check_202 = kwargs.pop("check_202", False)
         if args:
             kwargs.update(args)
+
         if "device_id" in kwargs:
-            kwargs["device_id"] = self.get_device_id(kwargs["device_id"])
+            try:
+                kwargs["device_id"] = self.get_device_id(kwargs["device_id"])
+            except ValueError as e:
+                logger.exception(e)
+
         if not url.startswith("http"):
             url = API.PREFIX.value + url
         return self._internal_call(
