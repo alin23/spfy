@@ -143,67 +143,69 @@ class RecommenderMixin:
         await self._upsert_images(reqs, initial_reqs=initial_reqs)
 
     async def _upsert_images(self, reqs, conn=None, initial_reqs=None):
+        conn = conn or await self.dbpool
+
         concurrency_limit = 100
-        async with self.async_db_session(conn=conn) as conn:
-            if not isinstance(reqs, Iterator):
-                reqs_iterator = (fetch() for fetch in reqs)
-            else:
-                reqs_iterator = reqs
+        if not isinstance(reqs, Iterator):
+            reqs_iterator = (fetch() for fetch in reqs)
+        else:
+            reqs_iterator = reqs
 
-            try:
-                async for resp in limited_as_completed(
-                    reqs_iterator,
-                    concurrency_limit,
-                    ignore_exceptions=(UnsplashError, UnsplashConnectionError),
-                ):
-                    if not resp:
-                        continue
+        try:
+            async for resp in limited_as_completed(
+                reqs_iterator,
+                concurrency_limit,
+                ignore_exceptions=(UnsplashError, UnsplashConnectionError),
+            ):
+                if not resp:
+                    continue
 
-                    image_fields, updated_fields = resp
-                    await ImageMixin.upsert_unsplash_image(
-                        conn, image_fields, **updated_fields
-                    )
-            except LimitedAsCompletedError as exc:
-                for future in exc.remaining_futures:
-                    future.cancel()
-
-                await asyncio.sleep(2)
-                for future in exc.remaining_futures:
-                    if future.done():
-                        try:
-                            _ = future.exception()
-                        except:
-                            pass
-
-                remaining = len(list(reqs_iterator)) + concurrency_limit
-                initial_reqs = initial_reqs or reqs
-
-                if exc.original_exc:
-                    logger.exception(exc.original_exc)
-                logger.warning(
-                    "Remaining images to fetch: %d/%d", remaining, len(initial_reqs)
+                image_fields, updated_fields = resp
+                await ImageMixin.upsert_unsplash_image(
+                    conn, image_fields, **updated_fields
                 )
+        except LimitedAsCompletedError as exc:
+            for future in exc.remaining_futures:
+                future.cancel()
 
-                asyncio.get_event_loop().create_task(
-                    self._upsert_remaining_images(
-                        (fetch() for fetch in initial_reqs[-remaining:]), initial_reqs
-                    )
+            await asyncio.sleep(2)
+            for future in exc.remaining_futures:
+                if future.done():
+                    try:
+                        _ = future.exception()
+                    except:
+                        pass
+
+            remaining = len(list(reqs_iterator)) + concurrency_limit
+            initial_reqs = initial_reqs or reqs
+
+            if exc.original_exc:
+                logger.exception(exc.original_exc)
+            logger.warning(
+                "Remaining images to fetch: %d/%d", remaining, len(initial_reqs)
+            )
+
+            asyncio.get_event_loop().create_task(
+                self._upsert_remaining_images(
+                    (fetch() for fetch in initial_reqs[-remaining:]), initial_reqs
                 )
+            )
 
     # pylint: disable=too-many-locals
     async def fetch_playlists_pg(self, conn=None):
-        async with self.async_db_session(conn=conn) as dbconn:
-            existing_playlists = {
-                p[0] for p in await dbconn.fetch("SELECT id FROM playlists")
-            }
-            user_ids_str = ",\n".join(f"('{user_id}')" for user_id in self.USER_LIST)
-            await dbconn.execute(
-                f"""
-                INSERT INTO spotify_users (id)
-                VALUES {user_ids_str}
-                ON CONFLICT DO NOTHING
-            """
-            )
+        conn = conn or await self.dbpool
+
+        existing_playlists = {
+            p[0] for p in await conn.fetch("SELECT id FROM playlists")
+        }
+        user_ids_str = ",\n".join(f"('{user_id}')" for user_id in self.USER_LIST)
+        await conn.execute(
+            f"""
+            INSERT INTO spotify_users (id)
+            VALUES {user_ids_str}
+            ON CONFLICT DO NOTHING
+        """
+        )
 
         playlist_dicts = []
         for user in self.USER_LIST:
@@ -225,24 +227,23 @@ class RecommenderMixin:
         }
         cities = [(p["city"], p["country"]) for p in playlist_dicts if p.get("city")]
 
-        async with self.async_db_session(conn=conn) as dbconn:
-            if genres:
-                await self._get_upsert_genres_query(genres, dbconn)
-            if countries:
-                await self._get_upsert_countries_query(iso_countries.values(), dbconn)
-            if cities:
-                await self._get_upsert_cities_query(cities, dbconn)
+        if genres:
+            await self._get_upsert_genres_query(genres, conn)
+        if countries:
+            await self._get_upsert_countries_query(iso_countries.values(), conn)
+        if cities:
+            await self._get_upsert_cities_query(cities, conn)
 
-            playlist_queries = self._get_upsert_playlists_queries(
-                playlist_dicts, iso_countries
-            )
-            for query in playlist_queries:
-                await dbconn.execute(query)
+        playlist_queries = self._get_upsert_playlists_queries(
+            playlist_dicts, iso_countries
+        )
+        for query in playlist_queries:
+            await conn.execute(query)
 
-            image_requests = await self._get_unsplash_image_requests(
-                dbconn, genres, iso_countries, cities
-            )
-            await self._upsert_images(image_requests, conn=dbconn)
+        image_requests = await self._get_unsplash_image_requests(
+            conn, genres, iso_countries, cities
+        )
+        await self._upsert_images(image_requests, conn=conn)
 
     async def fetch_playlists(self):
         with db_session:
@@ -298,9 +299,9 @@ class RecommenderMixin:
             )
 
     async def get_dislikes_for_filtering(self, conn=None):
-        async with self.async_db_session(conn=conn, readonly=True) as conn:
-            dislikes_stmt = await conn.prepare(SQL.user_artist_genre_dislikes)
-            dislikes = await dislikes_stmt.fetch(self.user_id)
+        conn = conn or await self.dbpool
+
+        dislikes = await conn.fetch(SQL.user_artist_genre_dislikes, self.user_id)
 
         disliked_artists = {row[0][:-3] for row in dislikes if row[0][-2:] == "AR"}
         disliked_genres = {row[0][:-3] for row in dislikes if row[0][-2:] == "GE"}
@@ -314,6 +315,7 @@ class RecommenderMixin:
         conn=None,
         dislikes=None,
     ):
+        conn = conn or await self.dbpool
 
         disliked_artists, disliked_genres = (
             dislikes or await self.get_dislikes_for_filtering(conn)
@@ -341,6 +343,8 @@ class RecommenderMixin:
         conn=None,
         dislikes=None,
     ):
+        conn = conn or await self.dbpool
+
         artists = await self.top_artists_pg(
             time_range=time_range, conn=conn, dislikes=dislikes
         )

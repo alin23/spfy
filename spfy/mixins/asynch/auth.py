@@ -75,6 +75,8 @@ class AuthMixin:
         return redirect_uri
 
     async def fetch_user(self, conn=None, op="OR", **fields):
+        conn = conn or await self.dbpool
+
         if not (self.user_id or fields):
             return None
 
@@ -82,17 +84,14 @@ class AuthMixin:
         fields = {f: v for f, v in fields.items() if f}
 
         if self.user_id and not fields:
-            async with self.async_db_session(conn, readonly=True) as dbconn:
-                user_stmt = await dbconn.prepare(SQL.user)
-                user = await user_stmt.fetchrow(self.user_id)
+            user = await conn.fetchrow(SQL.user, self.user_id)
         else:
             condition = f" {op} ".join(
                 f"{field} = ${i + 1}" for i, field in enumerate(fields.keys())
             )
-            async with self.async_db_session(conn, readonly=True) as dbconn:
-                user = await dbconn.fetchrow(
-                    f"SELECT * FROM users WHERE {condition}", *fields.values()
-                )
+            user = await conn.fetchrow(
+                f"SELECT * FROM users WHERE {condition}", *fields.values()
+            )
 
         if not user:
             return None
@@ -109,8 +108,8 @@ class AuthMixin:
         return bool(self.session and self.session.authorized)
 
     async def update_user_token(self, token):
-        async with self.async_db_session() as conn:
-            await conn.execute(SQL.update_user_token, token, self.user_id)
+        conn = await self.dbpool
+        await conn.execute(SQL.update_user_token, token, self.user_id)
 
     # pylint: disable=too-many-locals
     async def authenticate_user_pg(
@@ -123,6 +122,8 @@ class AuthMixin:
         scope=AllScopes,
         conn=None,
     ):
+        conn = conn or await self.dbpool
+
         self.flow = AuthFlow.AUTHORIZATION_CODE
         self.session = OAuth2Session(
             self.client_id,
@@ -170,59 +171,59 @@ class AuthMixin:
                 country_name = iso_country.name
                 country_code = iso_country.alpha_2
 
-            async with self.async_db_session(conn=conn) as conn:
-                upsert_user_stmt = await conn.prepare(SQL.upsert_user)
-                user = await upsert_user_stmt.fetchrow(
-                    self.user_id or uuid.uuid4(),
-                    user_details.email or "",
-                    user_details.id or "",
-                    user_details.country or "",
-                    user_details.display_name or "",
-                    birthdate,
-                    token,
-                    user_details.product == "premium",
-                    country_code,
-                    country_name,
-                )
-                user = addict.Dict(dict(user))
-                self.user_id = user.id
-                self.username = user.username
+            user = await conn.fetchrow(
+                SQL.upsert_user,
+                self.user_id or uuid.uuid4(),
+                user_details.email or "",
+                user_details.id or "",
+                user_details.country or "",
+                user_details.display_name or "",
+                birthdate,
+                token,
+                user_details.product == "premium",
+                country_code,
+                country_name,
+            )
+            user = addict.Dict(dict(user))
+            self.user_id = user.id
+            self.username = user.username
 
-                if user_details.images:
-                    await conn.executemany(
-                        """INSERT INTO images (
-                                url, height, width, "user", unsplash_id,
-                                unsplash_user_fullname, unsplash_user_username
-                            ) VALUES ($1, $2, $3, $4, '', '', '')
-                            ON CONFLICT DO NOTHING""",
-                        [
-                            (i.url, i.height or None, i.width or None, user.id)
-                            for i in user_details.images
-                            if i.url
-                        ],
-                    )
+            if user_details.images:
+                await conn.executemany(
+                    """INSERT INTO images (
+                            url, height, width, "user", unsplash_id,
+                            unsplash_user_fullname, unsplash_user_username
+                        ) VALUES ($1, $2, $3, $4, '', '', '')
+                        ON CONFLICT DO NOTHING""",
+                    [
+                        (i.url, i.height or None, i.width or None, user.id)
+                        for i in user_details.images
+                        if i.url
+                    ],
+                )
             return user
 
         return None
 
     async def authenticate_server_pg(self, conn=None):
-        async with self.async_db_session(conn=conn) as conn:
-            self.flow = AuthFlow.CLIENT_CREDENTIALS
+        conn = conn or await self.dbpool
 
-            USA = Country.get_iso_country("US")
-            upsert_user_stmt = await conn.prepare(SQL.upsert_user)
-            default_user = await upsert_user_stmt.fetchrow(
-                User.DEFAULT_USERID,
-                User.DEFAULT_EMAIL,
-                User.DEFAULT_USERNAME,
-                USA.alpha_2,
-                User.DEFAULT_USERNAME,
-                None,
-                {},
-                False,
-                USA.alpha_2,
-                USA.name,
-            )
+        self.flow = AuthFlow.CLIENT_CREDENTIALS
+
+        USA = Country.get_iso_country("US")
+        default_user = await conn.fetchrow(
+            SQL.upsert_user,
+            User.DEFAULT_USERID,
+            User.DEFAULT_EMAIL,
+            User.DEFAULT_USERNAME,
+            USA.alpha_2,
+            User.DEFAULT_USERNAME,
+            None,
+            {},
+            False,
+            USA.alpha_2,
+            USA.name,
+        )
         default_user = addict.Dict(dict(default_user))
 
         self.user_id = default_user.id

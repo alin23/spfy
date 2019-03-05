@@ -14,7 +14,6 @@ import asyncpg
 import msgpack
 import ujson as json
 from aiohttp.client_exceptions import ClientError
-from async_generator import asynccontextmanager
 from first import first
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 from tenacity import (
@@ -37,7 +36,6 @@ from ..constants import (
     TimeRange,
 )
 from ..exceptions import (
-    NoDatabaseConnection,
     SpotifyAuthException,
     SpotifyDeviceUnavailableException,
     SpotifyException,
@@ -47,7 +45,6 @@ from ..exceptions import (
 from ..mixins import EmailMixin
 from ..mixins.asynch import AuthMixin
 from ..mixins.asynch.aiohttp_oauthlib import TokenUpdated
-from ..util import function_trace
 from .result import SpotifyResult
 
 
@@ -68,7 +65,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
         requests_timeout=None,
         redis=None,
         dbpool=None,
-        readonly_dbpools=None,
         **kwargs,
     ):
         """
@@ -81,8 +77,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         self.proxy = proxy
         self.requests_timeout = requests_timeout
         self.redis = redis
-        self.dbpool = dbpool
-        self.readonly_dbpools = readonly_dbpools or []
+        self._dbpool = dbpool
 
     @db_session
     def _increment_api_call_count(self):
@@ -107,86 +102,25 @@ class SpotifyClient(AuthMixin, EmailMixin):
                     **exception_params,
                 )
 
-            elif response.status == 403:
+            if response.status == 403:
                 raise SpotifyForbiddenException(**exception_params)
+            raise SpotifyException(**exception_params)
 
-            else:
-                raise SpotifyException(**exception_params)
-
-    @asynccontextmanager
-    async def async_db_session(self, conn=None, readonly=False):
-        await self.ensure_db_pool()
-
-        if conn:
-            async with conn.transaction():
-                yield conn
-        else:
-            if readonly:
-                pools = [self.dbpool, *self.readonly_dbpools]
-            else:
-                pools = [self.dbpool]
-
-            done, pending = await asyncio.wait(
-                [pool.acquire(timeout=60) for pool in pools],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-
-            acquired_connections = sum(not t.exception() for t in done)
-            logger.debug(
-                "%s\n\tAcquired connections: %d", function_trace(), acquired_connections
-            )
-            if not acquired_connections:
-                raise NoDatabaseConnection
-
-            conn_task = first(done, lambda t: not t.exception())
-
-            unused_tasks = done - {conn_task}
-            if unused_tasks:
-
-                async def release(task):
-                    if task.exception():
-                        logger.debug(task.exception())
-                        return
-                    conn = task.result()
-                    await conn._holder._pool.release(conn)
-
-                await asyncio.gather(*[release(task) for task in unused_tasks])
-
-            try:
-                conn = conn_task.result()
-                async with conn.transaction():
-                    yield conn
-            finally:
-                logger.debug("%s\n\tReleasing conn %s", function_trace(), conn)
-                await conn._holder._pool.release(conn)
-
-    async def ensure_db_pool(self):
-        if not self.dbpool and config.database.connection.provider == "postgres":
+    @property
+    async def dbpool(self):
+        if not self._dbpool and config.database.connection.provider == "postgres":
             db_config = {
                 k: v for k, v in config.database.connection.items() if k != "provider"
             }
-            self.dbpool = await asyncpg.create_pool(
+            self._dbpool = await asyncpg.create_pool(
                 **db_config, **(config.database.pool or {}), init=init_db_connection
             )
             logger.info(
                 "Created DB Pool with min=%d max=%s",
-                self.dbpool._minsize,
-                self.dbpool._maxsize,
+                self._dbpool._minsize,
+                self._dbpool._maxsize,
             )
-
-        if not self.readonly_dbpools and config.database.replica:
-            self.readonly_dbpools = [
-                await asyncpg.create_pool(**db_config, init=init_db_connection)
-                for db_config in config.database.replica
-            ]
-            for pool in self.readonly_dbpools:
-                logger.info(
-                    "Created Read-Only DB Pool with min=%d max=%s",
-                    pool._minsize,
-                    pool._maxsize,
-                )
+        return self._dbpool
 
     async def ensure_redis_pool(self):
         if not self.redis:
@@ -204,10 +138,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
             )
 
     async def release_resources(self):
-        if self.dbpool:
-            await self.dbpool.close()
-        if self.readonly_dbpools:
-            await asyncio.gather(*[dbpool.close() for dbpool in self.readonly_dbpools])
+        if self._dbpool:
+            await self._dbpool.close()
 
         if self.redis:
             try:
