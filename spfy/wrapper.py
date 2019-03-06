@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 import fire
-import kick
 from pony.orm import db_session
 
-from . import APP_NAME, config, logger
+from . import config, logger
 from .client import SpotifyClient
 from .constants import AuthFlow
 from .mixins import PlayerMixin, RecommenderMixin
@@ -36,10 +35,6 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
         names = super().__dir__()
         names = [name for name in names if not name.startswith("_") and name != "user"]
         return names
-
-    @staticmethod
-    def update_config(name="config"):
-        kick.update_config(APP_NAME.lower(), variant=name)
 
 
 def main():

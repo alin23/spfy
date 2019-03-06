@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 import fire
-import kick
 
-from .. import APP_NAME, config, logger
+from .. import config, logger
 from ..constants import AuthFlow
 from ..mixins.asynch import PlayerMixin, RecommenderMixin
 from .client import SpotifyClient
@@ -38,10 +37,6 @@ class Spotify(SpotifyClient, PlayerMixin, RecommenderMixin):
                 except Exception as exc:
                     logger.exception(exc)
         return self
-
-    @staticmethod
-    def update_config(name="config"):
-        kick.update_config(APP_NAME.lower(), variant=name)
 
 
 def main():

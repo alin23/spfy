@@ -2,18 +2,23 @@ language: python
 
 dist: xenial
 
-python: "3.7"
+python: '3.7'
 
 cache:
   pip: true
 
 before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y libasound2-dev
+- sudo apt-get -qq update
+- sudo apt-get install -y libasound2-dev
 
 install:
-  - pip install -e .
-  - pip install pylint
+- pip install -e .
+- pip install pylint
 
 script:
-  - pylint spfy
+- pylint spfy
+- spotify - auth --server - recommendation-genre-seeds
+
+env:
+  global:
+    secure: Rru5A9LobArJ/35IDZqm/VcUMZRKgA9o4mNbZ2mZBPpj0HRIVeqtZE47yAUWT0uOXsqFVDy6tDZosHqZQF1wlcAWLRWn/mLZjhSvZhTeApM0vvGCfKV2j3zdPyzivW1o8SQwKvnclOBBTSIk+DBicwnG2pFbIB+AkUTJ6h3/O5ET/lhqbXgWBcewQOIazTBoQceBtAqmCimIf2BzZgwRLge1vSIcGT0RqgzgjZQkyAq5RcBBpymUMQmipO0upxryrmXz/R+zQmDt3D+eppx7zgNWqcDlEqq1PmHhsN4lT9KMEWiSG7vKPcIFqKvQCkVYIg97UQOK7sNgHxy0huq1LxbJEtsbaOWyErUkytanUpwBSzcsRywHpotCLlUwwUgUEK05owCqZUCdXh8MB40TOVPwQrPqSUjZNnzFTW9uywfohBGgGh98OTcSSm6V6Z/+XLYj5DwMRsV8wtzDzN6bSglAXMCb/icE5Y2ZTq3W7LD8SZdPNEam82APvj13D0KBkKbrbgiWIQ2Es1pyTletkUGZOGDfqxWkugjQRKXLcZxPo29Ht38xPfw0Ttb0xaYDywTMILf2kPUm1OU3Z6LxvXYmCd82ygBX7yXBBC1n+qEHrBfbtp3rSJ5mFf/8adexco6qsiMK7ohhjo0K7NRnqYvTL19KQU4O3JNl5Xr4abM=

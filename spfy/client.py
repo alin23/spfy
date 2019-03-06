@@ -66,11 +66,10 @@ class SpotifyClient(AuthMixin, EmailMixin):
                     **exception_params,
                 )
 
-            elif response.status_code == 403:
+            if response.status_code == 403:
                 raise SpotifyForbiddenException(**exception_params)
 
-            else:
-                raise SpotifyException(**exception_params)
+            raise SpotifyException(**exception_params)
 
     @staticmethod
     def get_exception_params(response):

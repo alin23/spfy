@@ -1,0 +1,78 @@
+[app]
+client_id = ""
+client_secret = ""
+redirect_uri = ""
+
+[http]
+connections = 30
+concurrent_connections = 200
+parallel_connections = 20
+retries = 3
+
+[database]
+generate_mapping = true
+acquire_timeout = 1.0
+
+[database.connection]
+provider = "sqlite"
+filename = "$HOME/.spfy.sqlite"
+create_db = true
+
+[email]
+host = "smtp.gmail.com"
+port = 587
+use_tls = true
+usr = ""
+pwd = ""
+
+[auth]
+flow = 'authorization_code'
+send_auth_url_to_email = true
+email = ""
+username = ""
+
+    [auth.callback]
+    enabled = true
+    port = 42806
+    timeout = 30
+
+[player]
+device = 'Macbook'
+speaker = 'Sonos'
+
+    [player.alsa]
+    device = 'default'
+    mixer = 'PCM'
+
+[volume.fade.up]
+limit = 70
+start = 1
+step = 1
+seconds = 500
+
+[volume.fade.down]
+limit = 0
+start = 70
+step = -1
+seconds = 1000
+
+[unsplash]
+app_name = ""
+
+[unsplash.auth]
+client_id = ""
+client_secret = ""
+redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+
+[redis]
+host = "localhost"
+port = 6379
+minsize = 1
+maxsize = 10
+
+[cache]
+expire = 432_000
+encoding = 'UTF-8'
+    [cache.key]
+    etag = "ETAG"
+    response = "RESPONSE"
