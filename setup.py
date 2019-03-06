@@ -28,7 +28,7 @@ REQUIRES = [
     "first",
     "gunicorn",
     "hug",
-    "kick>=1.0.0",
+    "kick>=1.1.0",
     "lockfile",
     "mailer",
     "msgpack",
