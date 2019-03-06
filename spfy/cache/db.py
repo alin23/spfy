@@ -342,7 +342,7 @@ class User(db.Entity, ImageMixin):
     disliked_countries = Set("Country")
     top_cities = Set("City")
     disliked_cities = Set("City")
-    top_expires_at = Required(Json, volatile=True, default=dict, sql_default="{}")
+    top_expires_at = Required(Json, volatile=True, default=dict, sql_default="'{}'")
 
     def to_dict(self, *args, **kwargs):  # pylint: disable=arguments-differ
         _dict = super().to_dict(*args, **kwargs)
