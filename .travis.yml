@@ -11,5 +11,8 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y libasound2-dev
 
+install:
+  - pip install pylint
+
 script:
   - pylint spfy
