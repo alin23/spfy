@@ -14,11 +14,11 @@ generate_mapping = false
 acquire_timeout = 1.0
 
 [database.connection]
+provider = "postgres"
 user = "postgres"
 password = ""
-host = "localhost"
+host = "postgres"
 database = "postgres"
-port = 5432
 
 [email]
 host = "smtp.gmail.com"
