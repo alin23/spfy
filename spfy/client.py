@@ -388,7 +388,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
             **kwargs,
         )
 
-    def user_playlist(self, user, playlist_id=None, fields=None, **kwargs):
+    def user_playlist(
+        self, user, playlist_id=None, fields=None, market="from_token", **kwargs
+    ):
         """ Gets playlist of a user
             Parameters:
                 - user - the id of the user
@@ -403,6 +405,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return self._get(
             API.PLAYLIST.value.format(user_id=user, playlist_id=_id),
             fields=fields,
+            market=market,
             **kwargs,
         )
 
