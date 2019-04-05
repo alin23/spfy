@@ -13,13 +13,13 @@ import aioredis
 import asyncpg
 import msgpack
 import ujson as json
-from aiohttp.client_exceptions import ClientError
+from aiohttp.client_exceptions import ClientError, ClientResponseError
 from first import first
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 from tenacity import (
     after_log,
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_random_exponential,
 )
@@ -46,6 +46,12 @@ from ..mixins import EmailMixin
 from ..mixins.asynch import AuthMixin
 from ..mixins.asynch.aiohttp_oauthlib import TokenUpdated
 from .result import SpotifyResult
+
+
+def is_retryable(exc):
+    if isinstance(exc, ClientResponseError) and exc.status == 429:
+        return False
+    return isinstance(exc, (ClientError, TokenUpdated))
 
 
 async def init_db_connection(conn):
@@ -237,7 +243,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_random_exponential(multiplier=1, max=10),
-        retry=retry_if_exception_type((ClientError, TokenUpdated)),
+        retry=retry_if_exception(is_retryable),
         reraise=True,
         after=after_log(logger, logging.INFO),
     )
