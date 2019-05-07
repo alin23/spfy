@@ -38,6 +38,7 @@ REQUIRES = [
     "psycopg2-binary",
     "pycountry",
     "python-unsplash-async>=1.0.4",
+    "urllib3<1.25,>=1.21.1",
     "requests",
     "requests_oauthlib",
     "tenacity",
