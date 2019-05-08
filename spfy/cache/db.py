@@ -379,7 +379,7 @@ class User(db.Entity, ImageMixin):
             spotify_premium=user.product == "premium",
             spotify_user=spotify_user,
             username=user.id,
-            email=user.email,
+            email=user.email or str(user.user_id),
             token=user.token,
             country=Country.from_str(user.country),
             images=images,

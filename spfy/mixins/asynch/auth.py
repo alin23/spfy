@@ -171,10 +171,11 @@ class AuthMixin:
                 country_name = iso_country.name
                 country_code = iso_country.alpha_2
 
+            new_user_id = self.user_id or uuid.uuid4()
             user = await conn.fetchrow(
                 SQL.upsert_user,
-                self.user_id or uuid.uuid4(),
-                user_details.email or "",
+                new_user_id,
+                user_details.email or str(new_user_id),
                 user_details.id or "",
                 user_details.country or "",
                 user_details.display_name or "",
