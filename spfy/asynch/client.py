@@ -13,7 +13,11 @@ import aioredis
 import asyncpg
 import msgpack
 import ujson as json
-from aiohttp.client_exceptions import ClientError, ClientResponseError
+from aiohttp.client_exceptions import (
+    ClientConnectionError,
+    ClientError,
+    ClientResponseError,
+)
 from first import first
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
 from tenacity import (
@@ -51,7 +55,7 @@ from .result import SpotifyResult
 def is_retryable(exc):
     if isinstance(exc, ClientResponseError) and exc.status == 429:
         return False
-    return isinstance(exc, (ClientError, TokenUpdated))
+    return isinstance(exc, (ClientError, ClientConnectionError, TokenUpdated))
 
 
 async def init_db_connection(conn):
@@ -232,11 +236,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     @staticmethod
     async def get_exception_params(response):
+        try:
+            text = await response.text()
+        except Exception:
+            text = None
+
         return {
             "status_code": response.status,
             "url": response.url,
             "headers": response.headers,
-            "text": await response.text(),
+            "text": text,
         }
 
     # pylint: disable=too-many-locals
