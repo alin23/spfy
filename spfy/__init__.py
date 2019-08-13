@@ -1,4 +1,4 @@
-__version__ = "3.7.9"
+__version__ = "3.7.11"
 
 import pathlib  # isort:skip
 
