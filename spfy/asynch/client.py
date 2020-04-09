@@ -180,7 +180,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         response = await self.redis.get(response_key)
         tr = self.redis.multi_exec()
         try:
-            results = msgpack.loads(response, encoding=config.cache.encoding)
+            results = msgpack.loads(response)
         except:
             results = None
         if not results:
@@ -205,9 +205,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         tr = self.redis.multi_exec()
         tr.setex(etag_key, config.cache.expire, etag)
         tr.setex(
-            response_key,
-            config.cache.expire,
-            msgpack.dumps(results, encoding=config.cache.encoding),
+            response_key, config.cache.expire, msgpack.dumps(results),
         )
         await tr.execute(return_exceptions=False)
 
