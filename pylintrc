@@ -18,7 +18,7 @@ ignore-patterns=
 #init-hook=
 
 # Use multiple processes to speed up Pylint.
-jobs=8
+jobs=12
 
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
@@ -141,7 +141,8 @@ disable=print-statement,
         bare-except,
         useless-super-delegation,
         ungrouped-imports,
-        bad-whitespace
+        bad-whitespace,
+        import-outside-toplevel
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

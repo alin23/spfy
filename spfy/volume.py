@@ -129,6 +129,7 @@ class SpotifyVolumeControlAsync(VolumeControl):
             or not is_playing
         )
 
+    @property
     async def volume(self):  # pylint: disable=method-hidden
         device = await self.spotify.get_device(device=self.device)
         return int(device.volume_percent or 0)
@@ -142,13 +143,13 @@ class SpotifyVolumeControlAsync(VolumeControl):
                 return vol >= limit
             return vol <= limit
 
-        device_volume = await self.volume()
+        device_volume = await self.volume
         while not fade_done(device_volume) and (await self.is_playing()):
             next_volume = device_volume + step
             logger.debug("Setting volume to %s", next_volume)
             await self.set_volume(next_volume)
             await asyncio.sleep(delay)
-            device_volume = await self.volume()
+            device_volume = await self.volume
 
     async def fade(
         self, limit=100, start=1, step=1, seconds=VOLUME_FADE_SECONDS, force=False
@@ -160,10 +161,10 @@ class SpotifyVolumeControlAsync(VolumeControl):
         if force:
             await self.force_fade(limit, step, delay)
         else:
-            device_volume = await self.volume()
+            device_volume = await self.volume
             for next_volume in range(start + step, limit + step, step):
                 await asyncio.sleep(delay)
-                device_volume = await self.volume()
+                device_volume = await self.volume
                 old_volume = next_volume - step
                 should_stop_fading = await self.should_stop_fading(
                     device_volume, old_volume, step
@@ -181,7 +182,7 @@ class SpotifyVolumeControlAsync(VolumeControl):
                 logger.debug("Setting volume to %s", next_volume)
                 await self.set_volume(next_volume)
 
-        device_volume = await self.volume()
+        device_volume = await self.volume
         if device_volume <= abs(step):
             await self.spotify.pause_playback()
 
