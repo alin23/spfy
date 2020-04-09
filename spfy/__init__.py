@@ -1,4 +1,4 @@
-__version__ = "3.7.11"
+__version__ = "3.7.13"
 
 import pathlib  # isort:skip
 
@@ -20,7 +20,7 @@ if config.unsplash.auth.client_id:
     auth = Auth(**config.unsplash.auth)
     Unsplash = Api(auth)
 from .client import SpotifyClient
-from .result import SpotifyResult
-from .wrapper import Spotify
 from .constants import *
 from .exceptions import *
+from .result import SpotifyResult
+from .wrapper import Spotify
