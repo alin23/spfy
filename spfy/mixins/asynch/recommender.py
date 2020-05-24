@@ -146,6 +146,7 @@ class RecommenderMixin:
         conn = conn or await self.dbpool
 
         concurrency_limit = 100
+        # pylint: disable=isinstance-second-argument-not-valid-type
         if not isinstance(reqs, Iterator):
             reqs_iterator = (fetch() for fetch in reqs)
         else:
@@ -317,9 +318,10 @@ class RecommenderMixin:
     ):
         conn = conn or await self.dbpool
 
-        disliked_artists, disliked_genres = (
-            dislikes or await self.get_dislikes_for_filtering(conn)
-        )
+        (
+            disliked_artists,
+            disliked_genres,
+        ) = dislikes or await self.get_dislikes_for_filtering(conn)
         top_artists = await self.current_user_top_artists(
             limit=50, time_range=time_range
         )

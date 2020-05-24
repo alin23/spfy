@@ -344,7 +344,8 @@ class User(db.Entity, ImageMixin):
     disliked_cities = Set("City")
     top_expires_at = Required(Json, volatile=True, default=dict, sql_default="'{}'")
 
-    def to_dict(self, *args, **kwargs):  # pylint: disable=arguments-differ
+    # pylint: disable=arguments-differ,signature-differs
+    def to_dict(self, *args, **kwargs):
         _dict = super().to_dict(*args, **kwargs)
         if "id" in _dict:
             _dict["id"] = str(_dict["id"])
@@ -971,7 +972,8 @@ class AudioFeatures(db.Entity):
     time_signature = Required(int)
     valence = Required(float, min=0.0, max=1.0)
 
-    def to_dict(self, *args, **kwargs):  # pylint: disable=arguments-differ
+    # pylint: disable=arguments-differ,signature-differs
+    def to_dict(self, *args, **kwargs):
         _dict = super().to_dict(*args, **kwargs)
         if "mode" in _dict:
             _dict["mode"] = int(_dict["mode"])
