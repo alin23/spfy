@@ -135,7 +135,9 @@ class SpotifyVolumeControlAsync(VolumeControl):
         return int(device.volume_percent or 0)
 
     async def set_volume(self, val):
-        await self.spotify.volume(cap(val), device=self.device)
+        vol = cap(val)
+        await self.spotify.volume(vol, device=self.device)
+        return vol
 
     async def force_fade(self, limit, step, delay):
         def fade_done(vol):

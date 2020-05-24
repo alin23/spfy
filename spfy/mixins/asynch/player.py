@@ -119,14 +119,16 @@ class PlayerMixin:
                 volume = to
             else:
                 volume = await volume_backend.volume()
-            await volume_backend.set_volume(volume + by)
+            return await volume_backend.set_volume(volume + by)
+
+        if to is not None:
+            volume = to
         else:
-            if to is not None:
-                volume = to
-            else:
-                volume = volume_backend.volume
-            volume_backend.volume = volume + by
-        return volume
+            volume = volume_backend.volume
+
+        new_volume = volume + by
+        volume_backend.volume = new_volume
+        return new_volume
 
     async def volume_up(self, backend=None):
         return await self.change_volume(by=+1, backend=backend)
