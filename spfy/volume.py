@@ -140,7 +140,9 @@ class SpotifyVolumeControlAsync(VolumeControl):
         else:
             current_volume = await self.volume()
             step = -1 if vol < current_volume else 1
-            await self.fade(limit=vol, start=current_volume + step, step=step, seconds=1)
+            await self.fade(
+                limit=vol, start=current_volume + step, step=step, seconds=1
+            )
         return vol
 
     async def force_fade(self, limit, step, delay):
