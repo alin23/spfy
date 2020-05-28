@@ -112,14 +112,18 @@ class PlayerMixin:
             volume_backend = SpotifyVolumeControlAsync(self, device=device)
         return volume_backend
 
-    async def change_volume(self, by=0, to=None, backend=None, device=None, fade=False):
+    async def change_volume(
+        self, by=0, to=None, backend=None, device=None, fade=False, fade_seconds=5
+    ):
         volume_backend = self.backend(backend, device=device)
         if isinstance(volume_backend, SpotifyVolumeControlAsync):
             if to is not None:
                 volume = to
             else:
                 volume = await volume_backend.volume()
-            return await volume_backend.set_volume(volume + by, fade=fade)
+            return await volume_backend.set_volume(
+                volume + by, fade=fade, fade_seconds=fade_seconds
+            )
 
         if to is not None:
             volume = to
