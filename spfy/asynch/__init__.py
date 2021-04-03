@@ -52,7 +52,7 @@ async def limited_as_completed(coros, limit, ignore_exceptions=False):
                             return None
                         raise LimitedAsCompletedError(
                             *exc.args, original_exc=exc, remaining_futures=futures
-                        )
+                        ) from exc
 
     while futures:
         yield await first_to_finish(ignore_exceptions=ignore_exceptions)

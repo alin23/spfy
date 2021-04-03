@@ -56,7 +56,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def _check_response(response):
         try:
             response.raise_for_status()
-        except:
+        except Exception as exc:
             exception_params = SpotifyClient.get_exception_params(response)
             if response.status_code == 429 or (
                 response.status_code >= 500 and response.status_code < 600
@@ -64,12 +64,12 @@ class SpotifyClient(AuthMixin, EmailMixin):
                 raise SpotifyRateLimitException(
                     retry_after=int(response.headers.get("Retry-After", 0)),
                     **exception_params,
-                )
+                ) from exc
 
             if response.status_code == 403:
-                raise SpotifyForbiddenException(**exception_params)
+                raise SpotifyForbiddenException(**exception_params) from exc
 
-            raise SpotifyException(**exception_params)
+            raise SpotifyException(**exception_params) from exc
 
     @staticmethod
     def get_exception_params(response):
@@ -167,10 +167,10 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return self._api_call("PUT", url, args, payload, **kwargs)
 
     def previous(self, result, **kwargs):
-        """ returns the previous result given a paged result
+        """returns the previous result given a paged result
 
-            Parameters:
-                - result - a previously returned paged result
+        Parameters:
+            - result - a previously returned paged result
         """
         if result["previous"]:
             return self._get(result["previous"], **kwargs)
@@ -178,21 +178,21 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return None
 
     def track(self, track_id, **kwargs):
-        """ returns a single track given the track's ID, URI or URL
+        """returns a single track given the track's ID, URI or URL
 
-            Parameters:
-                - track_id - a spotify URI, URL or ID
+        Parameters:
+            - track_id - a spotify URI, URL or ID
         """
         _id = self._get_track_id(track_id)
         # pylint: disable=no-member
         return self._get(API.TRACK.value.format(id=_id), **kwargs)
 
     def tracks(self, tracks, market="from_token", **kwargs):
-        """ returns a list of tracks given a list of track IDs, URIs, or URLs
+        """returns a list of tracks given a list of track IDs, URIs, or URLs
 
-            Parameters:
-                - tracks - a list of spotify URIs, URLs or IDs
-                - market - an ISO 3166-1 alpha-2 country code.
+        Parameters:
+            - tracks - a list of spotify URIs, URLs or IDs
+            - market - an ISO 3166-1 alpha-2 country code.
         """
         track_list = map(self._get_track_id, tracks)
         return self._get(
@@ -200,20 +200,20 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def artist(self, artist_id, **kwargs):
-        """ returns a single artist given the artist's ID, URI or URL
+        """returns a single artist given the artist's ID, URI or URL
 
-            Parameters:
-                - artist_id - an artist ID, URI or URL
+        Parameters:
+            - artist_id - an artist ID, URI or URL
         """
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
         return self._get(API.ARTIST.value.format(id=_id), **kwargs)
 
     def artists(self, artists, **kwargs):
-        """ returns a list of artists given the artist IDs, URIs, or URLs
+        """returns a list of artists given the artist IDs, URIs, or URLs
 
-            Parameters:
-                - artists - a list of  artist IDs, URIs or URLs
+        Parameters:
+            - artists - a list of  artist IDs, URIs or URLs
         """
         artist_list = map(self._get_artist_id, artists)
         return self._get(API.ARTISTS.value, ids=",".join(artist_list), **kwargs)
@@ -221,14 +221,14 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def artist_albums(
         self, artist_id, album_type=None, country=None, limit=20, offset=0, **kwargs
     ):
-        """ Get Spotify catalog information about an artist's albums
+        """Get Spotify catalog information about an artist's albums
 
-            Parameters:
-                - artist_id - the artist ID, URI or URL
-                - album_type - 'album', 'single', 'appears_on', 'compilation'
-                - country - limit the response to one particular country.
-                - limit  - the number of albums to return
-                - offset - the index of the first album to return
+        Parameters:
+            - artist_id - the artist ID, URI or URL
+            - album_type - 'album', 'single', 'appears_on', 'compilation'
+            - country - limit the response to one particular country.
+            - limit  - the number of albums to return
+            - offset - the index of the first album to return
         """
         _id = self._get_artist_id(artist_id)
         return self._get(
@@ -241,12 +241,12 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def artist_top_tracks(self, artist_id, country="US", **kwargs):
-        """ Get Spotify catalog information about an artist's top 10 tracks
-            by country.
+        """Get Spotify catalog information about an artist's top 10 tracks
+        by country.
 
-            Parameters:
-                - artist_id - the artist ID, URI or URL
-                - country - limit the response to one particular country.
+        Parameters:
+            - artist_id - the artist ID, URI or URL
+            - country - limit the response to one particular country.
         """
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
@@ -256,34 +256,34 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     @lru_cache(maxsize=128)
     def artist_related_artists(self, artist_id, **kwargs):
-        """ Get Spotify catalog information about artists similar to an
-            identified artist. Similarity is based on analysis of the
-            Spotify community's listening history.
+        """Get Spotify catalog information about artists similar to an
+        identified artist. Similarity is based on analysis of the
+        Spotify community's listening history.
 
-            Parameters:
-                - artist_id - the artist ID, URI or URL
+        Parameters:
+            - artist_id - the artist ID, URI or URL
         """
         _id = self._get_artist_id(artist_id)
         # pylint: disable=no-member
         return self._get(API.ARTIST_RELATED_ARTISTS.value.format(id=_id), **kwargs)
 
     def album(self, album_id, **kwargs):
-        """ returns a single album given the album's ID, URIs or URL
+        """returns a single album given the album's ID, URIs or URL
 
-            Parameters:
-                - album_id - the album ID, URI or URL
+        Parameters:
+            - album_id - the album ID, URI or URL
         """
         _id = self._get_album_id(album_id)
         # pylint: disable=no-member
         return self._get(API.ALBUM.value.format(id=_id), **kwargs)
 
     def album_tracks(self, album_id, limit=50, offset=0, **kwargs):
-        """ Get Spotify catalog information about an album's tracks
+        """Get Spotify catalog information about an album's tracks
 
-            Parameters:
-                - album_id - the album ID, URI or URL
-                - limit  - the number of items to return
-                - offset - the index of the first item to return
+        Parameters:
+            - album_id - the album ID, URI or URL
+            - limit  - the number of items to return
+            - offset - the index of the first item to return
         """
         _id = self._get_album_id(album_id)
         # pylint: disable=no-member
@@ -292,24 +292,24 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def albums(self, albums, **kwargs):
-        """ returns a list of albums given the album IDs, URIs, or URLs
+        """returns a list of albums given the album IDs, URIs, or URLs
 
-            Parameters:
-                - albums - a list of  album IDs, URIs or URLs
+        Parameters:
+            - albums - a list of  album IDs, URIs or URLs
         """
         album_list = map(self._get_album_id, albums)
         return self._get(API.ALBUMS.value, ids=",".join(album_list), **kwargs)
 
     def search(self, url, q, limit=10, offset=0, market="from_token", **kwargs):
-        """ searches for an item
+        """searches for an item
 
-            Parameters:
-                - q - the search query
-                - limit  - the number of items to return
-                - offset - the index of the first item to return
-                - type - the type of item to return. One of 'artist', 'album',
-                         'track' or 'playlist'
-                - market - An ISO 3166-1 alpha-2 country code or the string from_token.
+        Parameters:
+            - q - the search query
+            - limit  - the number of items to return
+            - offset - the index of the first item to return
+            - type - the type of item to return. One of 'artist', 'album',
+                     'track' or 'playlist'
+            - market - An ISO 3166-1 alpha-2 country code or the string from_token.
         """
         return self._get(url, q=q, limit=limit, offset=offset, market=market, **kwargs)
 
@@ -356,29 +356,29 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def profile(self, user, **kwargs):
-        """ Gets basic profile information about a Spotify User
+        """Gets basic profile information about a Spotify User
 
-            Parameters:
-                - user - the id of the user
+        Parameters:
+            - user - the id of the user
         """
         # pylint: disable=no-member
         return self._get(API.USER.value.format(user_id=user), **kwargs)
 
     def current_user_playlists(self, limit=50, offset=0, **kwargs):
-        """ Get current user playlists without required getting his profile
-            Parameters:
-                - limit  - the number of items to return
-                - offset - the index of the first item to return
+        """Get current user playlists without required getting his profile
+        Parameters:
+            - limit  - the number of items to return
+            - offset - the index of the first item to return
         """
         return self._get(API.MY_PLAYLISTS.value, limit=limit, offset=offset, **kwargs)
 
     def user_playlists(self, user, limit=50, offset=0, **kwargs):
-        """ Gets playlists of a user
+        """Gets playlists of a user
 
-            Parameters:
-                - user - the id of the usr
-                - limit  - the number of items to return
-                - offset - the index of the first item to return
+        Parameters:
+            - user - the id of the usr
+            - limit  - the number of items to return
+            - offset - the index of the first item to return
         """
         # pylint: disable=no-member
         return self._get(
@@ -391,11 +391,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def user_playlist(
         self, user, playlist_id=None, fields=None, market="from_token", **kwargs
     ):
-        """ Gets playlist of a user
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - fields - which fields to return
+        """Gets playlist of a user
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - fields - which fields to return
         """
         if playlist_id is None:
             return self._get("users/%s/starred" % (user), fields=fields, **kwargs)
@@ -419,15 +419,15 @@ class SpotifyClient(AuthMixin, EmailMixin):
         market="from_token",
         **kwargs,
     ):
-        """ Get full details of the tracks of a playlist owned by a user.
+        """Get full details of the tracks of a playlist owned by a user.
 
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - fields - which fields to return
-                - limit - the maximum number of tracks to return
-                - offset - the index of the first track to return
-                - market - an ISO 3166-1 alpha-2 country code.
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - fields - which fields to return
+            - limit - the maximum number of tracks to return
+            - offset - the index of the first track to return
+            - market - an ISO 3166-1 alpha-2 country code.
         """
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
@@ -441,13 +441,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def user_playlist_create(self, user, name, public=True, description="", **kwargs):
-        """ Creates a playlist for a user
+        """Creates a playlist for a user
 
-            Parameters:
-                - user - the id of the user
-                - name - the name of the playlist
-                - public - is the created playlist public
-                - description - the description of the playlist
+        Parameters:
+            - user - the id of the user
+            - name - the name of the playlist
+            - public - is the created playlist public
+            - description - the description of the playlist
         """
         # pylint: disable=no-member
         data = {"name": name, "public": public, "description": description}
@@ -456,12 +456,12 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def user_playlist_upload_cover_image(self, user, playlist_id, image, **kwargs):
-        """ Creates a playlist for a user
+        """Creates a playlist for a user
 
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - image - base64 encoded image
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - image - base64 encoded image
         """
         # pylint: disable=no-member
         return self._put(
@@ -481,15 +481,15 @@ class SpotifyClient(AuthMixin, EmailMixin):
         description=None,
         **kwargs,
     ):
-        """ Changes a playlist's name and/or public/private state
+        """Changes a playlist's name and/or public/private state
 
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - name - optional name of the playlist
-                - public - optional is the playlist public
-                - collaborative - optional is the playlist collaborative
-                - description - the description of the playlist
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - name - optional name of the playlist
+            - public - optional is the playlist public
+            - collaborative - optional is the playlist collaborative
+            - description - the description of the playlist
         """
         data = {}
         if isinstance(name, str):
@@ -508,11 +508,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def user_playlist_unfollow(self, user, playlist_id, **kwargs):
-        """ Unfollows (deletes) a playlist for a user
+        """Unfollows (deletes) a playlist for a user
 
-            Parameters:
-                - user - the id of the user
-                - name - the name of the playlist
+        Parameters:
+            - user - the id of the user
+            - name - the name of the playlist
         """
         return self._delete(
             "users/%s/playlists/%s/followers" % (user, playlist_id), **kwargs
@@ -521,13 +521,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def user_playlist_add_tracks(
         self, user, playlist_id, tracks, position=None, **kwargs
     ):
-        """ Adds tracks to a playlist
+        """Adds tracks to a playlist
 
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - tracks - a list of track URIs, URLs or IDs
-                - position - the position to add the tracks
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - tracks - a list of track URIs, URLs or IDs
+            - position - the position to add the tracks
         """
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
@@ -553,12 +553,12 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return results
 
     def user_playlist_replace_tracks(self, user, playlist_id, tracks, **kwargs):
-        """ Replace all tracks in a playlist
+        """Replace all tracks in a playlist
 
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - tracks - the list of track ids to add to the playlist
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - tracks - the list of track ids to add to the playlist
         """
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
@@ -585,15 +585,15 @@ class SpotifyClient(AuthMixin, EmailMixin):
         snapshot_id=None,
         **kwargs,
     ):
-        """ Reorder tracks in a playlist
+        """Reorder tracks in a playlist
 
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - range_start - the position of the first track to be reordered
-                - range_length - optional the number of tracks to be reordered (default: 1)
-                - insert_before - the position where the tracks should be inserted
-                - snapshot_id - optional playlist's snapshot ID
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - range_start - the position of the first track to be reordered
+            - range_length - optional the number of tracks to be reordered (default: 1)
+            - insert_before - the position where the tracks should be inserted
+            - snapshot_id - optional playlist's snapshot ID
         """
         _id = self._get_playlist_id(playlist_id)
         payload = {
@@ -613,13 +613,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def user_playlist_remove_all_occurrences_of_tracks(
         self, user, playlist_id, tracks, snapshot_id=None, **kwargs
     ):
-        """ Removes all occurrences of the given tracks from the given playlist
+        """Removes all occurrences of the given tracks from the given playlist
 
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - tracks - the list of track ids to add to the playlist
-                - snapshot_id - optional id of the playlist snapshot
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - tracks - the list of track ids to add to the playlist
+            - snapshot_id - optional id of the playlist snapshot
 
         """
         _id = self._get_playlist_id(playlist_id)
@@ -637,19 +637,19 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def user_playlist_remove_specific_occurrences_of_tracks(
         self, user, playlist_id, tracks, snapshot_id=None, **kwargs
     ):
-        """ Removes all occurrences of the given tracks from the given playlist
+        """Removes all occurrences of the given tracks from the given playlist
 
-            Parameters:
-                - user - the id of the user
-                - playlist_id - the id of the playlist
-                - tracks - an array of objects containing Spotify URIs of the tracks
-                           to remove with their current positions in the playlist.
-                    For example:
-                        [
-                          { "uri":"4iV5W9uYEdYUVa79Axb7Rh", "positions":[2] },
-                          { "uri":"1301WleyT98MSxVHPZCA6M", "positions":[7] }
-                        ]
-                - snapshot_id - optional id of the playlist snapshot
+        Parameters:
+            - user - the id of the user
+            - playlist_id - the id of the playlist
+            - tracks - an array of objects containing Spotify URIs of the tracks
+                       to remove with their current positions in the playlist.
+                For example:
+                    [
+                      { "uri":"4iV5W9uYEdYUVa79Axb7Rh", "positions":[2] },
+                      { "uri":"1301WleyT98MSxVHPZCA6M", "positions":[7] }
+                    ]
+            - snapshot_id - optional id of the playlist snapshot
         """
         _id = self._get_playlist_id(playlist_id)
         ftracks = []
@@ -704,45 +704,45 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def me(self, **kwargs):
-        """ Get detailed profile information about the current user.
-            An alias for the 'current_user' method.
+        """Get detailed profile information about the current user.
+        An alias for the 'current_user' method.
         """
         return self._get(API.ME.value, **kwargs)
 
     def current_user(self, **kwargs):
-        """ Get detailed profile information about the current user.
-            An alias for the 'me' method.
+        """Get detailed profile information about the current user.
+        An alias for the 'me' method.
         """
         return self.me(**kwargs)
 
     def current_user_saved_albums(self, limit=20, offset=0, **kwargs):
-        """ Gets a list of the albums saved in the current authorized user's
-            "Your Music" library
+        """Gets a list of the albums saved in the current authorized user's
+        "Your Music" library
 
-            Parameters:
-                - limit - the number of albums to return
-                - offset - the index of the first album to return
+        Parameters:
+            - limit - the number of albums to return
+            - offset - the index of the first album to return
 
         """
         return self._get(API.MY_ALBUMS.value, limit=limit, offset=offset, **kwargs)
 
     def current_user_saved_tracks(self, limit=20, offset=0, **kwargs):
-        """ Gets a list of the tracks saved in the current authorized user's
-            "Your Music" library
+        """Gets a list of the tracks saved in the current authorized user's
+        "Your Music" library
 
-            Parameters:
-                - limit - the number of tracks to return
-                - offset - the index of the first track to return
+        Parameters:
+            - limit - the number of tracks to return
+            - offset - the index of the first track to return
 
         """
         return self._get(API.MY_TRACKS.value, limit=limit, offset=offset, **kwargs)
 
     def current_user_followed_artists(self, limit=20, after=None, **kwargs):
-        """ Gets a list of the artists followed by the current authorized user
+        """Gets a list of the artists followed by the current authorized user
 
-            Parameters:
-                - limit - the number of tracks to return
-                - after - ghe last artist ID retrieved from the previous request
+        Parameters:
+            - limit - the number of tracks to return
+            - after - ghe last artist ID retrieved from the previous request
 
         """
         return self._get(
@@ -750,29 +750,29 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def user_follow_artists(self, ids=None, **kwargs):
-        """ Follow one or more artists
-            Parameters:
-                - ids - a list of artist IDs
+        """Follow one or more artists
+        Parameters:
+            - ids - a list of artist IDs
         """
         return self._put(
             API.MY_FOLLOWING.value, type="artist", ids=",".join(ids or []), **kwargs
         )
 
     def user_follow_users(self, ids=None, **kwargs):
-        """ Follow one or more users
-            Parameters:
-                - ids - a list of user IDs
+        """Follow one or more users
+        Parameters:
+            - ids - a list of user IDs
         """
         return self._put(
             API.MY_FOLLOWING.value, type="user", ids=",".join(ids or []), **kwargs
         )
 
     def current_user_saved_tracks_delete(self, tracks=None, **kwargs):
-        """ Remove one or more tracks from the current user's
-            "Your Music" library.
+        """Remove one or more tracks from the current user's
+        "Your Music" library.
 
-            Parameters:
-                - tracks - a list of track URIs, URLs or IDs
+        Parameters:
+            - tracks - a list of track URIs, URLs or IDs
         """
         track_list = []
         if tracks is not None:
@@ -780,11 +780,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return self._delete(API.MY_TRACKS.value, ids=",".join(track_list), **kwargs)
 
     def current_user_saved_tracks_contains(self, tracks=None, **kwargs):
-        """ Check if one or more tracks is already saved in
-            the current Spotify user’s “Your Music” library.
+        """Check if one or more tracks is already saved in
+        the current Spotify user’s “Your Music” library.
 
-            Parameters:
-                - tracks - a list of track URIs, URLs or IDs
+        Parameters:
+            - tracks - a list of track URIs, URLs or IDs
         """
         track_list = []
         if tracks is not None:
@@ -792,11 +792,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return self._get(API.MY_TRACKS_CONTAINS.value, ",".join(track_list), **kwargs)
 
     def current_user_saved_tracks_add(self, tracks=None, **kwargs):
-        """ Add one or more tracks to the current user's
-            "Your Music" library.
+        """Add one or more tracks to the current user's
+        "Your Music" library.
 
-            Parameters:
-                - tracks - a list of track URIs, URLs or IDs
+        Parameters:
+            - tracks - a list of track URIs, URLs or IDs
         """
         track_list = []
         if tracks is not None:
@@ -806,13 +806,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def current_user_top_artists(
         self, limit=20, offset=0, time_range=TimeRange.MEDIUM_TERM, **kwargs
     ):
-        """ Get the current user's top artists
+        """Get the current user's top artists
 
-            Parameters:
-                - limit - the number of entities to return
-                - offset - the index of the first entity to return
-                - time_range - Over what time frame are the affinities computed
-                  Valid-values: short_term, medium_term, long_term
+        Parameters:
+            - limit - the number of entities to return
+            - offset - the index of the first entity to return
+            - time_range - Over what time frame are the affinities computed
+              Valid-values: short_term, medium_term, long_term
         """
         return self._get(
             API.MY_TOP.value.format(type="artists"),  # pylint: disable=no-member
@@ -825,13 +825,13 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def current_user_top_tracks(
         self, limit=20, offset=0, time_range=TimeRange.MEDIUM_TERM, **kwargs
     ):
-        """ Get the current user's top tracks
+        """Get the current user's top tracks
 
-            Parameters:
-                - limit - the number of entities to return
-                - offset - the index of the first entity to return
-                - time_range - Over what time frame are the affinities computed
-                  Valid-values: short_term, medium_term, long_term
+        Parameters:
+            - limit - the number of entities to return
+            - offset - the index of the first entity to return
+            - time_range - Over what time frame are the affinities computed
+              Valid-values: short_term, medium_term, long_term
         """
         return self._get(
             API.MY_TOP.value.format(type="tracks"),  # pylint: disable=no-member
@@ -842,10 +842,10 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def current_user_saved_albums_add(self, albums=None, **kwargs):
-        """ Add one or more albums to the current user's
-            "Your Music" library.
-            Parameters:
-                - albums - a list of album URIs, URLs or IDs
+        """Add one or more albums to the current user's
+        "Your Music" library.
+        Parameters:
+            - albums - a list of album URIs, URLs or IDs
         """
         album_list = map(self._get_album_id, albums or [])
         return self._put(API.MY_ALBUMS.value, ids=",".join(album_list), **kwargs)
@@ -853,26 +853,26 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def featured_playlists(
         self, locale=None, country=None, timestamp=None, limit=20, offset=0, **kwargs
     ):
-        """ Get a list of Spotify featured playlists
+        """Get a list of Spotify featured playlists
 
-            Parameters:
-                - locale - The desired language, consisting of a lowercase ISO
-                  639 language code and an uppercase ISO 3166-1 alpha-2 country
-                  code, joined by an underscore.
+        Parameters:
+            - locale - The desired language, consisting of a lowercase ISO
+              639 language code and an uppercase ISO 3166-1 alpha-2 country
+              code, joined by an underscore.
 
-                - country - An ISO 3166-1 alpha-2 country code.
+            - country - An ISO 3166-1 alpha-2 country code.
 
-                - timestamp - A timestamp in ISO 8601 format:
-                  yyyy-MM-ddTHH:mm:ss. Use this parameter to specify the user's
-                  local time to get results tailored for that specific date and
-                  time in the day
+            - timestamp - A timestamp in ISO 8601 format:
+              yyyy-MM-ddTHH:mm:ss. Use this parameter to specify the user's
+              local time to get results tailored for that specific date and
+              time in the day
 
-                - limit - The maximum number of items to return. Default: 20.
-                  Minimum: 1. Maximum: 50
+            - limit - The maximum number of items to return. Default: 20.
+              Minimum: 1. Maximum: 50
 
-                - offset - The index of the first item to return. Default: 0
-                  (the first object). Use with limit to get the next set of
-                  items.
+            - offset - The index of the first item to return. Default: 0
+              (the first object). Use with limit to get the next set of
+              items.
         """
         return self._get(
             API.FEATURED_PLAYLISTS.value,
@@ -885,17 +885,17 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def new_releases(self, country=None, limit=20, offset=0, **kwargs):
-        """ Get a list of new album releases featured in Spotify
+        """Get a list of new album releases featured in Spotify
 
-            Parameters:
-                - country - An ISO 3166-1 alpha-2 country code.
+        Parameters:
+            - country - An ISO 3166-1 alpha-2 country code.
 
-                - limit - The maximum number of items to return. Default: 20.
-                  Minimum: 1. Maximum: 50
+            - limit - The maximum number of items to return. Default: 20.
+              Minimum: 1. Maximum: 50
 
-                - offset - The index of the first item to return. Default: 0
-                  (the first object). Use with limit to get the next set of
-                  items.
+            - offset - The index of the first item to return. Default: 0
+              (the first object). Use with limit to get the next set of
+              items.
         """
         return self._get(
             API.NEW_RELEASES.value,
@@ -906,20 +906,20 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def categories(self, country=None, locale=None, limit=20, offset=0, **kwargs):
-        """ Get a list of new album releases featured in Spotify
+        """Get a list of new album releases featured in Spotify
 
-            Parameters:
-                - country - An ISO 3166-1 alpha-2 country code.
-                - locale - The desired language, consisting of an ISO 639
-                  language code and an ISO 3166-1 alpha-2 country code, joined
-                  by an underscore.
+        Parameters:
+            - country - An ISO 3166-1 alpha-2 country code.
+            - locale - The desired language, consisting of an ISO 639
+              language code and an ISO 3166-1 alpha-2 country code, joined
+              by an underscore.
 
-                - limit - The maximum number of items to return. Default: 20.
-                  Minimum: 1. Maximum: 50
+            - limit - The maximum number of items to return. Default: 20.
+              Minimum: 1. Maximum: 50
 
-                - offset - The index of the first item to return. Default: 0
-                  (the first object). Use with limit to get the next set of
-                  items.
+            - offset - The index of the first item to return. Default: 0
+              (the first object). Use with limit to get the next set of
+              items.
         """
         return self._get(
             API.CATEGORIES.value,
@@ -933,19 +933,19 @@ class SpotifyClient(AuthMixin, EmailMixin):
     def category_playlists(
         self, category_id=None, country=None, limit=20, offset=0, **kwargs
     ):
-        """ Get a list of new album releases featured in Spotify
+        """Get a list of new album releases featured in Spotify
 
-            Parameters:
-                - category_id - The Spotify category ID for the category.
+        Parameters:
+            - category_id - The Spotify category ID for the category.
 
-                - country - An ISO 3166-1 alpha-2 country code.
+            - country - An ISO 3166-1 alpha-2 country code.
 
-                - limit - The maximum number of items to return. Default: 20.
-                  Minimum: 1. Maximum: 50
+            - limit - The maximum number of items to return. Default: 20.
+              Minimum: 1. Maximum: 50
 
-                - offset - The index of the first item to return. Default: 0
-                  (the first object). Use with limit to get the next set of
-                  items.
+            - offset - The index of the first item to return. Default: 0
+              (the first object). Use with limit to get the next set of
+              items.
         """
         # pylint: disable=no-member
         return self._get(
@@ -967,25 +967,25 @@ class SpotifyClient(AuthMixin, EmailMixin):
         filter_manele=True,
         **kwargs,
     ):
-        """ Get a list of recommended tracks for one to five seeds.
+        """Get a list of recommended tracks for one to five seeds.
 
-            Parameters:
-                - seed_artists - a list of artist IDs, URIs or URLs
+        Parameters:
+            - seed_artists - a list of artist IDs, URIs or URLs
 
-                - seed_tracks - a list of artist IDs, URIs or URLs
+            - seed_tracks - a list of artist IDs, URIs or URLs
 
-                - seed_genres - a list of genre names. Available genres for
-                  recommendations can be found by calling recommendation_genre_seeds
+            - seed_genres - a list of genre names. Available genres for
+              recommendations can be found by calling recommendation_genre_seeds
 
-                - country - An ISO 3166-1 alpha-2 country code. If provided, all
-                  results will be playable in this country.
+            - country - An ISO 3166-1 alpha-2 country code. If provided, all
+              results will be playable in this country.
 
-                - limit - The maximum number of items to return. Default: 20.
-                  Minimum: 1. Maximum: 100
+            - limit - The maximum number of items to return. Default: 20.
+              Minimum: 1. Maximum: 100
 
-                - min/max/target_<attribute> - For the tuneable track attributes listed
-                  in the documentation, these values provide filters and targeting on
-                  results.
+            - min/max/target_<attribute> - For the tuneable track attributes listed
+              in the documentation, these values provide filters and targeting on
+              results.
         """
         params = dict(limit=limit)
         if seed_artists:
@@ -1020,24 +1020,23 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return self._get(API.RECOMMENDATIONS.value, **params, **kwargs)
 
     def recommendation_genre_seeds(self, **kwargs):
-        """ Get a list of genres available for the recommendations function.
-        """
+        """Get a list of genres available for the recommendations function."""
         return self._get(API.RECOMMENDATIONS_GENRES.value, **kwargs)
 
     def audio_analysis(self, track=None, **kwargs):
-        """ Get audio analysis for a track based upon its Spotify ID
-            Parameters:
-                - track - a track URI, URL or ID
+        """Get audio analysis for a track based upon its Spotify ID
+        Parameters:
+            - track - a track URI, URL or ID
         """
         _id = self._get_track_id(track)
         # pylint: disable=no-member
         return self._get(API.AUDIO_ANALYSIS.value.format(id=_id), **kwargs)
 
     def audio_features(self, track=None, tracks=None, with_cache=True, **kwargs):
-        """ Get audio features for one or multiple tracks based upon their Spotify IDs
-            Parameters:
-                - track - a track URI, URL or ID
-                - tracks - a list of track URIs, URLs or IDs, maximum: 100 ids
+        """Get audio features for one or multiple tracks based upon their Spotify IDs
+        Parameters:
+            - track - a track URI, URL or ID
+            - tracks - a list of track URIs, URLs or IDs, maximum: 100 ids
         """
         if track:
             _id = self._get_track_id(track)
@@ -1062,8 +1061,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return audio_features
 
     def devices(self, **kwargs):
-        """ Get a list of user's available devices.
-        """
+        """Get a list of user's available devices."""
         return self._get(API.DEVICES.value, check_202=True, **kwargs)
 
     def get_device_id(self, device=None):
@@ -1106,40 +1104,40 @@ class SpotifyClient(AuthMixin, EmailMixin):
         return device
 
     def current_playback(self, market="from_token", **kwargs):
-        """ Get information about user's current playback.
+        """Get information about user's current playback.
 
-            Parameters:
-                - market - an ISO 3166-1 alpha-2 country code.
+        Parameters:
+            - market - an ISO 3166-1 alpha-2 country code.
         """
         return self._get(API.PLAYER.value, market=market, **kwargs)
 
     def current_user_recently_played(self, limit=50, **kwargs):
-        """ Get the current user's recently played tracks
+        """Get the current user's recently played tracks
 
-            Parameters:
-                - limit - the number of entities to return
+        Parameters:
+            - limit - the number of entities to return
         """
         return self._get(API.RECENTLY_PLAYED.value, limit=limit, **kwargs)
 
     def currently_playing(self, market="from_token", **kwargs):
-        """ Get user's currently playing track.
+        """Get user's currently playing track.
 
-            Parameters:
-                - market - an ISO 3166-1 alpha-2 country code.
+        Parameters:
+            - market - an ISO 3166-1 alpha-2 country code.
         """
         return self._get(
             API.CURRENTLY_PLAYING.value, market=market, check_202=True, **kwargs
         )
 
     def transfer_playback(self, device, force_play=True, **kwargs):
-        """ Transfer playback to another device.
-            Note that the API accepts a list of device ids, but only
-            actually supports one.
+        """Transfer playback to another device.
+        Note that the API accepts a list of device ids, but only
+        actually supports one.
 
-            Parameters:
-                - device - transfer playback to this device
-                - force_play - true: after transfer, play. false:
-                               keep current state.
+        Parameters:
+            - device - transfer playback to this device
+            - force_play - true: after transfer, play. false:
+                           keep current state.
         """
         device_id = self.get_device_id(device)
         data = {"device_ids": [device_id], "play": force_play}
@@ -1155,15 +1153,15 @@ class SpotifyClient(AuthMixin, EmailMixin):
         offset=None,
         **kwargs,
     ):
-        """ Start or resume user's playback.
+        """Start or resume user's playback.
 
-            Parameters:
-                - device - device target for playback
-                - playlist - spotify playlist to play
-                - artist - spotify artist to play
-                - album - spotify album to play
-                - tracks - spotify tracks to play
-                - offset - offset into context by index or track
+        Parameters:
+            - device - device target for playback
+            - playlist - spotify playlist to play
+            - artist - spotify artist to play
+            - album - spotify album to play
+            - tracks - spotify tracks to play
+            - offset - offset into context by index or track
         """
         data = {}
         if playlist:
@@ -1183,37 +1181,37 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def pause_playback(self, device=None, **kwargs):
-        """ Pause user's playback.
+        """Pause user's playback.
 
-            Parameters:
-                - device - device target for playback
+        Parameters:
+            - device - device target for playback
         """
         return self._put(API.PAUSE.value, device_id=device, check_202=True, **kwargs)
 
     def next_track(self, device=None, **kwargs):
-        """ Skip user's playback to next track.
+        """Skip user's playback to next track.
 
-            Parameters:
-                - device - device target for playback
+        Parameters:
+            - device - device target for playback
         """
         return self._post(API.NEXT.value, device_id=device, check_202=True, **kwargs)
 
     def previous_track(self, device=None, **kwargs):
-        """ Skip user's playback to previous track.
+        """Skip user's playback to previous track.
 
-            Parameters:
-                - device - device target for playback
+        Parameters:
+            - device - device target for playback
         """
         return self._post(
             API.PREVIOUS.value, device_id=device, check_202=True, **kwargs
         )
 
     def seek_track(self, position_ms, device=None, **kwargs):
-        """ Seek to position in current track.
+        """Seek to position in current track.
 
-            Parameters:
-                - position_ms - position in milliseconds to seek to
-                - device - device target for playback
+        Parameters:
+            - position_ms - position in milliseconds to seek to
+            - device - device target for playback
         """
         if not isinstance(position_ms, int):
             logger.warning("position_ms must be an integer")
@@ -1228,11 +1226,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def repeat(self, state, device=None, **kwargs):
-        """ Set repeat mode for playback.
+        """Set repeat mode for playback.
 
-            Parameters:
-                - state - `track`, `context`, or `off`
-                - device - device target for playback
+        Parameters:
+            - state - `track`, `context`, or `off`
+            - device - device target for playback
         """
         if state not in ["track", "context", "off"]:
             logger.warning("Invalid state")
@@ -1243,11 +1241,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def volume(self, volume_percent: int = None, device: str = None, **kwargs):
-        """ Get or set playback volume.
+        """Get or set playback volume.
 
-            Parameters:
-                - volume_percent - volume between 0 and 100
-                - device - device target for playback
+        Parameters:
+            - volume_percent - volume between 0 and 100
+            - device - device target for playback
         """
         device = self.get_device(device)
         if volume_percent is None:
@@ -1263,11 +1261,11 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     def shuffle(self, state, device=None, **kwargs):
-        """ Toggle playback shuffling.
+        """Toggle playback shuffling.
 
-            Parameters:
-                - state - true or false
-                - device - device target for playback
+        Parameters:
+            - state - true or false
+            - device - device target for playback
         """
         if not isinstance(state, bool):
             logger.warning("State must be a boolean")

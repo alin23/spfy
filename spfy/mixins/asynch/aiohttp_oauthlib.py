@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 class TokenUpdated(Warning):
     def __init__(self, token):
-        super(TokenUpdated, self).__init__()
+        super().__init__()
         self.token = token
 
 
@@ -82,7 +82,7 @@ class OAuth2Session(aiohttp.ClientSession):
                         in its token argument.
         :param kwargs: Arguments to pass to the Session constructor.
         """
-        super(OAuth2Session, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._client = client or WebApplicationClient(client_id, token=token)
         self.token = token or {}
         self.scope = scope
@@ -419,7 +419,7 @@ class OAuth2Session(aiohttp.ClientSession):
                     url, http_method=method, body=data, headers=headers
                 )
             # Attempt to retrieve and save new access token if expired
-            except TokenExpiredError:
+            except TokenExpiredError as err:
                 if self.auto_refresh_url:
                     log.debug(
                         "Auto refresh is set, attempting to refresh at %s.",
@@ -447,7 +447,7 @@ class OAuth2Session(aiohttp.ClientSession):
                             url, http_method=method, body=data, headers=headers
                         )
                     else:
-                        raise TokenUpdated(token)
+                        raise TokenUpdated(token) from err
 
                 else:
                     raise
@@ -455,9 +455,7 @@ class OAuth2Session(aiohttp.ClientSession):
         log.debug("Requesting url %s using method %s.", url, method)
         log.debug("Supplying headers %s and data %s", headers, data)
         log.debug("Passing through key word arguments %s.", kwargs)
-        return await super(OAuth2Session, self)._request(
-            method, url, headers=headers, data=data, **kwargs
-        )
+        return await super()._request(method, url, headers=headers, data=data, **kwargs)
 
     def register_compliance_hook(self, hook_type, hook):
         """Register a hook for request/response tweaking.
