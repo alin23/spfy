@@ -4,9 +4,9 @@ from urllib.parse import parse_qs, urlparse, urlunparse
 import addict
 from cached_property import cached_property
 
-from . import limited_as_completed
 from .. import config
 from ..constants import API
+from . import limited_as_completed
 
 LOCAL_ATTRIBUTES = {"_client", "_next_result", "_next_result_available", "_playable"}
 
@@ -86,10 +86,14 @@ class SpotifyResult(addict.Dict):
         "devices",
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, _client=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self._client = _client
         self._next_result = None
         self._playable = Playable(self)
+
+    def __missing__(self, name):
+        return self.__class__(__parent=self, __key=name, _client=self._client)
 
     def __iter__(self):
         for key in self.ITER_KEYS:
