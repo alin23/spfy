@@ -180,7 +180,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         response = await self.redis.get(response_key)
         tr = self.redis.multi_exec()
         try:
-            results = msgpack.loads(response)
+            results = msgpack.loads(response, encoding="utf-8")
         except:
             results = None
         if not results:
@@ -281,7 +281,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
         except TokenExpiredError as e:
             if self.flow != AuthFlow.CLIENT_CREDENTIALS:
                 raise e
-            self.user.token = None
+            with db_session:
+                self.user.token = None
             await self.authenticate(flow=AuthFlow.CLIENT_CREDENTIALS)
             req = await self.session._request(method, url, **request_args)
 

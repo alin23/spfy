@@ -93,7 +93,7 @@ class SpotifyResult(addict.Dict):
         self._playable = Playable(self)
 
     def __missing__(self, name):
-        return self.__class__(__parent=self, __key=name, _client=self._client)
+        return addict.Dict(__parent=self, __key=name)
 
     def __iter__(self):
         for key in self.ITER_KEYS:
@@ -149,7 +149,7 @@ class SpotifyResult(addict.Dict):
         return await self._client._put(url or self.base_url, **params)
 
     def get_next_params_list(self, limit=None):
-        if self["next"] and self["href"]:
+        if "href" in self and "next" in self and self["next"] and self["href"]:
             max_limit = limit or 50
             url = urlparse(self["href"])
             params = {k: v[0] for k, v in parse_qs(url.query).items()}
@@ -167,10 +167,10 @@ class SpotifyResult(addict.Dict):
         return [item async for item in self.iterall(limit)]
 
     async def next(self):
-        if self._next_result:
+        if "_next_result" in self and self._next_result:
             return self._next_result
 
-        if self["next"]:
+        if "next" in self and self["next"]:
             return await self._client._get(self["next"])
 
         return None

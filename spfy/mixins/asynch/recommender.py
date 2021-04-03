@@ -249,16 +249,17 @@ class RecommenderMixin:
     async def fetch_playlists(self):
         with db_session:
             fetched_ids = set(select(p.id for p in Playlist))
-            for user in self.USER_LIST:
-                user_playlists = await self.user_playlists(user)
-                async for playlist in user_playlists.iterall(ignore_exceptions=True):
-                    if not playlist:
-                        continue
+        for user in self.USER_LIST:
+            user_playlists = await self.user_playlists(user)
+            async for playlist in user_playlists.iterall(ignore_exceptions=True):
+                if not playlist:
+                    continue
 
-                    logger.info("Got %s", playlist.name)
-                    if playlist.id not in fetched_ids:
+                logger.info("Got %s", playlist.name)
+                if playlist.id not in fetched_ids:
+                    with db_session:
                         Playlist.from_dict(playlist)
-                    fetched_ids.add(playlist.id)
+                fetched_ids.add(playlist.id)
 
     async def fetch_user_top(self, time_range):
         with db_session:
