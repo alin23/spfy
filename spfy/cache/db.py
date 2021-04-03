@@ -883,8 +883,9 @@ class Playlist(db.Entity, ImageMixin):
         if fields.get("country"):
             fields["country"] = Country.from_str(fields["country"])
         if fields.get("city"):
-            fields["city"] = City.get(name=fields["city"]) or City(
-                name=fields["city"], country=fields["country"]
+            fields["city"] = City.get(name=fields["city"]) or (
+                fields["country"]
+                and City(name=fields["city"], country=fields["country"])
             )
         if fields.get("genre"):
             fields["genre"] = Genre.get(name=fields["genre"]) or Genre(
@@ -1006,7 +1007,8 @@ if config.database.connection.filename:
 db.bind(**config.database.connection)
 
 GENERATE_MAPPING = os.getenv("SPFY_GENERATE_MAPPING")
-if config.database.generate_mapping and (
-    GENERATE_MAPPING is None or GENERATE_MAPPING == "true"
+if GENERATE_MAPPING not in {"false", "0", "off", "f", "no"} and (
+    config.database.generate_mapping
+    or GENERATE_MAPPING in {"true", "1", "on", "t", "yes"}
 ):
     db.generate_mapping(create_tables=True)
