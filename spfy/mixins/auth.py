@@ -1,15 +1,14 @@
+import hug
 import socket
 import threading
 import uuid
-from pathlib import Path
-from wsgiref.simple_server import make_server
-
-import hug
 from cachecontrol import CacheControlAdapter
 from cachecontrol.caches.file_cache import FileCache
 from oauthlib.oauth2 import BackendApplicationClient
+from pathlib import Path
 from pony.orm import get
 from requests_oauthlib import OAuth2Session
+from wsgiref.simple_server import make_server
 
 from .. import config, logger, root
 from ..cache import User, db_session, select
@@ -183,7 +182,7 @@ class AuthMixin:
                     email = auth_params.get("email") or config.auth.email
                     self.send_auth_email(email, authorization_url)
                 else:
-                    print(f"Login here: {authorization_url}")
+                    logger.info("Login here to use Spotify API: %s", authorization_url)
                 self.wait_for_authorization()
 
     def wait_for_authorization(self):

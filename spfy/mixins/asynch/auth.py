@@ -1,15 +1,15 @@
 import asyncio
-import socket
-import threading
-import uuid
-from datetime import datetime
-from pathlib import Path
 
 import addict
 import aiohttp
 import aiohttp.web
+import socket
+import threading
+import uuid
 from aiohttp.web_runner import GracefulExit
+from datetime import datetime
 from oauthlib.oauth2 import BackendApplicationClient
+from pathlib import Path
 from pony.orm import db_session, get, select
 
 from ... import config, logger, root
@@ -156,6 +156,7 @@ class AuthMixin:
                 state=state,
                 authorization_response=auth_response,
             )
+            self.session.token = token
             self.session.token_updater = self.update_user_token
 
             user_details = await self.current_user()
@@ -286,6 +287,10 @@ class AuthMixin:
                     state=state,
                     authorization_response=auth_response,
                 )
+                self.session.token = token
+                import pudb
+
+                pudb.set_trace()
                 user_details = await self.current_user()
                 user = (
                     select(
@@ -353,12 +358,13 @@ class AuthMixin:
                     email = auth_params.get("email") or config.auth.email
                     self.send_auth_email(email, authorization_url)
                 else:
-                    print(f"Login here: {authorization_url}")
+                    logger.info("Login here to use Spotify API: %s", authorization_url)
                 await self.wait_for_authorization()
 
     async def wait_for_authorization(self):
         if not config.auth.callback.enabled:
             url = input("Paste the URL you are redirected to:")
+
             await self.authenticate_user(auth_response=url)
         else:
             self.callback_reached.wait(config.auth.callback.timeout)

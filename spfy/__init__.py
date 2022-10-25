@@ -15,7 +15,7 @@ from kick import config, logger  # isort:skip
 
 Unsplash = None
 if config.unsplash.auth.client_id:
-    from unsplash import Auth, Api
+    from unsplash import Api, Auth
 
     auth = Auth(**config.unsplash.auth)
     Unsplash = Api(auth)

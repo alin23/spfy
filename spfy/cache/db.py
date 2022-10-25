@@ -1,21 +1,20 @@
 # pylint: disable=too-many-lines
 import asyncio
+from enum import IntEnum
+
+import aiohttp
 import os
+import psycopg2.extras
 import random
 import re
+import requests
 import string
 import time
 from collections import OrderedDict
-from datetime import date, datetime
-from enum import IntEnum
-from io import BytesIO
-from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
-
-import aiohttp
-import psycopg2.extras
-import requests
 from colorthief import ColorThief
+from datetime import date, datetime
 from first import first
+from io import BytesIO
 from pony.orm import (
     Database,
     Json,
@@ -34,6 +33,7 @@ from pony.orm.core import CacheIndexError
 from psycopg2.extensions import register_adapter
 from pycountry import countries
 from unsplash.errors import UnsplashConnectionError, UnsplashError
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from .. import Unsplash, config, logger
 from ..constants import TimeRange
@@ -974,10 +974,15 @@ class AudioFeatures(db.Entity):
     valence = Required(float, min=0.0, max=1.0)
 
     # pylint: disable=arguments-differ,signature-differs
-    def to_dict(self, *args, **kwargs):
+    def to_dict(self, convert_key=False, *args, **kwargs):
         _dict = super().to_dict(*args, **kwargs)
         if "mode" in _dict:
             _dict["mode"] = int(_dict["mode"])
+        if "key" in _dict and convert_key:
+            _dict[
+                "key"
+            ] = f'{self.KEYS[_dict["key"]]} {"minor" if _dict.get("mode") == 0 else "major"}'
+
         return _dict
 
     @classmethod

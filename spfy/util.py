@@ -1,8 +1,8 @@
-import inspect
 from typing import Dict, List
-from itertools import chain, repeat
 
+import inspect
 import pandas as pd
+from itertools import chain, repeat
 
 from .constants import AudioFeature, AudioFeatureRange
 

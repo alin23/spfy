@@ -1,5 +1,6 @@
-import re
 from enum import Enum
+
+import re
 
 from .frange import frange
 
@@ -119,14 +120,12 @@ class API(Enum):
     MY_TOP = "/v1/me/top/{type}"
     MY_TRACKS = "/v1/me/tracks"
     MY_TRACKS_CONTAINS = "/v1/me/tracks/contains"
-    PLAYLIST = "/v1/users/{user_id}/playlists/{playlist_id}"
+    PLAYLIST = "/v1/playlists/{playlist_id}"
     PLAYLISTS = "/v1/users/{user_id}/playlists"
-    PLAYLIST_FOLLOWERS = "/v1/users/{owner_id}/playlists/{playlist_id}/followers"
-    PLAYLIST_FOLLOWERS_CONTAINS = (
-        "/v1/users/{user_id}/playlists/{playlist_id}/followers/contains"
-    )
-    PLAYLIST_IMAGES = "/v1/users/{user_id}/playlists/{playlist_id}/images"
-    PLAYLIST_TRACKS = "/v1/users/{user_id}/playlists/{playlist_id}/tracks"
+    PLAYLIST_FOLLOWERS = "/v1/playlists/{playlist_id}/followers"
+    PLAYLIST_FOLLOWERS_CONTAINS = "/v1/playlists/{playlist_id}/followers/contains"
+    PLAYLIST_IMAGES = "/v1/playlists/{playlist_id}/images"
+    PLAYLIST_TRACKS = "/v1/playlists/{playlist_id}/tracks"
     SEARCH_ALBUM = "/v1/search?type=album"
     SEARCH_ARTIST = "/v1/search?type=artist"
     SEARCH_PLAYLIST = "/v1/search?type=playlist"

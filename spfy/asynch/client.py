@@ -1,25 +1,25 @@
 # coding: utf-8
 # pylint: disable=too-many-lines,too-many-public-methods
 import asyncio
-import logging
-import signal
-from datetime import datetime
-from functools import partialmethod
-from hashlib import sha1
-from itertools import chain
-from operator import attrgetter
 
 import aioredis
 import asyncpg
+import logging
 import msgpack
+import signal
 import ujson as json
 from aiohttp.client_exceptions import (
     ClientConnectionError,
     ClientError,
     ClientResponseError,
 )
+from datetime import datetime
 from first import first
+from functools import partialmethod
+from hashlib import sha1
+from itertools import chain
 from oauthlib.oauth2.rfc6749.errors import TokenExpiredError
+from operator import attrgetter
 from tenacity import (
     after_log,
     retry,
@@ -607,11 +607,10 @@ class SpotifyClient(AuthMixin, EmailMixin):
         )
 
     async def user_playlist(
-        self, user, playlist_id=None, fields=None, market="from_token", **kwargs
+        self, playlist_id=None, user=None, fields=None, market="from_token", **kwargs
     ):
         """Gets playlist of a user
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - fields - which fields to return
         """
@@ -621,7 +620,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
         return await self._get(
-            API.PLAYLIST.value.format(user_id=user, playlist_id=_id),
+            API.PLAYLIST.value.format(playlist_id=_id),
             fields=fields,
             market=market,
             **kwargs,
@@ -629,7 +628,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     async def user_playlist_tracks(
         self,
-        user,
         playlist_id=None,
         fields=None,
         limit=100,
@@ -640,7 +638,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
         """Get full details of the tracks of a playlist owned by a user.
 
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - fields - which fields to return
             - limit - the maximum number of tracks to return
@@ -650,7 +647,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
         return await self._get(
-            API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id),
+            API.PLAYLIST_TRACKS.value.format(playlist_id=_id),
             limit=limit,
             offset=offset,
             fields=fields,
@@ -675,19 +672,16 @@ class SpotifyClient(AuthMixin, EmailMixin):
             API.PLAYLISTS.value.format(user_id=user), payload=data, **kwargs
         )
 
-    async def user_playlist_upload_cover_image(
-        self, user, playlist_id, image, **kwargs
-    ):
+    async def user_playlist_upload_cover_image(self, playlist_id, image, **kwargs):
         """Creates a playlist for a user
 
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - image - base64 encoded image
         """
         # pylint: disable=no-member
         return await self._put(
-            API.PLAYLIST_IMAGES.value.format(user_id=user, playlist_id=playlist_id),
+            API.PLAYLIST_IMAGES.value.format(playlist_id=playlist_id),
             payload=image,
             headers={"Content-Type": "image/jpeg"},
             **kwargs,
@@ -695,7 +689,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     async def user_playlist_change_details(
         self,
-        user,
         playlist_id,
         name=None,
         public=None,
@@ -706,7 +699,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
         """Changes a playlist's name and/or public/private state
 
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - name - optional name of the playlist
             - public - optional is the playlist public
@@ -724,36 +716,32 @@ class SpotifyClient(AuthMixin, EmailMixin):
             data["description"] = description
         # pylint: disable=no-member
         return await self._put(
-            API.PLAYLIST.value.format(user_id=user, playlist_id=playlist_id),
+            API.PLAYLIST.value.format(playlist_id=playlist_id),
             payload=data,
             **kwargs,
         )
 
-    async def user_playlist_unfollow(self, user, playlist_id, **kwargs):
+    async def user_playlist_unfollow(self, playlist_id, **kwargs):
         """Unfollows (deletes) a playlist for a user
 
         Parameters:
-            - user - the id of the user
             - name - the name of the playlist
         """
-        return await self._delete(
-            "users/%s/playlists/%s/followers" % (user, playlist_id), **kwargs
-        )
+        return await self._delete("playlists/%s/followers" % playlist_id, **kwargs)
 
     async def user_playlist_add_tracks(
-        self, user, playlist_id, tracks, position=None, **kwargs
+        self, playlist_id, tracks, position=None, **kwargs
     ):
         """Adds tracks to a playlist
 
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - tracks - a list of track URIs, URLs or IDs
             - position - the position to add the tracks
         """
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
-        url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
+        url = API.PLAYLIST_TRACKS.value.format(playlist_id=_id)
         track_uris = list(map(self._get_track_uri, tracks))
         if len(track_uris) <= 100:
             return await self._post(
@@ -774,24 +762,23 @@ class SpotifyClient(AuthMixin, EmailMixin):
         ]
         return [(await result) for result in results]
 
-    async def user_playlist_replace_tracks(self, user, playlist_id, tracks, **kwargs):
+    async def user_playlist_replace_tracks(self, playlist_id, tracks, **kwargs):
         """Replace all tracks in a playlist
 
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - tracks - the list of track ids to add to the playlist
         """
         _id = self._get_playlist_id(playlist_id)
         # pylint: disable=no-member
-        url = API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id)
+        url = API.PLAYLIST_TRACKS.value.format(playlist_id=_id)
         first_100_tracks, rest_tracks = tracks[:100], tracks[100:]
         track_uris = list(map(self._get_track_uri, first_100_tracks))
         replaced = await self._put(url, payload={"uris": track_uris}, **kwargs)
         if not rest_tracks:
             return replaced
 
-        added = await self.user_playlist_add_tracks(user, playlist_id, rest_tracks)
+        added = await self.user_playlist_add_tracks(playlist_id, rest_tracks)
         if isinstance(added, list):
             return [replaced, *added]
 
@@ -799,7 +786,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
 
     async def user_playlist_reorder_tracks(
         self,
-        user,
         playlist_id,
         range_start,
         insert_before,
@@ -810,7 +796,6 @@ class SpotifyClient(AuthMixin, EmailMixin):
         """Reorder tracks in a playlist
 
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - range_start - the position of the first track to be reordered
             - range_length - optional the number of tracks to be reordered (default: 1)
@@ -827,18 +812,17 @@ class SpotifyClient(AuthMixin, EmailMixin):
             payload["snapshot_id"] = snapshot_id
         # pylint: disable=no-member
         return await self._put(
-            API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id),
+            API.PLAYLIST_TRACKS.value.format(playlist_id=_id),
             payload=payload,
             **kwargs,
         )
 
     async def user_playlist_remove_all_occurrences_of_tracks(
-        self, user, playlist_id, tracks, snapshot_id=None, **kwargs
+        self, playlist_id, tracks, snapshot_id=None, **kwargs
     ):
         """Removes all occurrences of the given tracks from the given playlist
 
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - tracks - the list of track ids to add to the playlist
             - snapshot_id - optional id of the playlist snapshot
@@ -851,18 +835,17 @@ class SpotifyClient(AuthMixin, EmailMixin):
             payload["snapshot_id"] = snapshot_id
         # pylint: disable=no-member
         return await self._delete(
-            API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id),
+            API.PLAYLIST_TRACKS.value.format(playlist_id=_id),
             payload=payload,
             **kwargs,
         )
 
     async def user_playlist_remove_specific_occurrences_of_tracks(
-        self, user, playlist_id, tracks, snapshot_id=None, **kwargs
+        self, playlist_id, tracks, snapshot_id=None, **kwargs
     ):
         """Removes all occurrences of the given tracks from the given playlist
 
         Parameters:
-            - user - the id of the user
             - playlist_id - the id of the playlist
             - tracks - an array of objects containing Spotify URIs of the tracks
                        to remove with their current positions in the playlist.
@@ -884,47 +867,37 @@ class SpotifyClient(AuthMixin, EmailMixin):
             payload["snapshot_id"] = snapshot_id
         # pylint: disable=no-member
         return await self._delete(
-            API.PLAYLIST_TRACKS.value.format(user_id=user, playlist_id=_id),
+            API.PLAYLIST_TRACKS.value.format(playlist_id=_id),
             payload=payload,
             **kwargs,
         )
 
-    async def user_playlist_follow_playlist(
-        self, playlist_owner_id, playlist_id, **kwargs
-    ):
+    async def user_playlist_follow_playlist(self, playlist_id, **kwargs):
         """
         Add the current authenticated user as a follower of a playlist.
 
         Parameters:
-            - playlist_owner_id - the user id of the playlist owner
             - playlist_id - the id of the playlist
 
         """
         # pylint: disable=no-member
         return await self._put(
-            API.PLAYLIST_FOLLOWERS.value.format(
-                owner_id=playlist_owner_id, playlist_id=playlist_id
-            ),
+            API.PLAYLIST_FOLLOWERS.value.format(playlist_id=playlist_id),
             **kwargs,
         )
 
-    async def user_playlist_is_following(
-        self, playlist_owner_id, playlist_id, user_ids, **kwargs
-    ):
+    async def user_playlist_is_following(self, playlist_id, user_ids, **kwargs):
         """
         Check to see if the given users are following the given playlist
 
         Parameters:
-            - playlist_owner_id - the user id of the playlist owner
             - playlist_id - the id of the playlist
             - user_ids - the ids of the users that you want to check to see if they follow the playlist. Maximum: 5 ids.
 
         """
         # pylint: disable=no-member
         return await self._get(
-            API.PLAYLIST_FOLLOWERS_CONTAINS.value.format(
-                user_id=playlist_owner_id, playlist_id=playlist_id
-            ),
+            API.PLAYLIST_FOLLOWERS_CONTAINS.value.format(playlist_id=playlist_id),
             ids=",".join(user_ids),
             **kwargs,
         )
@@ -1267,7 +1240,9 @@ class SpotifyClient(AuthMixin, EmailMixin):
         # pylint: disable=no-member
         return await self._get(API.AUDIO_ANALYSIS.value.format(id=_id), **kwargs)
 
-    async def audio_features(self, track=None, tracks=None, with_cache=False, **kwargs):
+    async def audio_features(
+        self, track=None, tracks=None, with_cache=False, dicts=False, **kwargs
+    ):
         """Get audio features for one or multiple tracks based upon their Spotify IDs
         Parameters:
             - track - a track URI, URL or ID
@@ -1276,9 +1251,24 @@ class SpotifyClient(AuthMixin, EmailMixin):
         if track:
             _id = self._get_track_id(track)
             # pylint: disable=no-member
+            if dicts:
+                with db_session:
+                    return (
+                        AudioFeatures.get(id=_id)
+                        or AudioFeatures.from_dict(
+                            await self._get(
+                                API.AUDIO_FEATURES_SINGLE.value.format(id=_id),
+                                **kwargs,
+                            )
+                        )
+                    ).to_dict(convert_key=True)
+
             return await self._get(
                 API.AUDIO_FEATURES_SINGLE.value.format(id=_id), **kwargs
             )
+
+        if "," in tracks:
+            tracks = tracks.split(",")
 
         tracks = [self._get_track_id(t) for t in tracks or []]
         cached_tracks = []
@@ -1312,6 +1302,8 @@ class SpotifyClient(AuthMixin, EmailMixin):
                     + cached_tracks
                     + new_cached_tracks
                 )
+        if dicts:
+            return [a.to_dict(convert_key=True) for a in audio_features]
         return audio_features
 
     async def devices(self, **kwargs):
@@ -1559,7 +1551,7 @@ class SpotifyClient(AuthMixin, EmailMixin):
                         itype,
                         result,
                     )
-                return fields[-1]
+                return fields[-1].split("?")[0]
 
         elif isinstance(result, SpotifyResult):
             return result.id
