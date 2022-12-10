@@ -288,9 +288,6 @@ class AuthMixin:
                     authorization_response=auth_response,
                 )
                 self.session.token = token
-                import pudb
-
-                pudb.set_trace()
                 user_details = await self.current_user()
                 user = (
                     select(

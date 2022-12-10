@@ -1,5 +1,4 @@
 import pathlib
-
 from setuptools import find_packages, setup
 
 CONFIGDIR = pathlib.Path.home() / ".config" / "spfy"
@@ -17,7 +16,7 @@ with open("README.md", "rb") as f:
 REQUIRES = [
     "addict",
     "aiohttp",
-    "aioredis",
+    "aioredis<2.0.0",
     "async_generator",
     "asyncpg",
     "backoff",
